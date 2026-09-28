@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
@@ -13,6 +14,7 @@ import { buildInvoiceLines } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/delivery";
 import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
+import { NotifyInfo, statusWhatsAppMessage, trackingPath } from "@/lib/notifications";
 import { DesignZone, OrderStatus, PaymentStatus, Technique } from "@/lib/types";
 import { FontFamilyKey, MockupContent } from "@/lib/design";
 
@@ -94,23 +96,20 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   const nombre = order.cliente_nombre as string;
   const telefono = order.cliente_telefono as string;
+  const notify: NotifyInfo = {
+    nombre,
+    telefono,
+    code: shortId,
+    totalText: formatBoth(total),
+    readyText: formatReadyDate(ready),
+  };
+  const requestHeaders = await headers();
+  const trackUrl = `${requestHeaders.get("x-forwarded-proto") ?? "https"}://${requestHeaders.get("host")}${trackingPath(shortId)}`;
   const quickMessages = [
-    {
-      label: "Confirmar pago",
-      text: `Hola ${nombre}, confirmamos tu pago del pedido #${shortId}. ¡Ya está en producción! Estará listo aproximadamente el ${formatReadyDate(estimateReadyDate())}.`,
-    },
-    {
-      label: "Problema con el pago",
-      text: `Hola ${nombre}, no pudimos verificar la transferencia de tu pedido #${shortId} por ${formatBoth(total)}. ¿Nos puedes enviar el comprobante de nuevo o confirmar a qué cuenta transferiste?`,
-    },
-    {
-      label: "Consulta sobre el diseño",
-      text: `Hola ${nombre}, te escribo de Impreza sobre el diseño de tu pedido #${shortId}.`,
-    },
-    {
-      label: "Pedido listo",
-      text: `Hola ${nombre}, ¡tu pedido #${shortId} está listo! ¿Cuándo te queda bien para la entrega o recogida?`,
-    },
+    { label: "Confirmar pago", text: statusWhatsAppMessage("pagado", notify, trackUrl)! },
+    { label: "Problema con el pago", text: statusWhatsAppMessage("fallido", notify, trackUrl)! },
+    { label: "Consulta sobre el diseño", text: `Hola ${nombre}, te escribo de Impreza sobre el diseño de tu pedido #${shortId}.` },
+    { label: "Pedido listo", text: statusWhatsAppMessage("listo_entregado", notify, trackUrl)! },
   ];
 
   return (
@@ -276,9 +275,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             <p className="text-sm text-ink-soft">{telefono}</p>
             {order.cliente_email && <p className="text-sm text-ink-soft">{order.cliente_email}</p>}
             <p className="mt-2 text-xs text-ink-muted">
-              {order.cliente_email
-                ? "Recibe un correo automático cuando verificas el pago o avanzas el pedido."
-                : "No dejó correo: avísale de cada cambio por WhatsApp."}
+              Al verificar el pago o avanzar el pedido aparece un botón verde para avisarle por WhatsApp. Su código para
+              rastrear el pedido es <span className="font-semibold text-ink">{shortId}</span>.
             </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <a
@@ -339,12 +337,12 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               Revisa en tu banca en línea que el monto llegó a la cuenta en córdobas o en dólares antes de verificar.
             </p>
             <div className="mt-3">
-              <PaymentStatusChanger orderId={order.id} status={paymentStatus} />
+              <PaymentStatusChanger orderId={order.id} status={paymentStatus} notify={notify} />
             </div>
           </section>
 
           <section className="rounded-brand border border-black/10 bg-white p-5">
-            <StatusChanger orderId={order.id} status={status} />
+            <StatusChanger orderId={order.id} status={status} notify={notify} />
           </section>
         </div>
       </div>

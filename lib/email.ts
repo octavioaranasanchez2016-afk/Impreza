@@ -98,7 +98,12 @@ interface CustomerParams {
   total: number;
 }
 
+// Los correos a clientes solo salen con un dominio verificado (EMAIL_FROM);
+// sin él Resend los rechaza y los avisos van por WhatsApp desde el panel.
+const canEmailCustomers = () => Boolean(process.env.EMAIL_FROM);
+
 export async function sendCustomerConfirmationEmail(params: CustomerParams) {
+  if (!canEmailCustomers()) return;
   const { subject, html } = buildCustomerConfirmationEmail(params);
   await send(params.clienteEmail, subject, html);
 }
@@ -131,6 +136,7 @@ interface StatusParams {
 }
 
 export async function sendStatusUpdateEmail(params: StatusParams) {
+  if (!canEmailCustomers()) return;
   const { subject, html } = buildStatusUpdateEmail(params);
   await send(params.clienteEmail, subject, html);
 }

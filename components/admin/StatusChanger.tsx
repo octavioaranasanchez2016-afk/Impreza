@@ -3,23 +3,24 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { OrderStatus } from "@/lib/types";
+import { NotifyInfo } from "@/lib/notifications";
 import { STATUS_LABEL } from "@/components/StatusBadge";
+import { NotifyButton } from "./NotifyButton";
 
 const ORDER: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
 
-export function StatusChanger({ orderId, status }: { orderId: string; status: OrderStatus }) {
+export function StatusChanger({ orderId, status, notify }: { orderId: string; status: OrderStatus; notify: NotifyInfo }) {
   const router = useRouter();
   const [current, setCurrent] = useState(status);
+  const [changed, setChanged] = useState<OrderStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const currentIndex = ORDER.indexOf(current);
 
   async function updateStatus(next: OrderStatus) {
     if (next === current) return;
     setLoading(true);
     setError(null);
-    setNotice(null);
     const res = await fetch(`/api/admin/pedidos/${orderId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -30,9 +31,8 @@ export function StatusChanger({ orderId, status }: { orderId: string; status: Or
       setError("No se pudo actualizar el estado.");
       return;
     }
-    const data = await res.json().catch(() => ({}));
-    if (data.emailSent) setNotice("✓ Se le envió un correo al cliente.");
     setCurrent(next);
+    setChanged(next);
     router.refresh();
   }
 
@@ -70,7 +70,7 @@ export function StatusChanger({ orderId, status }: { orderId: string; status: Or
         })}
       </ol>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+      {changed && <NotifyButton state={changed} info={notify} />}
     </div>
   );
 }

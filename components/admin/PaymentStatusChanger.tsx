@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { PaymentStatus } from "@/lib/types";
+import { NotifyInfo } from "@/lib/notifications";
+import { NotifyButton } from "./NotifyButton";
 
 const OPTIONS: { value: PaymentStatus; label: string; active: string }[] = [
   { value: "en_revision", label: "Por verificar", active: "border-ink bg-ink text-paper" },
@@ -10,18 +12,25 @@ const OPTIONS: { value: PaymentStatus; label: string; active: string }[] = [
   { value: "fallido", label: "✕ Rechazado", active: "border-red-700 bg-red-700 text-white" },
 ];
 
-export function PaymentStatusChanger({ orderId, status }: { orderId: string; status: PaymentStatus }) {
+export function PaymentStatusChanger({
+  orderId,
+  status,
+  notify,
+}: {
+  orderId: string;
+  status: PaymentStatus;
+  notify: NotifyInfo;
+}) {
   const router = useRouter();
   const [current, setCurrent] = useState(status);
+  const [changed, setChanged] = useState<PaymentStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   async function update(next: PaymentStatus) {
     if (next === current) return;
     setLoading(true);
     setError(null);
-    setNotice(null);
     const res = await fetch(`/api/admin/pedidos/${orderId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -32,9 +41,8 @@ export function PaymentStatusChanger({ orderId, status }: { orderId: string; sta
       setError("No se pudo actualizar el pago.");
       return;
     }
-    const data = await res.json().catch(() => ({}));
-    if (data.emailSent) setNotice("✓ Se le envió un correo al cliente.");
     setCurrent(next);
+    setChanged(next);
     router.refresh();
   }
 
@@ -57,7 +65,7 @@ export function PaymentStatusChanger({ orderId, status }: { orderId: string; sta
         ))}
       </div>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-      {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
+      {changed && <NotifyButton state={changed} info={notify} />}
     </div>
   );
 }

@@ -94,6 +94,20 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
         ))}
       </ol>
 
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-5 py-4">
+        <div>
+          <p className="text-xs text-ink-soft">Tu código de pedido</p>
+          <p className="font-mono text-2xl font-bold tracking-widest text-ink">{shortId}</p>
+        </div>
+        <p className="max-w-[16rem] text-xs text-ink-soft">
+          Guárdalo: con él puedes ver el estado de tu pedido en{" "}
+          <Link href="/seguimiento" className="font-semibold text-ink underline">
+            Rastrear pedido
+          </Link>
+          .
+        </p>
+      </div>
+
       {!done && payment !== "fallido" && (
         <p className="mt-4 rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
           Listo aproximadamente el <span className="font-semibold">{formatReadyDate(estimateReadyDate(new Date(order.created_at)))}</span>

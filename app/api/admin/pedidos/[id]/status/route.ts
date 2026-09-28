@@ -77,7 +77,6 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     kind = STATUS_EMAIL[update.status];
   }
 
-  const emailSent = Boolean(kind && before?.cliente_email);
   if (kind && before?.cliente_email) {
     const emailParams = {
       kind,
@@ -90,5 +89,5 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     after(() => sendStatusUpdateEmail(emailParams));
   }
 
-  return NextResponse.json({ ok: true, emailSent });
+  return NextResponse.json({ ok: true });
 }

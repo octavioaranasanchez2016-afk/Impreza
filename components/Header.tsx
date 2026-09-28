@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   { href: "/catalogo", label: "Catálogo" },
+  { href: "/seguimiento", label: "Rastrear pedido" },
   { href: "/nosotros", label: "Quiénes somos" },
   { href: "/preguntas-frecuentes", label: "Preguntas frecuentes" },
 ];
@@ -29,7 +30,7 @@ export function Header() {
           />
         </Link>
 
-        <nav className="hidden items-center gap-8 text-sm font-medium text-ink md:flex">
+        <nav className="hidden items-center gap-5 text-sm font-medium text-ink md:flex lg:gap-8">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}

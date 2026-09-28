@@ -30,6 +30,10 @@ const SECTIONS = [
         a: "Estamos afinando los detalles de entrega a domicilio (costos según zona). Por ahora, coordina la entrega o recogida por WhatsApp una vez confirmado tu pedido.",
       },
       {
+        q: "¿Cómo sé en qué va mi pedido?",
+        a: "Entra a «Rastrear pedido» (en el menú) y escribe el código de 8 caracteres que aparece en tu factura. Ahí ves si ya verificamos tu pago, si está en producción o si ya está listo. También te avisamos por WhatsApp en cada paso.",
+      },
+      {
         q: "¿Qué pasa después de hacer mi pedido?",
         a: "Revisamos tu diseño y verificamos tu transferencia. Si algo no está claro te escribimos por WhatsApp; si todo está bien, tu pedido pasa a producción.",
       },
