@@ -5,8 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 
-const NAV_LINKS = [
+// wideOnly: en pantallas medianas no cabe; se muestra desde lg y siempre en el menú del celular.
+const NAV_LINKS: { href: string; label: string; wideOnly?: boolean }[] = [
   { href: "/catalogo", label: "Catálogo" },
+  { href: "/por-mayor", label: "Por mayor", wideOnly: true },
   { href: "/seguimiento", label: "Rastrear pedido" },
   { href: "/nosotros", label: "Quiénes somos" },
   { href: "/preguntas-frecuentes", label: "Preguntas frecuentes" },
@@ -35,7 +37,7 @@ export function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className={`border-b-2 py-1 transition-colors ${
+              className={`border-b-2 py-1 transition-colors ${link.wideOnly ? "hidden lg:inline-block" : ""} ${
                 pathname.startsWith(link.href) ? "border-ink" : "border-transparent hover:border-ink/30"
               }`}
             >
