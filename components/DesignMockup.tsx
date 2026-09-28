@@ -3,7 +3,7 @@
 import { RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
 import { fontFamilyCss, FontFamilyKey, MIN_PRINT_DPI, MockupContent } from "@/lib/design";
-import { GarmentShape, getCanvasSpanCm, getPrintArea } from "./GarmentShape";
+import { GarmentShape, getCanvasSpanCm, getPrintArea, getReferenceTopCm } from "./GarmentShape";
 
 // La escala es relativa al área máxima de impresión: 1 = el diseño la llena.
 export const MIN_SCALE = 0.15;
@@ -75,6 +75,7 @@ export function DesignMockup({
   transform,
   onTransformChange,
   interactive = true,
+  showPlacement = false,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -84,6 +85,8 @@ export function DesignMockup({
   transform: DesignTransform;
   onTransformChange?: (t: DesignTransform) => void;
   interactive?: boolean;
+  // Medidas para el taller: posición del diseño en cm desde el cuello y el centro.
+  showPlacement?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -313,12 +316,77 @@ export function DesignMockup({
           </span>
         </p>
       )}
+      {showPlacement && content && widthCm && heightCm && (
+        <Placement
+          category={category}
+          zone={zone}
+          transform={transform}
+          spanCm={spanCm}
+          widthCm={widthCm}
+          heightCm={heightCm}
+          dpi={dpi}
+        />
+      )}
       {interactive && dpi !== null && dpi < MIN_PRINT_DPI && (
         <p className="mt-1 text-center text-xs font-medium text-yellow-700">
           A este tamaño la imagen quedaría a {dpi} ppp y podría verse borrosa. Achica el diseño o sube una imagen más grande.
         </p>
       )}
     </div>
+  );
+}
+
+const REFERENCE_LABEL: Record<ProductCategory, string> = {
+  camisa: "del cuello",
+  hoodie: "del cuello",
+  tote: "del borde superior de la bolsa",
+};
+
+function Placement({
+  category,
+  zone,
+  transform,
+  spanCm,
+  widthCm,
+  heightCm,
+  dpi,
+}: {
+  category: ProductCategory;
+  zone: DesignZone;
+  transform: DesignTransform;
+  spanCm: number;
+  widthCm: number;
+  heightCm: number;
+  dpi: number | null;
+}) {
+  const box = rotatedBox(widthCm, heightCm, transform.rotation);
+  const offsetX = ((transform.x - 50) / 100) * spanCm;
+  const topEdge = (transform.y / 100) * spanCm - box.h / 2 - getReferenceTopCm(category, zone);
+  const reference = zone === "manga" ? "del borde superior de la manga" : REFERENCE_LABEL[category];
+  const rotation = Math.round(transform.rotation > 180 ? transform.rotation - 360 : transform.rotation);
+
+  return (
+    <ul className="mt-1 space-y-0.5 text-center text-xs text-ink-soft">
+      <li>
+        Borde superior a <span className="font-semibold text-ink">{Math.max(0, topEdge).toFixed(1)} cm</span> {reference}
+      </li>
+      <li>
+        {Math.abs(offsetX) < 0.5 ? (
+          <span className="font-semibold text-ink">Centrado</span>
+        ) : (
+          <>
+            <span className="font-semibold text-ink">{Math.abs(offsetX).toFixed(1)} cm</span> a la{" "}
+            {offsetX < 0 ? "izquierda" : "derecha"} del centro (vista de frente)
+          </>
+        )}
+      </li>
+      {rotation !== 0 && <li>Girado {rotation}°</li>}
+      {dpi !== null && (
+        <li className={dpi < MIN_PRINT_DPI ? "font-medium text-yellow-700" : ""}>
+          Resolución a este tamaño: {dpi} ppp{dpi < MIN_PRINT_DPI ? " (baja)" : ""}
+        </li>
+      )}
+    </ul>
   );
 }
 

@@ -78,6 +78,12 @@ export function getCanvasSpanCm(category: ProductCategory, zone: DesignZone): nu
   return getView(category, zone).span;
 }
 
+// cm desde el borde superior del lienzo hasta el punto de referencia (cuello,
+// borde superior de la bolsa o de la manga), para medir posiciones desde ahí.
+export function getReferenceTopCm(category: ProductCategory, zone: DesignZone): number {
+  return getView(category, zone).top;
+}
+
 export function getPrintAreaCm(category: ProductCategory, zone: DesignZone): { w: number; h: number } {
   const { w, h } = getView(category, zone).print;
   return { w, h };

@@ -10,6 +10,8 @@ interface DisenoInput {
   tipo: "imagen" | "texto";
   path?: string;
   ajuste?: "completa" | "llenar";
+  anchoPx?: number;
+  altoPx?: number;
   texto?: string;
   color?: string;
   fuente?: string;
@@ -60,6 +62,8 @@ export async function POST(req: NextRequest) {
     tipo: d.tipo,
     path: d.tipo === "imagen" ? d.path : undefined,
     ajuste: d.tipo === "imagen" ? (d.ajuste === "llenar" ? "llenar" : "completa") : undefined,
+    anchoPx: d.tipo === "imagen" ? Math.round(clamp(d.anchoPx ?? 0, 0, 100000)) : undefined,
+    altoPx: d.tipo === "imagen" ? Math.round(clamp(d.altoPx ?? 0, 0, 100000)) : undefined,
     texto: d.tipo === "texto" ? d.texto : undefined,
     color: d.tipo === "texto" ? d.color : undefined,
     fuente: d.tipo === "texto" ? d.fuente ?? "sans" : undefined,

@@ -186,6 +186,8 @@ export function OrderForm() {
             tipo: "imagen" as const,
             path,
             ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
+            anchoPx: content.width,
+            altoPx: content.height,
             ...placement,
           });
         } else {
