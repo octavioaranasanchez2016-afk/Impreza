@@ -90,7 +90,7 @@ const SECTIONS = [
 export default function PreguntasFrecuentesPage() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 md:px-6">
-      <h1 className="text-3xl font-bold text-ink md:text-4xl">Preguntas frecuentes</h1>
+      <h1 className="font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">Preguntas frecuentes</h1>
       <p className="mt-2 text-ink-soft">Todo lo que necesitas saber antes de pedir.</p>
 
       <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-3">
@@ -117,7 +117,7 @@ export default function PreguntasFrecuentesPage() {
       <div className="mt-10 space-y-10">
         {SECTIONS.map((s) => (
           <div key={s.id} id={s.id} className="scroll-mt-24">
-            <h2 className="text-lg font-semibold text-ink">{s.title}</h2>
+            <h2 className="font-display text-3xl uppercase tracking-wide text-ink">{s.title}</h2>
             <div className="mt-3 divide-y divide-black/5 rounded-brand border border-black/10 bg-white">
               {s.faqs.map((f) => (
                 <details key={f.q} className="group p-5">

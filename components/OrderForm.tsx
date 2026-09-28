@@ -241,8 +241,8 @@ export function OrderForm() {
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-10">
-        <section>
-          <h2 className="text-lg font-semibold text-ink">1. Diseña tu producto</h2>
+        <section id="diseno" className="scroll-mt-28">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">1. Diseña tu producto</h2>
 
           <div className="mt-3 grid gap-6 lg:grid-cols-[260px_1fr]">
             <div className="order-2 space-y-5 self-start rounded-brand border border-black/10 bg-white p-5 lg:order-1">
@@ -371,8 +371,8 @@ export function OrderForm() {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold text-ink">2. Tus datos</h2>
+        <section id="datos" className="scroll-mt-28">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">2. Tus datos</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <Field label="Nombre completo *">
               <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
@@ -401,8 +401,8 @@ export function OrderForm() {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold text-ink">3. Tu factura</h2>
+        <section id="factura" className="scroll-mt-28">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Tu factura</h2>
           <div className="mt-3">
             {items.length > 0 ? (
               <Invoice lines={invoiceLines} pricing={pricing} technique={technique} clienteNombre={clienteNombre} />
@@ -414,8 +414,8 @@ export function OrderForm() {
           </div>
         </section>
 
-        <section>
-          <h2 className="text-lg font-semibold text-ink">4. Pago por transferencia</h2>
+        <section id="pago" className="scroll-mt-28">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Pago por transferencia</h2>
           <p className="mt-1 text-sm text-ink-soft">
             Es la única forma de pago. Tu pedido queda confirmado cuando adjuntas el comprobante.
           </p>

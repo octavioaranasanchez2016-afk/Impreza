@@ -36,7 +36,7 @@ export default function NosotrosPage() {
           <p className="inline-block rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide backdrop-blur">
             Fundada en 2026
           </p>
-          <h1 className="mt-4 text-4xl font-bold leading-tight md:text-5xl">
+          <h1 className="mt-4 font-display text-5xl uppercase leading-none tracking-wide md:text-7xl">
             Impresión personalizada, sin complicaciones.
           </h1>
           <p className="mx-auto mt-4 max-w-xl text-paper/80">
@@ -47,7 +47,7 @@ export default function NosotrosPage() {
       </section>
 
       <section className="mx-auto max-w-3xl px-4 py-16 md:px-6">
-        <h2 className="text-2xl font-bold text-ink md:text-3xl">Cómo empezó</h2>
+        <h2 className="font-display text-4xl uppercase tracking-wide text-ink md:text-5xl">Cómo empezó</h2>
         <p className="mt-4 leading-relaxed text-ink-soft">
           La idea de Impreza nació mucho antes de que existiera la empresa —
           desde los 17 años, con una inquietud simple: ¿por qué es tan difícil
@@ -73,14 +73,14 @@ export default function NosotrosPage() {
 
       <section className="border-y border-black/5 bg-white py-16">
         <div className="mx-auto max-w-5xl px-4 md:px-6">
-          <h2 className="text-2xl font-bold text-ink md:text-3xl">Lo que nos guía</h2>
+          <h2 className="font-display text-4xl uppercase tracking-wide text-ink md:text-5xl">Lo que nos guía</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {VALUES.map((v, i) => (
               <div key={v.title} className="rounded-brand border border-black/5 p-6">
                 <span className="text-xs font-bold uppercase tracking-wide text-ink-muted">
                   0{i + 1}
                 </span>
-                <p className="mt-2 text-lg font-semibold text-ink">{v.title}</p>
+                <p className="mt-2 font-display text-3xl uppercase tracking-wide text-ink">{v.title}</p>
                 <p className="mt-2 text-sm text-ink-soft">{v.text}</p>
               </div>
             ))}
@@ -96,7 +96,7 @@ export default function NosotrosPage() {
             className="h-64 w-full object-cover md:h-full"
           />
           <div className="flex flex-col justify-center p-8">
-            <h2 className="text-xl font-bold text-ink">Dónde estamos</h2>
+            <h2 className="font-display text-3xl uppercase tracking-wide text-ink">Dónde estamos</h2>
             <p className="mt-2 text-sm text-ink-soft">Arango Textil, Managua</p>
             <a
               href="https://www.google.com/maps/search/?api=1&query=4PCW%2BPM5+Managua"

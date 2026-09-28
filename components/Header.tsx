@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   { href: "/catalogo", label: "Catálogo" },
@@ -12,6 +13,7 @@ const NAV_LINKS = [
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <header className="sticky top-0 z-40 border-b border-black/5 bg-paper/95 backdrop-blur">
@@ -29,7 +31,13 @@ export function Header() {
 
         <nav className="hidden items-center gap-8 text-sm font-medium text-ink md:flex">
           {NAV_LINKS.map((link) => (
-            <Link key={link.href} href={link.href} className="transition-colors hover:text-ink-soft">
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`border-b-2 py-1 transition-colors ${
+                pathname.startsWith(link.href) ? "border-ink" : "border-transparent hover:border-ink/30"
+              }`}
+            >
               {link.label}
             </Link>
           ))}
@@ -60,7 +68,7 @@ export function Header() {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="block py-2 text-sm font-medium text-ink"
+              className={`block py-2.5 text-base text-ink ${pathname.startsWith(link.href) ? "font-bold" : "font-medium"}`}
             >
               {link.label}
             </Link>
