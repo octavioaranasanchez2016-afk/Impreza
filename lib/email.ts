@@ -1,5 +1,5 @@
 import { Resend } from "resend";
-import { formatCordobas } from "./currency";
+import { formatBoth } from "./currency";
 
 // onboarding@resend.dev funciona sin verificar dominio propio — suficiente
 // para empezar. Cuando el taller tenga su propio dominio, se puede cambiar
@@ -32,7 +32,7 @@ export async function sendNewOrderEmail(params: {
     await resend.emails.send({
       from: FROM_ADDRESS,
       to,
-      subject: `Nuevo pedido #${shortId} — ${formatCordobas(params.total)}`,
+      subject: `Nuevo pedido #${shortId} — ${formatBoth(params.total)}`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>Nuevo pedido en Impreza</h2>
@@ -40,7 +40,7 @@ export async function sendNewOrderEmail(params: {
           <p><strong>Cliente:</strong> ${escapeHtml(params.clienteNombre)}</p>
           <p><strong>Teléfono:</strong> ${escapeHtml(params.clienteTelefono)}</p>
           <p><strong>Técnica:</strong> ${escapeHtml(params.tecnica)}</p>
-          <p><strong>Total:</strong> ${formatCordobas(params.total)}</p>
+          <p><strong>Total:</strong> ${formatBoth(params.total)}</p>
           <p>El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>
           <p style="margin-top: 24px;">
             <a href="${siteUrl}/admin/pedidos/${params.orderId}"
@@ -83,7 +83,7 @@ export async function sendCustomerConfirmationEmail(params: {
           <h2>¡Gracias por tu pedido, ${escapeHtml(params.clienteNombre)}!</h2>
           <p>Tu pedido <strong>#${shortId}</strong> está confirmado. Recibimos tu comprobante
           de transferencia; vamos a verificar el pago y te escribimos por WhatsApp.</p>
-          <p><strong>Total:</strong> ${formatCordobas(params.total)}</p>
+          <p><strong>Total:</strong> ${formatBoth(params.total)}</p>
           <p style="margin-top: 24px;">
             <a href="https://wa.me/${whatsappNumber}?text=${waMessage}"
                style="background:#25D366;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">

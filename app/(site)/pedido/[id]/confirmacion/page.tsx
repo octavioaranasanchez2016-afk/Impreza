@@ -3,7 +3,7 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Invoice } from "@/components/Invoice";
-import { formatCordobas } from "@/lib/currency";
+import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { Technique } from "@/lib/types";
 
@@ -34,7 +34,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   }));
   const shortId = order.id.slice(0, 8).toUpperCase();
   const total = Number(order.total);
-  const message = `Hola, soy ${order.cliente_nombre}. Hice el pedido #${shortId} en Impreza por ${formatCordobas(
+  const message = `Hola, soy ${order.cliente_nombre}. Hice el pedido #${shortId} en Impreza por ${formatBoth(
     total
   )} y adjunté mi comprobante de transferencia.`;
 

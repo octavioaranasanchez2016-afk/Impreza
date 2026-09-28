@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductBySlug, PRODUCTS } from "@/lib/catalog";
-import { formatCordobas } from "@/lib/currency";
+import { formatCordobas, formatInDollars } from "@/lib/currency";
 
 export function generateStaticParams() {
   return PRODUCTS.map((p) => ({ slug: p.slug }));
@@ -28,6 +28,7 @@ export default async function ProductoPage({
           <p className="mt-3 text-ink-soft">{product.description}</p>
           <p className="mt-4 text-2xl font-semibold text-ink">
             Desde {formatCordobas(product.basePrice)}
+            <span className="ml-2 text-base font-medium text-ink-soft">{formatInDollars(product.basePrice)}</span>
           </p>
 
           <div className="mt-6">

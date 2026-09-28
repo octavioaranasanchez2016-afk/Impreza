@@ -1,4 +1,4 @@
-import { formatCordobas } from "@/lib/currency";
+import { CORDOBAS_PER_DOLLAR, formatCordobas, formatInDollars } from "@/lib/currency";
 import { InvoiceLine, SETUP_FEE_LABEL } from "@/lib/pricing";
 import { PricingBreakdown, Technique } from "@/lib/types";
 
@@ -70,7 +70,10 @@ export function Invoice({
               </td>
               <td className="py-2 text-right text-ink">{line.quantity}</td>
               <td className="hidden py-2 text-right text-ink sm:table-cell">{formatCordobas(line.unitPrice)}</td>
-              <td className="py-2 text-right font-medium text-ink">{formatCordobas(line.lineTotal)}</td>
+              <td className="py-2 text-right font-medium text-ink">
+                {formatCordobas(line.lineTotal)}
+                <span className="block text-xs font-normal text-ink-muted">{formatInDollars(line.lineTotal)}</span>
+              </td>
             </tr>
           ))}
         </tbody>
@@ -87,10 +90,16 @@ export function Invoice({
         {pricing.setupFee > 0 && <Row label={SETUP_FEE_LABEL} value={formatCordobas(pricing.setupFee)} />}
       </dl>
 
-      <div className="mt-3 flex items-baseline justify-between border-t-2 border-ink pt-3">
-        <span className="font-bold text-ink">Total a pagar</span>
-        <span className="text-2xl font-bold text-ink">{formatCordobas(pricing.total)}</span>
+      <div className="mt-3 flex items-start justify-between border-t-2 border-ink pt-3">
+        <span className="pt-1 font-bold text-ink">Total a pagar</span>
+        <span className="text-right">
+          <span className="block text-2xl font-bold text-ink">{formatCordobas(pricing.total)}</span>
+          <span className="block text-base font-semibold text-ink-soft">{formatInDollars(pricing.total)}</span>
+        </span>
       </div>
+      <p className="mt-2 text-right text-[11px] text-ink-muted">
+        Tipo de cambio oficial: C${CORDOBAS_PER_DOLLAR} por US$1
+      </p>
     </div>
   );
 }

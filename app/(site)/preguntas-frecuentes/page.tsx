@@ -28,7 +28,7 @@ const FAQS = [
   },
   {
     q: "¿Qué formas de pago aceptan?",
-    a: "Solo transferencia bancaria. Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado; nosotros verificamos el pago y te escribimos por WhatsApp.",
+    a: "Solo transferencia bancaria, a nuestra cuenta BAC en córdobas o en dólares (el monto en dólares se calcula con el tipo de cambio oficial). Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado; nosotros verificamos el pago y te escribimos por WhatsApp.",
   },
   {
     q: "¿Qué archivo necesito para mi diseño?",

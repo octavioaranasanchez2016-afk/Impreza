@@ -1,5 +1,5 @@
 import { PricingBreakdown } from "@/lib/types";
-import { formatCordobas } from "@/lib/currency";
+import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { VolumeDiscountBar } from "./VolumeDiscountBar";
 
 export function PricingSummary({ pricing }: { pricing: PricingBreakdown }) {
@@ -21,9 +21,12 @@ export function PricingSummary({ pricing }: { pricing: PricingBreakdown }) {
         )}
       </dl>
 
-      <div className="mt-4 flex items-baseline justify-between border-t border-black/10 pt-4">
-        <span className="text-sm font-semibold text-ink">Total</span>
-        <span className="text-2xl font-bold text-ink">{money(pricing.total)}</span>
+      <div className="mt-4 flex items-start justify-between border-t border-black/10 pt-4">
+        <span className="pt-1 text-sm font-semibold text-ink">Total</span>
+        <span className="text-right">
+          <span className="block text-2xl font-bold text-ink">{money(pricing.total)}</span>
+          <span className="block text-sm font-semibold text-ink-soft">{formatInDollars(pricing.total)}</span>
+        </span>
       </div>
 
       {pricing.totalQuantity > 0 && pricing.discountPct === 0 && (

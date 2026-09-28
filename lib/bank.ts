@@ -1,19 +1,35 @@
+export type AccountCurrency = "NIO" | "USD";
+
 export interface BankAccount {
   banco: string;
   titular?: string;
   numero: string;
   iban?: string;
-  moneda: string;
+  currency: AccountCurrency;
 }
 
+export const ACCOUNT_CURRENCY_LABEL: Record<AccountCurrency, string> = {
+  NIO: "Córdobas",
+  USD: "Dólares",
+};
+
 // Cuentas donde el cliente transfiere (se muestran públicamente en el sitio).
+// Para agregar otra, copia un bloque y cambia sus datos.
 // Mientras la lista esté vacía, el formulario pide los datos por WhatsApp.
 export const BANK_ACCOUNTS: BankAccount[] = [
   {
     banco: "BAC Credomatic",
+    titular: "OCTAVIO JOSE ARANA SANCHEZ",
+    numero: "374629087",
+    iban: "NI23BAMC00000000000374629087",
+    currency: "NIO",
+  },
+  {
+    banco: "BAC Credomatic",
+    titular: "OCTAVIO JOSE ARANA SANCHEZ",
     numero: "374224566",
     iban: "NI84BAMC00000000000374224566",
-    moneda: "Dólares (USD)",
+    currency: "USD",
   },
 ];
 

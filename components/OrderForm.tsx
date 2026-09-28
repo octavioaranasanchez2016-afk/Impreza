@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PRODUCTS, getProductById } from "@/lib/catalog";
 import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
-import { formatCordobas } from "@/lib/currency";
+import { formatBoth } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
@@ -412,7 +412,7 @@ export function OrderForm() {
           </p>
 
           <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
-            <BankDetails total={formatCordobas(pricing.total)} />
+            <BankDetails totalCordobas={pricing.total} />
 
             <div>
               <p className="text-sm font-medium text-ink">Comprobante de transferencia *</p>
@@ -450,7 +450,7 @@ export function OrderForm() {
             onClick={handleSubmit}
             className="w-full rounded-brand bg-ink px-6 py-4 text-base font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatCordobas(pricing.total)}` : ""}`}
+            {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
           </button>
           {missing.length > 0 && !submitting && (
             <p className="text-center text-xs text-ink-soft">Para confirmar falta: {missing.join(", ")}.</p>

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Product } from "@/lib/types";
-import { formatCordobas } from "@/lib/currency";
+import { formatCordobas, formatInDollars } from "@/lib/currency";
 
 export function ProductCard({ product }: { product: Product }) {
   return (
@@ -17,7 +17,9 @@ export function ProductCard({ product }: { product: Product }) {
       </div>
       <div className="p-4">
         <p className="font-semibold text-ink">{product.name}</p>
-        <p className="mt-1 text-sm text-ink-soft">Desde {formatCordobas(product.basePrice)}</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Desde {formatCordobas(product.basePrice)} · {formatInDollars(product.basePrice)}
+        </p>
       </div>
     </Link>
   );
