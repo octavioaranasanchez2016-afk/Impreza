@@ -386,7 +386,7 @@ export function OrderForm() {
                 inputMode="tel"
               />
             </Field>
-            <Field label="Correo (opcional)">
+            <Field label="Correo (para avisarte cómo va tu pedido)">
               <input
                 value={clienteEmail}
                 onChange={(e) => setClienteEmail(e.target.value)}

@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { calculateOrderTotal } from "@/lib/pricing";
 import { getProductById } from "@/lib/catalog";
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
     .insert({
       cliente_nombre: body.clienteNombre.trim(),
       cliente_telefono: body.clienteTelefono.trim(),
-      cliente_email: body.clienteEmail,
+      cliente_email: body.clienteEmail?.trim() || null,
       tecnica: body.tecnica,
       disenos,
       notas: body.notas,
@@ -120,24 +120,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // No se espera (await) para no retrasar la respuesta al cliente, y un
-  // fallo aquí nunca debe hacer fallar el pedido (ver lib/email.ts).
-  sendNewOrderEmail({
-    orderId: order.id,
-    clienteNombre: body.clienteNombre.trim(),
-    clienteTelefono: body.clienteTelefono.trim(),
-    total: pricing.total,
-    tecnica: body.tecnica,
+  // after() responde al cliente de inmediato y mantiene viva la función en
+  // Vercel hasta que los correos terminen; sin él se cortaban a medio envío.
+  const clienteNombre = body.clienteNombre.trim();
+  const clienteEmail = body.clienteEmail?.trim() || null;
+  after(async () => {
+    await Promise.all([
+      sendNewOrderEmail({
+        orderId: order.id,
+        clienteNombre,
+        clienteTelefono: body.clienteTelefono.trim(),
+        clienteEmail,
+        total: pricing.total,
+        tecnica: body.tecnica,
+        piezas: pricing.totalQuantity,
+      }),
+      clienteEmail
+        ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })
+        : Promise.resolve(),
+    ]);
   });
-
-  if (body.clienteEmail) {
-    sendCustomerConfirmationEmail({
-      orderId: order.id,
-      clienteNombre: body.clienteNombre.trim(),
-      clienteEmail: body.clienteEmail,
-      total: pricing.total,
-    });
-  }
 
   return NextResponse.json({ orderId: order.id, total: pricing.total });
 }
@@ -148,6 +150,9 @@ function validate(body: CreateOrderBody): string | null {
   }
   if (!body.clienteTelefono?.trim() || body.clienteTelefono.trim().length < 6) {
     return "El teléfono del cliente es requerido.";
+  }
+  if (body.clienteEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.clienteEmail.trim())) {
+    return "El correo no es válido.";
   }
   if (!body.tecnica || !["serigrafia", "sublimado"].includes(body.tecnica)) {
     return "Técnica de impresión inválida.";

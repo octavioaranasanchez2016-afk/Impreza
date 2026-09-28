@@ -275,6 +275,11 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             <p className="mt-2 text-lg font-semibold text-ink">{nombre}</p>
             <p className="text-sm text-ink-soft">{telefono}</p>
             {order.cliente_email && <p className="text-sm text-ink-soft">{order.cliente_email}</p>}
+            <p className="mt-2 text-xs text-ink-muted">
+              {order.cliente_email
+                ? "Recibe un correo automático cuando verificas el pago o avanzas el pedido."
+                : "No dejó correo: avísale de cada cambio por WhatsApp."}
+            </p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <a
                 href={clientWhatsAppUrl(telefono, `Hola ${nombre}, te escribo de Impreza sobre tu pedido #${shortId}.`)}

@@ -12,12 +12,14 @@ export function StatusChanger({ orderId, status }: { orderId: string; status: Or
   const [current, setCurrent] = useState(status);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const currentIndex = ORDER.indexOf(current);
 
   async function updateStatus(next: OrderStatus) {
     if (next === current) return;
     setLoading(true);
     setError(null);
+    setNotice(null);
     const res = await fetch(`/api/admin/pedidos/${orderId}/status`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -28,6 +30,8 @@ export function StatusChanger({ orderId, status }: { orderId: string; status: Or
       setError("No se pudo actualizar el estado.");
       return;
     }
+    const data = await res.json().catch(() => ({}));
+    if (data.emailSent) setNotice("✓ Se le envió un correo al cliente.");
     setCurrent(next);
     router.refresh();
   }
@@ -66,6 +70,7 @@ export function StatusChanger({ orderId, status }: { orderId: string; status: Or
         })}
       </ol>
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {notice && <p className="mt-2 text-sm text-green-700">{notice}</p>}
     </div>
   );
 }
