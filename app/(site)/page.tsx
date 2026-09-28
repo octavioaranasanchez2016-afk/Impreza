@@ -19,7 +19,7 @@ const STEPS = [
   ["01", "Crea tu diseño", "Sube una imagen JPG o escribe tu texto, y acomódalo a escala real."],
   ["02", "Elige producto", "Talla, color, cantidad y técnica. El precio se calcula al instante."],
   ["03", "Paga por transferencia", "Revisa tu factura, transfiere y adjunta el comprobante. Así queda confirmado."],
-  ["04", "Recíbelo listo", `En ${PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago. Te avisamos por WhatsApp.`],
+  ["04", "Recíbelo en tu puerta", `En ${PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago: te lo llevamos a domicilio o lo recoges en el taller.`],
 ];
 
 export default function HomePage() {
@@ -87,7 +87,7 @@ export default function HomePage() {
       </section>
 
       <Marquee
-        items={["Serigrafía", "Sublimado", "Camisas", "Hoodies", "Tote bags", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`]}
+        items={["Serigrafía", "Sublimado", "Camisas", "Hoodies", "Tote bags", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Entrega a domicilio"]}
       />
 
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">

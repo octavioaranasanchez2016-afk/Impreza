@@ -7,14 +7,21 @@ import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { OrderStatus, PaymentStatus, Technique } from "@/lib/types";
+import { SHIPPING_COST_NOTE, ShippingInfo, WORKSHOP, areaLabel, parseShipping } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
 
 const STATUS_ORDER: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
 
-function headline(status: OrderStatus, payment: PaymentStatus) {
+function readyText(entrega: ShippingInfo | null) {
+  if (entrega?.metodo === "domicilio") return "Te escribimos por WhatsApp para coordinar la entrega en tu dirección.";
+  if (entrega?.metodo === "retiro") return `Ya puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}).`;
+  return "Escríbenos por WhatsApp para coordinar la entrega o recogida.";
+}
+
+function headline(status: OrderStatus, payment: PaymentStatus, entrega: ShippingInfo | null) {
   if (payment === "fallido") return { title: "Necesitamos revisar tu pago", text: "No pudimos verificar tu transferencia. Escríbenos por WhatsApp con tu comprobante y lo resolvemos." };
-  if (status === "listo_entregado") return { title: "¡Tu pedido está listo!", text: "Escríbenos por WhatsApp para coordinar la entrega o recogida." };
+  if (status === "listo_entregado") return { title: "¡Tu pedido está listo!", text: readyText(entrega) };
   if (status === "en_produccion") return { title: "Tu pedido está en producción", text: "Estamos imprimiendo tu pedido. Te avisamos cuando esté listo." };
   if (status === "diseno_aprobado") return { title: "Tu diseño fue aprobado", text: "Tu pedido pasa a producción en breve." };
   if (payment === "pagado") return { title: "Pago confirmado", text: "Verificamos tu transferencia. Tu pedido ya está en proceso." };
@@ -28,13 +35,8 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const { id } = await params;
   const supabase = createServiceClient();
   const [{ data: order }, { data: items }] = await Promise.all([
-    supabase
-      .from("orders")
-      .select(
-        "id, cliente_nombre, tecnica, subtotal, descuento_pct, descuento_monto, cargo_diseno, total, created_at, status, payment_status"
-      )
-      .eq("id", id)
-      .single(),
+    // "*" y no una lista: la columna entrega puede no existir todavía en la base de datos.
+    supabase.from("orders").select("*").eq("id", id).single(),
     supabase.from("order_items").select("product_id, color, talla, cantidad").eq("order_id", id),
   ]);
 
@@ -52,7 +54,8 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const shortId = order.id.slice(0, 8).toUpperCase();
   const total = Number(order.total);
   const statusIndex = STATUS_ORDER.indexOf(status);
-  const { title, text } = headline(status, payment);
+  const entrega = parseShipping(order.entrega);
+  const { title, text } = headline(status, payment, entrega);
   const done = status === "listo_entregado";
 
   const steps = [
@@ -60,7 +63,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
     { label: payment === "fallido" ? "Pago con problema" : "Pago verificado", done: payment === "pagado", error: payment === "fallido" },
     { label: "Diseño aprobado", done: statusIndex >= 1 },
     { label: "En producción", done: statusIndex >= 2 },
-    { label: "Listo", done: statusIndex >= 3 },
+    { label: entrega?.metodo === "retiro" ? "Listo para recoger" : "Listo", done: statusIndex >= 3 },
   ];
 
   const message = `Hola, soy ${order.cliente_nombre}. Te escribo por mi pedido #${shortId} en Impreza por ${formatBoth(total)}.`;
@@ -108,6 +111,28 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
         </p>
       </div>
 
+      {entrega && (
+        <div className="mt-4 flex items-start gap-3 rounded-brand border border-black/10 bg-white px-5 py-4 text-sm">
+          <span className="mt-0.5 text-xs font-semibold uppercase tracking-[0.15em] text-ink-muted">Entrega</span>
+          {entrega.metodo === "domicilio" ? (
+            <p className="text-ink">
+              <span className="font-semibold">A domicilio</span> en {areaLabel(entrega)}
+              <span className="block text-xs text-ink-soft">{SHIPPING_COST_NOTE}</span>
+            </p>
+          ) : (
+            <p className="text-ink">
+              <span className="font-semibold">Recoges en el taller</span>: {WORKSHOP.name}
+              <span className="block text-xs text-ink-soft">
+                {WORKSHOP.hours} ·{" "}
+                <a href={WORKSHOP.mapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-ink underline">
+                  Ver en el mapa
+                </a>
+              </span>
+            </p>
+          )}
+        </div>
+      )}
+
       {!done && payment !== "fallido" && (
         <p className="mt-4 rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
           Listo aproximadamente el <span className="font-semibold">{formatReadyDate(estimateReadyDate(new Date(order.created_at)))}</span>
@@ -131,6 +156,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
           clienteNombre={order.cliente_nombre}
           orderNumber={shortId}
           date={new Date(order.created_at)}
+          shipping={entrega}
         />
         <p className="mt-2 text-center text-xs text-ink-muted">
           Guarda esta página: aquí puedes ver en todo momento cómo va tu pedido.

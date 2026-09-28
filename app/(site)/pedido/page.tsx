@@ -8,6 +8,7 @@ export const metadata = {
 const STEPS = [
   { href: "#diseno", label: "Diseño" },
   { href: "#datos", label: "Tus datos" },
+  { href: "#entrega", label: "Entrega" },
   { href: "#factura", label: "Factura" },
   { href: "#pago", label: "Pago" },
 ];
@@ -17,7 +18,7 @@ export default function PedidoPage() {
     <section className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-12">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Diseñador</p>
       <h1 className="mt-2 font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-6xl">Arma tu pedido</h1>
-      <p className="mt-3 text-ink-soft">Diseña a escala real, revisa tu factura y paga por transferencia.</p>
+      <p className="mt-3 text-ink-soft">Diseña a escala real, elige cómo recibirlo, revisa tu factura y paga por transferencia.</p>
       <ol className="mt-6 flex flex-wrap gap-2">
         {STEPS.map((s, i) => (
           <li key={s.href}>

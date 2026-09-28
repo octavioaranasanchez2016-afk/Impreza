@@ -27,7 +27,11 @@ const SECTIONS = [
       },
       {
         q: "¿Hacen entrega a domicilio?",
-        a: "Estamos afinando los detalles de entrega a domicilio (costos según zona). Por ahora, coordina la entrega o recogida por WhatsApp una vez confirmado tu pedido.",
+        a: "Sí, puerta a puerta. Al hacer tu pedido elige «Entrega a domicilio» y escribe tu dirección con señas; si estás en el lugar de entrega, también puedes compartir tu ubicación GPS para que el repartidor llegue directo. El costo del envío depende de tu zona y te lo confirmamos por WhatsApp.",
+      },
+      {
+        q: "¿Puedo recoger mi pedido?",
+        a: "Sí, y es gratis. Elige «Recoger en el taller» al hacer tu pedido. Estamos en Arango Textil, Managua: lunes a viernes de 8am a 5pm y sábados de 8am a 12pm. Te avisamos por WhatsApp cuando esté listo.",
       },
       {
         q: "¿Cómo sé en qué va mi pedido?",

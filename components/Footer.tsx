@@ -55,6 +55,7 @@ export function Footer() {
             <p>Transferencia BAC</p>
             <p>Córdobas o dólares</p>
             <p>Listo en 7 días hábiles</p>
+            <p>Entrega a domicilio</p>
             <p>Desde 1 pieza</p>
           </FooterColumn>
         </div>

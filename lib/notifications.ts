@@ -1,4 +1,5 @@
 import { OrderStatus, PaymentStatus } from "./types";
+import { ShippingInfo, WORKSHOP, areaLabel } from "./shipping";
 
 export interface NotifyInfo {
   nombre: string;
@@ -6,6 +7,18 @@ export interface NotifyInfo {
   code: string; // código de 8 caracteres que ve el cliente, p. ej. "CB07F9DB"
   totalText: string;
   readyText: string;
+  entrega: ShippingInfo | null;
+}
+
+function readyMessage(info: NotifyInfo): string {
+  const intro = `Hola ${info.nombre}, ¡tu pedido #${info.code} está listo!`;
+  if (info.entrega?.metodo === "domicilio") {
+    return `${intro} Lo llevamos a tu dirección en ${areaLabel(info.entrega)}. ¿En qué horario te queda bien recibirlo?`;
+  }
+  if (info.entrega?.metodo === "retiro") {
+    return `${intro} Puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}). Ubicación: ${WORKSHOP.mapsUrl}`;
+  }
+  return `${intro} ¿Cuándo te queda bien para la entrega o recogida?`;
 }
 
 // Mensaje de WhatsApp que el admin le manda al cliente al cambiar el estado.
@@ -26,7 +39,7 @@ export function statusWhatsAppMessage(
     case "en_produccion":
       return `Hola ${info.nombre}, tu pedido #${info.code} ya está en producción. Te avisamos cuando esté listo.${track}`;
     case "listo_entregado":
-      return `Hola ${info.nombre}, ¡tu pedido #${info.code} está listo! ¿Cuándo te queda bien para la entrega o recogida?`;
+      return readyMessage(info);
     default:
       return null;
   }

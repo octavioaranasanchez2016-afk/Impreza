@@ -11,3 +11,8 @@ export function telUrl(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   return `tel:${digits.length === 8 ? `+505${digits}` : `+${digits}`}`;
 }
+
+// Sin número: WhatsApp deja elegir a quién mandarlo (p. ej. al repartidor).
+export function shareWhatsAppUrl(message: string): string {
+  return `https://wa.me/?text=${encodeURIComponent(message)}`;
+}

@@ -10,6 +10,7 @@ export const MIN_SCALE = 0.15;
 export const MAX_SCALE = 1;
 export const DEFAULT_SCALE = 0.8;
 const RESIZE_SENSITIVITY = 1.1;
+const ZOOM_LEVELS = [1, 1.5, 2];
 
 // Ancho "contain" del diseño dentro del área de impresión, en % del lienzo.
 function computeFitWidthPct(category: ProductCategory, zone: DesignZone, width: number, height: number): number {
@@ -76,6 +77,7 @@ export function DesignMockup({
   onTransformChange,
   interactive = true,
   showPlacement = false,
+  compact = false,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -87,12 +89,15 @@ export function DesignMockup({
   interactive?: boolean;
   // Medidas para el taller: posición del diseño en cm desde el cuello y el centro.
   showPlacement?: boolean;
+  // Miniatura: sin textos de medidas debajo.
+  compact?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLParagraphElement>(null);
   const [mode, setMode] = useState<Mode>("idle");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  const [zoom, setZoom] = useState(1);
   const dragStart = useRef({ pointerX: 0, pointerY: 0, x: 0, y: 0, scale: 1, rotation: 0, centerX: 0, centerY: 0, startAngle: 0 });
 
   const area = getPrintArea(category, zone);
@@ -236,79 +241,121 @@ export function DesignMockup({
       ? Math.round(Math.min(content.width / (widthCm / 2.54), content.height / (heightCm / 2.54)))
       : null;
 
+  const zoomIndex = ZOOM_LEVELS.indexOf(zoom);
+
   return (
     <div>
-      <div
-        ref={containerRef}
-        className="relative aspect-square w-full select-none overflow-visible rounded-brand bg-paper-soft"
-        style={{ containerType: "inline-size" }}
-      >
-        <div className="absolute inset-0 overflow-hidden rounded-brand">
-          <GarmentShape category={category} zone={zone} color={color} size={size} showGuide={interactive} />
+      <div className={`relative rounded-brand ${zoom > 1 ? "overflow-hidden bg-paper-soft" : ""}`}>
+        {/* El zoom escala el lienzo completo hacia el centro del área de impresión.
+            getBoundingClientRect ya incluye la escala, así que arrastrar sigue funcionando. */}
+        <div
+          ref={containerRef}
+          className="relative aspect-square w-full select-none overflow-visible rounded-brand bg-paper-soft"
+          style={{
+            containerType: "inline-size",
+            transform: zoom > 1 ? `scale(${zoom})` : undefined,
+            transformOrigin: `${area.x + area.w / 2}% ${area.y + area.h / 2}%`,
+            transition: "transform 200ms ease",
+          }}
+        >
+          <div className="absolute inset-0 overflow-hidden rounded-brand">
+            <GarmentShape category={category} zone={zone} color={color} size={size} showGuide={interactive} />
+          </div>
+
+          {content && (
+            <div
+              ref={overlayRef}
+              className="absolute"
+              style={{
+                left: `${transform.x}%`,
+                top: `${transform.y}%`,
+                width: content.kind === "imagen" ? `${imageWidthPct}%` : undefined,
+                aspectRatio: imageFill ? `${area.w} / ${area.h}` : undefined,
+                transform: `translate(-50%, -50%) rotate(${transform.rotation}deg)`,
+              }}
+            >
+              {content.kind === "imagen" ? (
+                <img
+                  src={content.previewUrl}
+                  alt="Diseño sobre el producto"
+                  draggable={false}
+                  onLoad={measure}
+                  onPointerDown={(e) => begin(e, "dragging")}
+                  className={`block w-full ${imageFill ? "h-full object-cover" : ""} ${interactive ? "cursor-move" : ""}`}
+                  style={{ touchAction: "none" }}
+                />
+              ) : (
+                <p
+                  ref={textRef}
+                  onPointerDown={(e) => begin(e, "dragging")}
+                  className={`whitespace-nowrap leading-none ${interactive ? "cursor-move" : ""} ${
+                    content.texto ? "" : "opacity-40"
+                  }`}
+                  style={{
+                    color: content.color,
+                    fontFamily: fontFamilyCss(content.fontFamily),
+                    fontWeight: textWeight,
+                    fontSize: `${textFontSize}cqw`,
+                    touchAction: "none",
+                  }}
+                >
+                  {displayText}
+                </p>
+              )}
+
+              {interactive && (
+                <>
+                  <div
+                    onPointerDown={(e) => begin(e, "resizing")}
+                    style={{ touchAction: "none" }}
+                    className="absolute -bottom-2.5 -right-2.5 h-5 w-5 cursor-se-resize rounded-full border-2 border-white bg-ink shadow"
+                    aria-label="Cambiar tamaño"
+                  />
+                  <div
+                    onPointerDown={(e) => begin(e, "rotating")}
+                    style={{ touchAction: "none" }}
+                    className="absolute -top-7 left-1/2 h-5 w-5 -translate-x-1/2 cursor-grab rounded-full border-2 border-ink bg-white shadow active:cursor-grabbing"
+                    aria-label="Girar"
+                  />
+                </>
+              )}
+            </div>
+          )}
         </div>
 
-        {content && (
-          <div
-            ref={overlayRef}
-            className="absolute"
-            style={{
-              left: `${transform.x}%`,
-              top: `${transform.y}%`,
-              width: content.kind === "imagen" ? `${imageWidthPct}%` : undefined,
-              aspectRatio: imageFill ? `${area.w} / ${area.h}` : undefined,
-              transform: `translate(-50%, -50%) rotate(${transform.rotation}deg)`,
-            }}
-          >
-            {content.kind === "imagen" ? (
-              <img
-                src={content.previewUrl}
-                alt="Diseño sobre el producto"
-                draggable={false}
-                onLoad={measure}
-                onPointerDown={(e) => begin(e, "dragging")}
-                className={`block w-full ${imageFill ? "h-full object-cover" : ""} ${interactive ? "cursor-move" : ""}`}
-                style={{ touchAction: "none" }}
-              />
-            ) : (
-              <p
-                ref={textRef}
-                onPointerDown={(e) => begin(e, "dragging")}
-                className={`whitespace-nowrap leading-none ${interactive ? "cursor-move" : ""} ${
-                  content.texto ? "" : "opacity-40"
-                }`}
-                style={{
-                  color: content.color,
-                  fontFamily: fontFamilyCss(content.fontFamily),
-                  fontWeight: textWeight,
-                  fontSize: `${textFontSize}cqw`,
-                  touchAction: "none",
-                }}
-              >
-                {displayText}
-              </p>
-            )}
-
-            {interactive && (
-              <>
-                <div
-                  onPointerDown={(e) => begin(e, "resizing")}
-                  style={{ touchAction: "none" }}
-                  className="absolute -bottom-2.5 -right-2.5 h-5 w-5 cursor-se-resize rounded-full border-2 border-white bg-ink shadow"
-                  aria-label="Cambiar tamaño"
-                />
-                <div
-                  onPointerDown={(e) => begin(e, "rotating")}
-                  style={{ touchAction: "none" }}
-                  className="absolute -top-7 left-1/2 h-5 w-5 -translate-x-1/2 cursor-grab rounded-full border-2 border-ink bg-white shadow active:cursor-grabbing"
-                  aria-label="Girar"
-                />
-              </>
-            )}
+        {interactive && (
+          <div className="absolute right-2 top-2 flex items-center overflow-hidden rounded-full border border-black/10 bg-white/90 text-xs font-semibold text-ink shadow-sm backdrop-blur">
+            <button
+              type="button"
+              onClick={() => setZoom(ZOOM_LEVELS[Math.max(0, zoomIndex - 1)])}
+              disabled={zoomIndex <= 0}
+              aria-label="Alejar"
+              className="h-8 w-8 hover:bg-paper-soft disabled:opacity-30"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(1)}
+              aria-label="Tamaño normal"
+              className="h-8 min-w-[3rem] border-x border-black/10 px-1 tabular-nums hover:bg-paper-soft"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              onClick={() => setZoom(ZOOM_LEVELS[Math.min(ZOOM_LEVELS.length - 1, zoomIndex + 1)])}
+              disabled={zoomIndex >= ZOOM_LEVELS.length - 1}
+              aria-label="Acercar"
+              className="h-8 w-8 hover:bg-paper-soft disabled:opacity-30"
+            >
+              +
+            </button>
           </div>
         )}
       </div>
 
-      {content && widthCm && heightCm && (
+      {!compact && content && widthCm && heightCm && (
         <p className="mt-2 text-center text-xs text-ink-soft">
           Tamaño real del diseño:{" "}
           <span className="font-semibold text-ink">

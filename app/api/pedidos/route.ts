@@ -4,6 +4,7 @@ import { calculateOrderTotal } from "@/lib/pricing";
 import { getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
+import { addressText, missingAddressField, parseShipping } from "@/lib/shipping";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -28,6 +29,7 @@ interface CreateOrderBody {
   tecnica: Technique;
   disenos: DisenoInput[];
   notas: string | null;
+  entrega: unknown;
   items: OrderItemInput[];
   paymentMethod: PaymentMethod;
   comprobantePath: string;
@@ -46,6 +48,15 @@ export async function POST(req: NextRequest) {
   const validationError = validate(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
+  const entrega = parseShipping(body.entrega);
+  if (!entrega) {
+    return NextResponse.json({ error: "Elige si quieres entrega a domicilio o recoger en el taller." }, { status: 400 });
+  }
+  const missingAddress = missingAddressField(entrega);
+  if (missingAddress) {
+    return NextResponse.json({ error: `Para la entrega a domicilio falta ${missingAddress}.` }, { status: 400 });
   }
 
   // El total SIEMPRE se recalcula en el servidor — nunca se confía en un
@@ -75,26 +86,39 @@ export async function POST(req: NextRequest) {
 
   const supabase = createServiceClient();
 
-  const { data: order, error: orderError } = await supabase
+  const row = {
+    cliente_nombre: body.clienteNombre.trim(),
+    cliente_telefono: body.clienteTelefono.trim(),
+    cliente_email: body.clienteEmail?.trim() || null,
+    tecnica: body.tecnica,
+    disenos,
+    notas: body.notas,
+    payment_method: "transferencia",
+    payment_status: "en_revision",
+    comprobante_url: body.comprobantePath,
+    subtotal: pricing.subtotal,
+    descuento_pct: pricing.discountPct,
+    descuento_monto: pricing.discountAmount,
+    cargo_diseno: pricing.setupFee,
+    total: pricing.total,
+  };
+
+  let { data: order, error: orderError } = await supabase
     .from("orders")
-    .insert({
-      cliente_nombre: body.clienteNombre.trim(),
-      cliente_telefono: body.clienteTelefono.trim(),
-      cliente_email: body.clienteEmail?.trim() || null,
-      tecnica: body.tecnica,
-      disenos,
-      notas: body.notas,
-      payment_method: "transferencia",
-      payment_status: "en_revision",
-      comprobante_url: body.comprobantePath,
-      subtotal: pricing.subtotal,
-      descuento_pct: pricing.discountPct,
-      descuento_monto: pricing.discountAmount,
-      cargo_diseno: pricing.setupFee,
-      total: pricing.total,
-    })
+    .insert({ ...row, entrega })
     .select("id")
     .single();
+
+  // Si todavía no se creó la columna "entrega" en Supabase, el pedido no se
+  // pierde: la dirección se guarda en las notas para que el taller la vea.
+  if (orderError?.code === "PGRST204" && orderError.message.includes("entrega")) {
+    console.error("Falta la columna orders.entrega; guardando la dirección en las notas.");
+    ({ data: order, error: orderError } = await supabase
+      .from("orders")
+      .insert({ ...row, notas: [body.notas, addressText(entrega)].filter(Boolean).join("\n\n") })
+      .select("id")
+      .single());
+  }
 
   if (orderError || !order) {
     return NextResponse.json(
@@ -134,6 +158,7 @@ export async function POST(req: NextRequest) {
         total: pricing.total,
         tecnica: body.tecnica,
         piezas: pricing.totalQuantity,
+        entrega,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })

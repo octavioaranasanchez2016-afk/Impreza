@@ -6,6 +6,7 @@ import { getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
+import { ShippingCard } from "@/components/admin/ShippingCard";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignMockup } from "@/components/DesignMockup";
 import { Invoice } from "@/components/Invoice";
@@ -15,6 +16,7 @@ import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/delivery";
 import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
 import { NotifyInfo, statusWhatsAppMessage, trackingPath } from "@/lib/notifications";
+import { parseShipping } from "@/lib/shipping";
 import { DesignZone, OrderStatus, PaymentStatus, Technique } from "@/lib/types";
 import { FontFamilyKey, MockupContent } from "@/lib/design";
 
@@ -96,12 +98,14 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   const nombre = order.cliente_nombre as string;
   const telefono = order.cliente_telefono as string;
+  const entrega = parseShipping(order.entrega);
   const notify: NotifyInfo = {
     nombre,
     telefono,
     code: shortId,
     totalText: formatBoth(total),
     readyText: formatReadyDate(ready),
+    entrega,
   };
   const requestHeaders = await headers();
   const trackUrl = `${requestHeaders.get("x-forwarded-proto") ?? "https"}://${requestHeaders.get("host")}${trackingPath(shortId)}`;
@@ -310,6 +314,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               ))}
             </div>
           </section>
+
+          <ShippingCard entrega={entrega} nombre={nombre} telefono={telefono} code={shortId} />
 
           <section className="rounded-brand border border-black/10 bg-white p-5">
             <div className="flex items-baseline justify-between">

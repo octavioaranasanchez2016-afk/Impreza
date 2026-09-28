@@ -1,6 +1,7 @@
 import { CORDOBAS_PER_DOLLAR, formatCordobas, formatInDollars } from "@/lib/currency";
 import { InvoiceLine, SETUP_FEE_LABEL } from "@/lib/pricing";
 import { PricingBreakdown, Technique } from "@/lib/types";
+import { ShippingInfo } from "@/lib/shipping";
 
 export function Invoice({
   lines,
@@ -9,6 +10,7 @@ export function Invoice({
   clienteNombre,
   orderNumber,
   date,
+  shipping,
   title = "Factura proforma",
 }: {
   lines: InvoiceLine[];
@@ -17,6 +19,7 @@ export function Invoice({
   clienteNombre?: string;
   orderNumber?: string;
   date?: Date;
+  shipping?: ShippingInfo | null;
   title?: string;
 }) {
   return (
@@ -88,6 +91,8 @@ export function Invoice({
           />
         )}
         {pricing.setupFee > 0 && <Row label={SETUP_FEE_LABEL} value={formatCordobas(pricing.setupFee)} />}
+        {shipping?.metodo === "domicilio" && <Row label="Envío a domicilio" value="Según zona" />}
+        {shipping?.metodo === "retiro" && <Row label="Recoger en el taller" value="Gratis" />}
       </dl>
 
       <div className="mt-3 flex items-start justify-between border-t-2 border-ink pt-3">

@@ -23,12 +23,16 @@ import {
 } from "./GarmentShape";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
 
+// Lo que ya lleva cada zona, para dibujar las miniaturas de Frente / Espalda / Manga.
+export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform }>>;
+
 export function DesignCanvas({
   category,
   color,
   size,
   zone,
   zonesWithContent,
+  zonePreviews,
   onZoneChange,
   content,
   onContentChange,
@@ -40,6 +44,7 @@ export function DesignCanvas({
   size: string;
   zone: DesignZone;
   zonesWithContent: DesignZone[];
+  zonePreviews: ZonePreviews;
   onZoneChange: (zone: DesignZone) => void;
   content: DesignContent | null;
   // resetTransform: true cuando es un diseño nuevo en la zona (se recoloca).
@@ -106,26 +111,6 @@ export function DesignCanvas({
 
   return (
     <div>
-      {zones.length > 1 && (
-        <div className="mb-3 flex gap-2">
-          {zones.map((z) => (
-            <button
-              key={z}
-              type="button"
-              onClick={() => onZoneChange(z)}
-              className={`flex items-center gap-1.5 rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                zone === z ? "border-ink bg-ink text-paper" : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
-              }`}
-            >
-              {ZONE_LABEL[z]}
-              {zonesWithContent.includes(z) && (
-                <span className={`h-1.5 w-1.5 rounded-full ${zone === z ? "bg-paper" : "bg-ink"}`} aria-label="con diseño" />
-              )}
-            </button>
-          ))}
-        </div>
-      )}
-
       <DesignMockup
         category={category}
         zone={zone}
@@ -136,7 +121,52 @@ export function DesignCanvas({
         onTransformChange={onTransformChange}
       />
 
-      <p className="mt-1 text-center text-[11px] text-ink-muted">
+      {zones.length > 1 && (
+        <div className="mt-3 flex justify-center gap-2.5" role="tablist" aria-label="Vistas del producto">
+          {zones.map((z) => {
+            const preview = zonePreviews[z];
+            const active = zone === z;
+            return (
+              <button
+                key={z}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => onZoneChange(z)}
+                className={`relative w-[4.5rem] rounded-brand border-2 bg-white p-1 transition-colors sm:w-20 ${
+                  active ? "border-ink" : "border-black/10 hover:border-ink/40"
+                }`}
+              >
+                <div className="pointer-events-none">
+                  <DesignMockup
+                    category={category}
+                    zone={z}
+                    color={color}
+                    size={size}
+                    content={preview?.content ?? null}
+                    transform={preview?.transform ?? defaultTransform(category, z)}
+                    interactive={false}
+                    compact
+                  />
+                </div>
+                <span className={`mt-1 block text-[11px] ${active ? "font-bold text-ink" : "font-medium text-ink-soft"}`}>
+                  {ZONE_LABEL[z]}
+                </span>
+                {zonesWithContent.includes(z) && (
+                  <span
+                    className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-[10px] font-bold text-paper"
+                    aria-label="con diseño"
+                  >
+                    ✓
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      <p className="mt-2 text-center text-[11px] text-ink-muted">
         {category === "tote"
           ? `Tote bag de ${measure.ancho} × ${measure.largo} cm`
           : zone === "manga"

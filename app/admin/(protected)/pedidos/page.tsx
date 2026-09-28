@@ -7,6 +7,7 @@ import { estimateReadyDate, formatShortDate, isPastDue, managuaDayKey, toManagua
 import { getProductById } from "@/lib/catalog";
 import { DesignZone, OrderStatus } from "@/lib/types";
 import { isDarkColor } from "@/components/GarmentShape";
+import { parseShipping, shippingSummary } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
 
@@ -27,9 +28,10 @@ interface OrderRow {
   payment_status: string;
   created_at: string;
   disenos: StoredDiseno[] | null;
+  entrega?: unknown; // columna nueva: no llega hasta correr supabase/entrega.sql
 }
 
-type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "entregados" | "rechazados";
+type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "domicilio" | "entregados" | "rechazados";
 
 const isActive = (o: OrderRow) => o.payment_status === "pagado" && o.status !== "listo_entregado";
 const isLate = (o: OrderRow) => isActive(o) && isPastDue(estimateReadyDate(new Date(o.created_at)));
@@ -39,6 +41,7 @@ const FILTERS: { key: FilterKey; label: string; match: (o: OrderRow) => boolean 
   { key: "verificar", label: "Pago por verificar", match: (o) => o.payment_status === "en_revision" },
   { key: "proceso", label: "En proceso", match: isActive },
   { key: "atrasados", label: "Atrasados", match: isLate },
+  { key: "domicilio", label: "A domicilio", match: (o) => parseShipping(o.entrega)?.metodo === "domicilio" },
   { key: "entregados", label: "Listos / entregados", match: (o) => o.status === "listo_entregado" },
   { key: "rechazados", label: "Pago rechazado", match: (o) => o.payment_status === "fallido" },
 ];
@@ -61,7 +64,7 @@ export default async function AdminPedidosPage({
   const [{ data, error }, { data: itemRows }] = await Promise.all([
     supabase
       .from("orders")
-      .select("id, cliente_nombre, cliente_telefono, total, status, payment_status, created_at, disenos")
+      .select("*")
       .order("created_at", { ascending: false }),
     supabase.from("order_items").select("order_id, product_id, cantidad"),
   ]);
@@ -201,6 +204,7 @@ export default async function AdminPedidosPage({
                   <p className="truncate text-xs text-ink-muted">
                     {items ? `${items.pieces} pieza${items.pieces === 1 ? "" : "s"} · ${[...items.products].join(", ")}` : "—"}
                   </p>
+                  <p className="truncate text-xs font-medium text-ink-soft">{shippingSummary(parseShipping(order.entrega))}</p>
                 </div>
 
                 <div className="text-right md:text-left">

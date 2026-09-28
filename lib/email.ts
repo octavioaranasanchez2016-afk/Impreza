@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { formatBoth } from "./currency";
 import { estimateReadyDate, formatReadyDate, PRODUCTION_BUSINESS_DAYS } from "./delivery";
+import { ShippingInfo, addressMapsUrl, areaLabel } from "./shipping";
 
 // onboarding@resend.dev solo puede enviar al correo dueño de la cuenta de
 // Resend. Para escribirle a los clientes hay que verificar un dominio propio en
@@ -65,6 +66,7 @@ interface NewOrderParams {
   total: number;
   tecnica: string;
   piezas: number;
+  entrega: ShippingInfo | null;
 }
 
 export async function sendNewOrderEmail(params: NewOrderParams) {
@@ -85,6 +87,7 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       ${params.clienteEmail ? `<p style="margin:4px 0;"><strong>Correo:</strong> ${escapeHtml(params.clienteEmail)}</p>` : ""}
       <p style="margin:4px 0;"><strong>Técnica:</strong> ${params.tecnica === "serigrafia" ? "Serigrafía" : "Sublimado"} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
+      ${shippingHtml(params.entrega)}
       <p style="margin:16px 0;">El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>
       ${button(`${siteUrl()}/admin/pedidos/${params.orderId}`, "Ver pedido en el panel")}
     `),
@@ -183,6 +186,18 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
       <p style="margin:20px 0;">${orderLink(params.orderId)}</p>
       <p>${whatsappButton(`Hola, soy ${params.clienteNombre}. Te escribo por mi pedido #${id}.`)}</p>`),
   };
+}
+
+function shippingHtml(entrega: ShippingInfo | null) {
+  if (!entrega) return "";
+  if (entrega.metodo === "retiro") return `<p style="margin:4px 0;"><strong>Entrega:</strong> recoge en el taller</p>`;
+  return `
+    <div style="margin:12px 0;padding:12px;border:2px solid #111;border-radius:8px;">
+      <p style="margin:0 0 4px;"><strong>Entrega a domicilio:</strong> ${escapeHtml(areaLabel(entrega))}</p>
+      ${entrega.direccion ? `<p style="margin:0 0 4px;">${escapeHtml(entrega.direccion)}</p>` : ""}
+      ${entrega.recibe ? `<p style="margin:0 0 4px;">Recibe: ${escapeHtml(entrega.recibe)}</p>` : ""}
+      <a href="${addressMapsUrl(entrega)}" style="color:#111;font-weight:bold;">Abrir en Google Maps</a>
+    </div>`;
 }
 
 function escapeHtml(value: string): string {

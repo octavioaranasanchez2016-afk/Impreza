@@ -10,10 +10,12 @@ import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
-import { DesignCanvas } from "./DesignCanvas";
+import { ShippingInfo, missingAddressField } from "@/lib/shipping";
+import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
 import { Invoice } from "./Invoice";
 import { BankDetails } from "./BankDetails";
+import { ShippingForm } from "./ShippingForm";
 import { defaultTransform } from "./DesignMockup";
 import { getZonesForCategory } from "./GarmentShape";
 
@@ -56,6 +58,7 @@ export function OrderForm() {
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
   const [notas, setNotas] = useState("");
+  const [shipping, setShipping] = useState<ShippingInfo | null>(null);
 
   const [comprobante, setComprobante] = useState<File | null>(null);
   const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
@@ -80,6 +83,13 @@ export function OrderForm() {
     zoneTransform[currentZone] ??
     (selectedProduct ? defaultTransform(selectedProduct.category, currentZone) : { x: 50, y: 50, scale: 1, rotation: 0 });
   const zonesWithContent = zones.filter((z) => hasDesign(zoneContent[z]));
+  const zonePreviews: ZonePreviews = {};
+  for (const z of zonesWithContent) {
+    zonePreviews[z] = {
+      content: zoneContent[z]!,
+      transform: zoneTransform[z] ?? (selectedProduct ? defaultTransform(selectedProduct.category, z) : currentTransform),
+    };
+  }
 
   useEffect(() => {
     if (!comprobante) {
@@ -157,6 +167,8 @@ export function OrderForm() {
     items.length === 0 && "al menos un producto",
     clienteNombre.trim().length < 2 && "tu nombre",
     clienteTelefono.trim().length < 6 && "tu teléfono",
+    !shipping && "cómo quieres recibir tu pedido",
+    shipping && missingAddressField(shipping),
     !comprobante && "el comprobante de transferencia",
   ].filter(Boolean) as string[];
   const canSubmit = missing.length === 0 && !submitting;
@@ -219,6 +231,7 @@ export function OrderForm() {
           tecnica: technique,
           disenos,
           notas: notas.trim() || null,
+          entrega: shipping,
           items: items.map(({ key, ...rest }) => rest),
           paymentMethod: "transferencia",
           comprobantePath,
@@ -357,6 +370,7 @@ export function OrderForm() {
                   size={size}
                   zone={currentZone}
                   zonesWithContent={zonesWithContent}
+                  zonePreviews={zonePreviews}
                   onZoneChange={setActiveZone}
                   content={currentContent}
                   onContentChange={handleContentChange}
@@ -396,16 +410,24 @@ export function OrderForm() {
               />
             </Field>
             <Field label="Notas para el taller (opcional)">
-              <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. entregar el viernes" />
+              <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. es un regalo, empacar aparte" />
             </Field>
           </div>
         </section>
 
+        <section id="entrega" className="scroll-mt-28">
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Entrega</h2>
+          <p className="mt-1 text-sm text-ink-soft">¿Cómo quieres recibir tu pedido?</p>
+          <div className="mt-3">
+            <ShippingForm value={shipping} onChange={setShipping} />
+          </div>
+        </section>
+
         <section id="factura" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Tu factura</h2>
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Tu factura</h2>
           <div className="mt-3">
             {items.length > 0 ? (
-              <Invoice lines={invoiceLines} pricing={pricing} technique={technique} clienteNombre={clienteNombre} />
+              <Invoice lines={invoiceLines} pricing={pricing} technique={technique} clienteNombre={clienteNombre} shipping={shipping} />
             ) : (
               <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
                 Agrega al menos un producto (paso 1) para ver tu factura.
@@ -415,7 +437,7 @@ export function OrderForm() {
         </section>
 
         <section id="pago" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Pago por transferencia</h2>
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">5. Pago por transferencia</h2>
           <p className="mt-1 text-sm text-ink-soft">
             Es la única forma de pago. Tu pedido queda confirmado cuando adjuntas el comprobante.
           </p>

@@ -25,6 +25,8 @@ create table orders (
   -- La zona "frente" siempre está presente — es la única obligatoria.
   disenos jsonb not null default '[]'::jsonb,
   notas text,
+  -- { metodo: "retiro" | "domicilio", municipio, barrio, direccion, recibe, lat, lng }
+  entrega jsonb,
   status order_status not null default 'recibido',
   payment_method payment_method not null,
   payment_status payment_status not null default 'pendiente',
