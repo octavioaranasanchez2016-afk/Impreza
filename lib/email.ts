@@ -22,7 +22,11 @@ export async function sendNewOrderEmail(params: {
 
   const resend = new Resend(apiKey);
   const shortId = params.orderId.slice(0, 8).toUpperCase();
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : "http://localhost:3000");
 
   try {
     await resend.emails.send({
