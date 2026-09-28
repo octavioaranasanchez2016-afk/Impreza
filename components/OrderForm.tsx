@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PRODUCTS, getProductById } from "@/lib/catalog";
 import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
-import { formatBoth } from "@/lib/currency";
+import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
@@ -162,15 +162,25 @@ export function OrderForm() {
     setComprobante(file);
   }
 
-  const missing = [
-    !hasDesign(zoneContent.frente) && "un diseño en el frente",
-    items.length === 0 && "al menos un producto",
-    clienteNombre.trim().length < 2 && "tu nombre",
-    clienteTelefono.trim().length < 6 && "tu teléfono",
-    !shipping && "cómo quieres recibir tu pedido",
-    shipping && missingAddressField(shipping),
-    !comprobante && "el comprobante de transferencia",
-  ].filter(Boolean) as string[];
+  // Lo que falta para confirmar, con la sección del formulario donde se completa.
+  const addressGap = shipping ? missingAddressField(shipping) : null;
+  const missingSteps = [
+    !hasDesign(zoneContent.frente) && { label: "un diseño en el frente", section: "diseno" },
+    items.length === 0 && { label: "al menos un producto", section: "diseno" },
+    clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
+    clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
+    !shipping && { label: "cómo quieres recibir tu pedido", section: "entrega" },
+    addressGap && { label: addressGap, section: "entrega" },
+    !comprobante && { label: "el comprobante de transferencia", section: "pago" },
+  ].filter((m): m is { label: string; section: string } => Boolean(m));
+  const missing = missingSteps.map((m) => m.label);
+  const showMobileBar = items.length > 0;
+
+  // Deja espacio al final de la página para la barra fija del celular.
+  useEffect(() => {
+    document.body.classList.toggle("has-order-bar", showMobileBar);
+    return () => document.body.classList.remove("has-order-bar");
+  }, [showMobileBar]);
   const canSubmit = missing.length === 0 && !submitting;
 
   async function handleSubmit() {
@@ -473,7 +483,7 @@ export function OrderForm() {
           </div>
         </section>
 
-        <div className="space-y-3">
+        <div id="confirmar" className="scroll-mt-28 space-y-3">
           {error && <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
           <button
             type="button"
@@ -486,6 +496,12 @@ export function OrderForm() {
           {missing.length > 0 && !submitting && (
             <p className="text-center text-xs text-ink-soft">Para confirmar falta: {missing.join(", ")}.</p>
           )}
+          <p className="text-center text-[11px] text-ink-muted">
+            Tus datos solo se usan para hacer y entregar tu pedido.{" "}
+            <a href="/privacidad" target="_blank" className="underline hover:text-ink">
+              Privacidad
+            </a>
+          </p>
           <p className="rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
             Pide hoy y tu pedido estará listo aproximadamente el{" "}
             <span className="font-semibold">{formatReadyDate(estimateReadyDate())}</span>
@@ -499,6 +515,28 @@ export function OrderForm() {
       <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
         <PricingSummary pricing={pricing} />
       </div>
+
+      {showMobileBar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-paper/95 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] text-ink-soft">
+                Total · {pricing.totalQuantity} pieza{pricing.totalQuantity === 1 ? "" : "s"}
+              </p>
+              <p className="truncate text-lg font-bold leading-tight text-ink">
+                {formatCordobas(pricing.total)}{" "}
+                <span className="text-xs font-medium text-ink-soft">{formatInDollars(pricing.total)}</span>
+              </p>
+            </div>
+            <a
+              href={`#${missingSteps[0]?.section ?? "confirmar"}`}
+              className="shrink-0 rounded-brand bg-ink px-5 py-2.5 text-sm font-semibold text-paper"
+            >
+              {missingSteps.length ? "Continuar →" : "Confirmar →"}
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

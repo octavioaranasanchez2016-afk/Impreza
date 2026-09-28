@@ -62,7 +62,12 @@ export function Footer() {
 
         <div className="mt-12 flex flex-col gap-2 border-t border-paper/15 pt-6 text-xs text-paper/50 sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} Impreza. Hecho en Managua, Nicaragua.</p>
-          <p>Serigrafía · Sublimado · Diseño a escala real</p>
+          <p>
+            <Link href="/privacidad" className="hover:text-paper">
+              Privacidad
+            </Link>
+            {" · "}Serigrafía · Sublimado · Diseño a escala real
+          </p>
         </div>
       </div>
     </footer>

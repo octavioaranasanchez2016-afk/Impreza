@@ -1,5 +1,7 @@
 "use client";
 
+import { usePathname } from "next/navigation";
+
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "50588888888";
 
 function buildWhatsAppUrl(message: string) {
@@ -8,6 +10,8 @@ function buildWhatsAppUrl(message: string) {
 }
 
 export function WhatsAppFloatingButton() {
+  // En /pedido sube en el celular para no tapar la barra del total.
+  const raised = usePathname() === "/pedido";
   const url = buildWhatsAppUrl(
     "Hola, quiero hacer una consulta sobre un pedido en Impreza."
   );
@@ -18,7 +22,9 @@ export function WhatsAppFloatingButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escribir por WhatsApp"
-      className="fixed bottom-5 right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 md:bottom-8 md:right-8"
+      className={`fixed right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 md:right-8 lg:bottom-8 ${
+        raised ? "bottom-24" : "bottom-5 md:bottom-8"
+      }`}
     >
       <WhatsAppIcon />
     </a>

@@ -11,6 +11,11 @@ import { SHIPPING_COST_NOTE, ShippingInfo, WORKSHOP, areaLabel, parseShipping } 
 
 export const dynamic = "force-dynamic";
 
+export const metadata = {
+  title: "Tu pedido",
+  robots: { index: false, follow: false },
+};
+
 const STATUS_ORDER: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
 
 function readyText(entrega: ShippingInfo | null) {

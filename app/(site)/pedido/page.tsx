@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { OrderForm } from "@/components/OrderForm";
 
 export const metadata = {
-  title: "Hacer pedido — Impreza",
+  title: "Hacer pedido",
+  description: "Diseña tu camisa, hoodie o tote bag en línea, a escala real. Ve tu factura al instante y paga por transferencia BAC.",
 };
 
 const STEPS = [

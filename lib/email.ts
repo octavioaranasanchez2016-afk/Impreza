@@ -2,20 +2,12 @@ import { Resend } from "resend";
 import { formatBoth } from "./currency";
 import { estimateReadyDate, formatReadyDate, PRODUCTION_BUSINESS_DAYS } from "./delivery";
 import { ShippingInfo, addressMapsUrl, areaLabel } from "./shipping";
+import { siteUrl } from "./site";
 
 // onboarding@resend.dev solo puede enviar al correo dueño de la cuenta de
 // Resend. Para escribirle a los clientes hay que verificar un dominio propio en
 // Resend y poner EMAIL_FROM, p. ej. "Impreza <pedidos@tudominio.com>".
 const FROM_ADDRESS = process.env.EMAIL_FROM || "Impreza <onboarding@resend.dev>";
-
-function siteUrl() {
-  return (
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : "http://localhost:3000")
-  );
-}
 
 const shortId = (orderId: string) => orderId.slice(0, 8).toUpperCase();
 

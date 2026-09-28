@@ -3,7 +3,8 @@ import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
-  title: "Preguntas frecuentes — Impreza",
+  title: "Preguntas frecuentes",
+  description: "Tiempos de entrega, formas de pago, envío a domicilio, archivos de diseño y más sobre tus pedidos en Impreza.",
 };
 
 const QUICK_FACTS = [

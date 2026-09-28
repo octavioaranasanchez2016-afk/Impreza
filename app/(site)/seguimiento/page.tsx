@@ -3,7 +3,8 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 
 export const metadata = {
-  title: "Rastrear pedido — Impreza",
+  title: "Rastrear pedido",
+  description: "Escribe el código de tu pedido y mira en qué paso va.",
 };
 
 export const dynamic = "force-dynamic";

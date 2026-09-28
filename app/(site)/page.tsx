@@ -5,6 +5,7 @@ import { Marquee } from "@/components/Marquee";
 import { DesignMockup } from "@/components/DesignMockup";
 import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
+import { businessJsonLd } from "@/lib/site";
 
 const PROCESS_PHOTO = "https://images.unsplash.com/photo-1643216674491-33878507b402?w=900&q=80&auto=format&fit=crop";
 const STUDIO_PHOTO = "https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d?w=900&q=80&auto=format&fit=crop";
@@ -27,6 +28,7 @@ export default function HomePage() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(businessJsonLd()) }} />
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 md:px-6 md:pb-24 md:pt-16">
         <div className="grid items-center gap-12 md:grid-cols-[1.1fr_1fr]">
           <div>

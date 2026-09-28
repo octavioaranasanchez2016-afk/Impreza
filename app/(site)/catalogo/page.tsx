@@ -3,7 +3,8 @@ import { ProductCard } from "@/components/ProductCard";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
-  title: "Catálogo — Impreza",
+  title: "Catálogo",
+  description: "Camisas, hoodies y tote bags para personalizar con serigrafía o sublimado en Managua. Precios en córdobas y dólares.",
 };
 
 export default function CatalogoPage() {

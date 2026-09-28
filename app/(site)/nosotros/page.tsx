@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 export const metadata = {
-  title: "Quiénes somos — Impreza",
+  title: "Quiénes somos",
   description: "La historia y los valores detrás de Impreza.",
 };
 
