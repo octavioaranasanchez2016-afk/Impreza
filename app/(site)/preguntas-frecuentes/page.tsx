@@ -24,7 +24,7 @@ const SECTIONS = [
       },
       {
         q: "¿Hay una cantidad mínima de pedido?",
-        a: "No. Aceptamos desde 1 sola pieza. Entre más pidas, menos pagas por unidad (ver la tabla de descuentos más abajo).",
+        a: "No. Aceptamos desde 1 sola pieza. Entre más pidas, menos pagas por unidad (ver la tabla de descuentos más abajo). Para graduaciones, empresas y equipos mira «Pedidos por mayor» en el pie de página.",
       },
       {
         q: "¿Hacen entrega a domicilio?",

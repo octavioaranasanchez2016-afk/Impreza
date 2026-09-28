@@ -26,6 +26,9 @@ export function Footer() {
             <Link href="/pedido" className="block hover:text-paper">
               Hacer pedido
             </Link>
+            <Link href="/por-mayor" className="block hover:text-paper">
+              Pedidos por mayor
+            </Link>
             <Link href="/seguimiento" className="block hover:text-paper">
               Rastrear pedido
             </Link>

@@ -17,7 +17,7 @@ import { Invoice } from "./Invoice";
 import { BankDetails } from "./BankDetails";
 import { ShippingForm } from "./ShippingForm";
 import { defaultTransform } from "./DesignMockup";
-import { getZonesForCategory } from "./GarmentShape";
+import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
 interface CartLine extends OrderItemInput {
   key: string;
@@ -69,6 +69,18 @@ export function OrderForm() {
 
   const selectedProduct = getProductById(productId);
   const selectedVariant = selectedProduct?.variants.find((v) => v.color === color);
+  // La tinta de sublimación es transparente: sobre telas oscuras no se ve.
+  const darkColorsInOrder = [
+    ...new Set(
+      [...items.map((i) => ({ productId: i.productId, color: i.color })), { productId, color }]
+        .filter((c) => {
+          const hex = getProductById(c.productId)?.variants.find((v) => v.color === c.color)?.colorHex;
+          return hex ? isDarkColor(hex) : false;
+        })
+        .map((c) => c.color.toLowerCase())
+    ),
+  ];
+  const sublimationOnDark = technique === "sublimado" && darkColorsInOrder.length > 0;
   const pricing = useMemo(() => calculateOrderTotal(items, technique), [items, technique]);
   const invoiceLines = useMemo(() => buildInvoiceLines(items, technique), [items, technique]);
 
@@ -295,6 +307,21 @@ export function OrderForm() {
                     </button>
                   ))}
                 </div>
+                {sublimationOnDark && (
+                  <div className="mt-2 rounded-brand bg-yellow-50 p-3 text-xs text-yellow-900">
+                    <p>
+                      La sublimación no se ve en prendas oscuras ({darkColorsInOrder.join(", ")}). Para esos colores usa
+                      serigrafía, o elige una prenda clara.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setTechnique("serigrafia")}
+                      className="mt-2 font-semibold underline"
+                    >
+                      Cambiar a serigrafía
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div>

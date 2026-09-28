@@ -199,6 +199,9 @@ export default function HomePage() {
               El descuento se aplica solo sobre el total de piezas de tu pedido, sin importar si mezclas tallas, colores
               o productos.
             </p>
+            <Link href="/por-mayor" className="mt-6 inline-block text-sm font-semibold text-ink hover:underline">
+              Graduaciones, empresas y equipos: ver precios por mayor →
+            </Link>
           </div>
           <VolumeDiscountBar />
         </div>
