@@ -20,8 +20,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="min-h-screen bg-paper-soft">
-      <header className="sticky top-0 z-30 bg-ink text-paper">
+    <div className="min-h-screen bg-paper-soft print:bg-white">
+      <header className="sticky top-0 z-30 bg-ink text-paper print:hidden">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3 md:px-6">
           <div className="flex items-center gap-5">
             <Link href="/admin/pedidos" className="font-bold tracking-tight">
@@ -42,7 +42,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6">{children}</main>
+      <main className="mx-auto max-w-6xl px-4 py-8 md:px-6 print:max-w-none print:p-0">{children}</main>
     </div>
   );
 }

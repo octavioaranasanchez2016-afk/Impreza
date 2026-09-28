@@ -53,7 +53,7 @@ export function ShippingCard({
               ? "✓ El cliente compartió su ubicación GPS: el mapa abre el punto exacto."
               : "Sin ubicación GPS: el mapa busca la dirección escrita."}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 print:hidden">
             <a
               href={addressMapsUrl(entrega)}
               target="_blank"
@@ -71,7 +71,7 @@ export function ShippingCard({
               Enviar a repartidor
             </a>
           </div>
-          <p className="mt-2 text-[11px] text-ink-muted">
+          <p className="mt-2 text-[11px] text-ink-muted print:hidden">
             «Enviar a repartidor» abre WhatsApp con la dirección lista para mandársela a quien hace la entrega.
           </p>
         </>

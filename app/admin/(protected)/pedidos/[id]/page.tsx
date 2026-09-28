@@ -7,6 +7,7 @@ import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
+import { PrintButton } from "@/components/admin/PrintButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignMockup } from "@/components/DesignMockup";
 import { Invoice } from "@/components/Invoice";
@@ -118,11 +119,11 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   return (
     <div>
-      <Link href="/admin/pedidos" className="text-sm text-ink-soft hover:text-ink">
+      <Link href="/admin/pedidos" className="text-sm text-ink-soft hover:text-ink print:hidden">
         ← Volver a pedidos
       </Link>
 
-      <div className="mt-4 rounded-brand border border-black/10 bg-white p-5">
+      <div className="mt-4 rounded-brand border border-black/10 bg-white p-5 print:mt-0">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold text-ink">Pedido #{shortId}</h1>
@@ -130,9 +131,10 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               {toManagua(createdAt).toLocaleString("es-NI", { dateStyle: "full", timeStyle: "short", timeZone: "UTC" })}
             </p>
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <PaymentBadge status={paymentStatus} />
             <StatusBadge status={status} />
+            <PrintButton />
           </div>
         </div>
         {!done && paymentStatus !== "fallido" && (
@@ -148,7 +150,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
         )}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_340px] print:block print:space-y-6">
         <div className="min-w-0 space-y-6">
           {order.notas && (
             <div className="rounded-brand border-2 border-ink bg-white p-4 text-sm">
@@ -203,7 +205,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                       : { kind: "texto", texto: d.texto ?? "", color: d.color ?? "#111111", fontFamily: d.fuente ?? "sans" };
 
                   return (
-                    <div key={d.zona}>
+                    <div key={d.zona} className="print:break-inside-avoid">
                       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
                         {ZONE_LABEL[d.zona]}
                         {d.tipo === "imagen" && d.ajuste === "llenar" && " · llenar área"}
@@ -235,7 +237,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                           target="_blank"
                           rel="noopener noreferrer"
                           download
-                          className="mt-2 block rounded-brand border border-black/15 px-3 py-1.5 text-center text-xs font-semibold text-ink hover:border-ink"
+                          className="mt-2 block rounded-brand border border-black/15 px-3 py-1.5 text-center text-xs font-semibold text-ink hover:border-ink print:hidden"
                         >
                           Descargar imagen original
                           {d.anchoPx ? ` (${d.anchoPx} × ${d.altoPx} px)` : ""}
@@ -254,35 +256,38 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             )}
           </section>
 
-          <Invoice
-            title="Factura"
-            lines={buildInvoiceLines(orderItems, technique)}
-            pricing={{
-              totalQuantity: totalPieces,
-              subtotal: Number(order.subtotal),
-              discountPct: Number(order.descuento_pct),
-              discountAmount: Number(order.descuento_monto),
-              setupFee: Number(order.cargo_diseno),
-              total,
-            }}
-            technique={technique}
-            clienteNombre={nombre}
-            orderNumber={shortId}
-            date={createdAt}
-          />
+          <div className="print:hidden">
+            <Invoice
+              title="Factura"
+              lines={buildInvoiceLines(orderItems, technique)}
+              pricing={{
+                totalQuantity: totalPieces,
+                subtotal: Number(order.subtotal),
+                discountPct: Number(order.descuento_pct),
+                discountAmount: Number(order.descuento_monto),
+                setupFee: Number(order.cargo_diseno),
+                total,
+              }}
+              technique={technique}
+              clienteNombre={nombre}
+              orderNumber={shortId}
+              date={createdAt}
+              shipping={entrega}
+            />
+          </div>
         </div>
 
-        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start">
+        <div className="space-y-6 lg:sticky lg:top-20 lg:self-start print:static">
           <section className="rounded-brand border border-black/10 bg-white p-5">
             <h2 className="font-semibold text-ink">Cliente</h2>
             <p className="mt-2 text-lg font-semibold text-ink">{nombre}</p>
             <p className="text-sm text-ink-soft">{telefono}</p>
             {order.cliente_email && <p className="text-sm text-ink-soft">{order.cliente_email}</p>}
-            <p className="mt-2 text-xs text-ink-muted">
+            <p className="mt-2 text-xs text-ink-muted print:hidden">
               Al verificar el pago o avanzar el pedido aparece un botón verde para avisarle por WhatsApp. Su código para
               rastrear el pedido es <span className="font-semibold text-ink">{shortId}</span>.
             </p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2 print:hidden">
               <a
                 href={clientWhatsAppUrl(telefono, `Hola ${nombre}, te escribo de Impreza sobre tu pedido #${shortId}.`)}
                 target="_blank"
@@ -299,8 +304,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               </a>
             </div>
 
-            <p className="mt-4 text-xs font-medium text-ink-soft">Mensajes rápidos por WhatsApp</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <p className="mt-4 text-xs font-medium text-ink-soft print:hidden">Mensajes rápidos por WhatsApp</p>
+            <div className="mt-2 flex flex-wrap gap-1.5 print:hidden">
               {quickMessages.map((m) => (
                 <a
                   key={m.label}
@@ -317,7 +322,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
           <ShippingCard entrega={entrega} nombre={nombre} telefono={telefono} code={shortId} />
 
-          <section className="rounded-brand border border-black/10 bg-white p-5">
+          <section className="rounded-brand border border-black/10 bg-white p-5 print:hidden">
             <div className="flex items-baseline justify-between">
               <h2 className="font-semibold text-ink">Pago</h2>
               <p className="text-right text-sm">
@@ -347,7 +352,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             </div>
           </section>
 
-          <section className="rounded-brand border border-black/10 bg-white p-5">
+          <section className="rounded-brand border border-black/10 bg-white p-5 print:hidden">
             <StatusChanger orderId={order.id} status={status} notify={notify} />
           </section>
         </div>
