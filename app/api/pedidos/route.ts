@@ -9,6 +9,7 @@ interface DisenoInput {
   zona: DesignZone;
   tipo: "imagen" | "texto";
   path?: string;
+  ajuste?: "completa" | "llenar";
   texto?: string;
   color?: string;
   fuente?: string;
@@ -58,6 +59,7 @@ export async function POST(req: NextRequest) {
     zona: d.zona,
     tipo: d.tipo,
     path: d.tipo === "imagen" ? d.path : undefined,
+    ajuste: d.tipo === "imagen" ? (d.ajuste === "llenar" ? "llenar" : "completa") : undefined,
     texto: d.tipo === "texto" ? d.texto : undefined,
     color: d.tipo === "texto" ? d.color : undefined,
     fuente: d.tipo === "texto" ? d.fuente ?? "sans" : undefined,

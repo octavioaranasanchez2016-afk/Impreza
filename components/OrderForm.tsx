@@ -9,6 +9,7 @@ import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/ty
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
+import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { DesignCanvas } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
 import { Invoice } from "./Invoice";
@@ -180,7 +181,13 @@ export function OrderForm() {
             contentType: "image/jpeg",
           });
           if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
-          disenos.push({ zona: zone, tipo: "imagen" as const, path, ...placement });
+          disenos.push({
+            zona: zone,
+            tipo: "imagen" as const,
+            path,
+            ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
+            ...placement,
+          });
         } else {
           disenos.push({
             zona: zone,
@@ -455,6 +462,13 @@ export function OrderForm() {
           {missing.length > 0 && !submitting && (
             <p className="text-center text-xs text-ink-soft">Para confirmar falta: {missing.join(", ")}.</p>
           )}
+          <p className="rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
+            Pide hoy y tu pedido estará listo aproximadamente el{" "}
+            <span className="font-semibold">{formatReadyDate(estimateReadyDate())}</span>
+            <span className="block text-xs text-ink-soft">
+              {PRODUCTION_BUSINESS_DAYS} días hábiles, contados desde que verificamos tu pago.
+            </span>
+          </p>
         </div>
       </div>
 

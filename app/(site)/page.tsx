@@ -126,7 +126,7 @@ export default function HomePage() {
               ["1", "Crea tu diseño", "Sube una imagen JPG o escribe tu texto, y acomódalo a escala real."],
               ["2", "Elige producto", "Talla, color, cantidad y técnica."],
               ["3", "Paga por transferencia", "Revisa tu factura, transfiere y adjunta el comprobante. Así queda confirmado."],
-              ["4", "Recíbelo listo", "Sigue el estado de tu pedido hasta la entrega."],
+              ["4", "Recíbelo listo", "En 7 días hábiles desde que verificamos tu pago. Te avisamos por WhatsApp."],
             ].map(([n, title, text]) => (
               <li key={n} className="rounded-brand border border-black/5 p-6">
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-ink text-sm font-bold text-paper">

@@ -63,6 +63,8 @@ export interface MockupImageContent {
   previewUrl: string;
   width: number;
   height: number;
+  // true: cubre toda el área de impresión recortando los bordes de la imagen.
+  fill?: boolean;
 }
 
 export interface MockupTextContent {

@@ -271,6 +271,29 @@ export function DesignCanvas({
               </div>
             )}
 
+            {content.kind === "imagen" && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink-soft">Ajuste de la imagen</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <FitOption
+                    active={!content.fill}
+                    onClick={() => onContentChange({ ...content, fill: false }, false)}
+                    title="Imagen completa"
+                    hint="Se ve toda la imagen"
+                  />
+                  <FitOption
+                    active={Boolean(content.fill)}
+                    onClick={() => {
+                      onContentChange({ ...content, fill: true }, false);
+                      onTransformChange({ x: area.x + area.w / 2, y: area.y + area.h / 2, scale: MAX_SCALE, rotation: 0 });
+                    }}
+                    title="Llenar el área"
+                    hint={`Cubre los ${printCm.w} × ${printCm.h} cm; recorta los bordes`}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Slider
                 label="Tamaño"
@@ -280,6 +303,16 @@ export function DesignCanvas({
                 step={0.01}
                 display={`${Math.round(transform.scale * 100)}%`}
                 onChange={(scale) => onTransformChange({ ...transform, scale })}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => onTransformChange({ ...transform, scale: MAX_SCALE })}
+                    disabled={transform.scale >= MAX_SCALE}
+                    className="rounded border border-ink bg-ink px-2 py-0.5 text-[11px] font-semibold text-paper transition-opacity hover:opacity-80 disabled:border-black/15 disabled:bg-transparent disabled:text-ink-muted"
+                  >
+                    Máximo
+                  </button>
+                }
               />
               <Slider
                 label="Girar"
@@ -295,7 +328,6 @@ export function DesignCanvas({
             <div className="flex flex-wrap gap-2">
               <ToolButton onClick={() => onTransformChange({ ...transform, x: area.x + area.w / 2 })}>Centrar</ToolButton>
               <ToolButton onClick={() => setRotation(0)}>Enderezar</ToolButton>
-              <ToolButton onClick={() => onTransformChange({ ...transform, scale: MAX_SCALE })}>Tamaño máximo</ToolButton>
               <ToolButton onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</ToolButton>
             </div>
 
@@ -330,6 +362,7 @@ function Slider({
   step,
   display,
   onChange,
+  action,
 }: {
   label: string;
   value: number;
@@ -338,15 +371,19 @@ function Slider({
   step: number;
   display: string;
   onChange: (v: number) => void;
+  action?: React.ReactNode;
 }) {
   return (
-    <label className="block">
-      <span className="mb-1 flex justify-between text-xs font-medium text-ink-soft">
-        {label}
-        <span className="text-ink">{display}</span>
-      </span>
+    <div>
+      <div className="mb-1 flex items-center justify-between gap-2 text-xs font-medium text-ink-soft">
+        <span>
+          {label} <span className="text-ink">{display}</span>
+        </span>
+        {action}
+      </div>
       <input
         type="range"
+        aria-label={label}
         min={min}
         max={max}
         step={step}
@@ -354,7 +391,22 @@ function Slider({
         onChange={(e) => onChange(Number(e.target.value))}
         className="w-full accent-ink"
       />
-    </label>
+    </div>
+  );
+}
+
+function FitOption({ active, onClick, title, hint }: { active: boolean; onClick: () => void; title: string; hint: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-brand border px-3 py-2 text-left transition-colors ${
+        active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+      }`}
+    >
+      <span className="block text-sm font-semibold">{title}</span>
+      <span className={`block text-[11px] ${active ? "text-paper/70" : "text-ink-muted"}`}>{hint}</span>
+    </button>
   );
 }
 

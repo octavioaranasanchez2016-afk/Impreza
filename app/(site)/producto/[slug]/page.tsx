@@ -19,8 +19,8 @@ export default async function ProductoPage({
   return (
     <section className="mx-auto max-w-5xl px-4 py-14 md:px-6">
       <div className="grid gap-10 md:grid-cols-2">
-        <div className="aspect-square rounded-brand bg-paper p-12">
-          <img src={product.image} alt={product.name} className="h-full w-full object-contain" />
+        <div className="aspect-square overflow-hidden rounded-brand bg-paper-soft">
+          <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
         </div>
 
         <div>

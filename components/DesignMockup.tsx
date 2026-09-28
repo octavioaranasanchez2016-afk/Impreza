@@ -109,8 +109,11 @@ export function DesignMockup({
     textFontSize = Math.min((area.w * transform.scale) / ratio, area.h * transform.scale);
   }
 
+  const imageFill = content?.kind === "imagen" && Boolean(content.fill);
   const imageWidthPct =
-    content?.kind === "imagen" ? computeFitWidthPct(category, zone, content.width, content.height) * transform.scale : 0;
+    content?.kind === "imagen"
+      ? (imageFill ? area.w : computeFitWidthPct(category, zone, content.width, content.height)) * transform.scale
+      : 0;
 
   // Tamaño real del diseño (sin rotar), en % del lienzo.
   const measure = useCallback(() => {
@@ -125,7 +128,7 @@ export function DesignMockup({
     setDims((prev) => (prev && Math.abs(prev.w - w) < 0.01 && Math.abs(prev.h - h) < 0.01 ? prev : { w, h }));
   }, []);
 
-  useLayoutEffect(measure, [measure, content, displayText, textFontSize, imageWidthPct]);
+  useLayoutEffect(measure, [measure, content, displayText, textFontSize, imageWidthPct, imageFill]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -212,10 +215,23 @@ export function DesignMockup({
     setMode(next);
   }
 
-  const widthCm = dims ? (dims.w / 100) * spanCm : null;
-  const heightCm = dims ? (dims.h / 100) * spanCm : null;
+  // Las imágenes tienen tamaño exacto calculable; medir en píxeles agrega redondeo.
+  const exactImageDims =
+    content?.kind !== "imagen"
+      ? null
+      : imageFill
+      ? { w: area.w * transform.scale, h: area.h * transform.scale }
+      : content.width > 0
+      ? { w: imageWidthPct, h: (imageWidthPct * content.height) / content.width }
+      : null;
+  const shownDims = exactImageDims ?? dims;
+  const widthCm = shownDims ? (shownDims.w / 100) * spanCm : null;
+  const heightCm = shownDims ? (shownDims.h / 100) * spanCm : null;
+  // En "llenar" la imagen se estira hasta cubrir ambos lados: manda el lado con menos píxeles por cm.
   const dpi =
-    content?.kind === "imagen" && content.width > 0 && widthCm ? Math.round(content.width / (widthCm / 2.54)) : null;
+    content?.kind === "imagen" && content.width > 0 && widthCm && heightCm
+      ? Math.round(Math.min(content.width / (widthCm / 2.54), content.height / (heightCm / 2.54)))
+      : null;
 
   return (
     <div>
@@ -236,6 +252,7 @@ export function DesignMockup({
               left: `${transform.x}%`,
               top: `${transform.y}%`,
               width: content.kind === "imagen" ? `${imageWidthPct}%` : undefined,
+              aspectRatio: imageFill ? `${area.w} / ${area.h}` : undefined,
               transform: `translate(-50%, -50%) rotate(${transform.rotation}deg)`,
             }}
           >
@@ -246,7 +263,7 @@ export function DesignMockup({
                 draggable={false}
                 onLoad={measure}
                 onPointerDown={(e) => begin(e, "dragging")}
-                className={`block w-full ${interactive ? "cursor-move" : ""}`}
+                className={`block w-full ${imageFill ? "h-full object-cover" : ""} ${interactive ? "cursor-move" : ""}`}
                 style={{ touchAction: "none" }}
               />
             ) : (

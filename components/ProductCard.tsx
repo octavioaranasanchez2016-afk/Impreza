@@ -8,11 +8,12 @@ export function ProductCard({ product }: { product: Product }) {
       href={`/producto/${product.slug}`}
       className="group overflow-hidden rounded-brand border border-black/5 bg-white transition-shadow hover:shadow-md"
     >
-      <div className="aspect-square bg-paper p-8">
+      <div className="aspect-square overflow-hidden bg-paper-soft">
         <img
           src={product.image}
           alt={product.name}
-          className="h-full w-full object-contain transition-transform group-hover:scale-105"
+          loading="lazy"
+          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
       </div>
       <div className="p-4">

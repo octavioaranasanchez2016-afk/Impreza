@@ -18,6 +18,7 @@ interface StoredDiseno {
   zona: DesignZone;
   tipo: "imagen" | "texto";
   path?: string;
+  ajuste?: "completa" | "llenar";
   texto?: string;
   color?: string;
   fuente?: FontFamilyKey;
@@ -118,7 +119,7 @@ export default async function AdminPedidoDetailPage({
                   const content: MockupContent | null =
                     d.tipo === "imagen"
                       ? d.signedUrl
-                        ? { kind: "imagen", previewUrl: d.signedUrl, width: 0, height: 0 }
+                        ? { kind: "imagen", previewUrl: d.signedUrl, width: 0, height: 0, fill: d.ajuste === "llenar" }
                         : null
                       : {
                           kind: "texto",

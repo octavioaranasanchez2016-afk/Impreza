@@ -5,6 +5,7 @@ import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Invoice } from "@/components/Invoice";
 import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
+import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { Technique } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,13 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
         <p className="mt-2 text-ink-soft">
           Recibimos tu pedido <span className="font-semibold text-ink">#{shortId}</span> y tu comprobante de
           transferencia. Vamos a verificar el pago y te escribimos por WhatsApp para coordinar la entrega.
+        </p>
+        <p className="mx-auto mt-4 max-w-md rounded-brand bg-paper-soft px-4 py-3 text-sm text-ink">
+          Listo aproximadamente el{" "}
+          <span className="font-semibold">{formatReadyDate(estimateReadyDate(new Date(order.created_at)))}</span>
+          <span className="block text-xs text-ink-soft">
+            {PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago.
+          </span>
         </p>
       </div>
 

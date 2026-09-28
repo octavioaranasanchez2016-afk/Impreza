@@ -10,7 +10,7 @@ export const PRODUCTS: Product[] = [
     name: "Camisa básica",
     description: "Camisa 100% algodón, corte unisex. Ideal para serigrafía o sublimado.",
     basePrice: 220,
-    image: "/products/camisa.svg",
+    image: "https://images.unsplash.com/photo-1651761179569-4ba2aa054997?w=900&q=80&auto=format&fit=crop",
     techniques: ["serigrafia", "sublimado"],
     variants: [
       { color: "Blanco", colorHex: "#FFFFFF", sizes: ["S", "M", "L", "XL", "XXL"] },
@@ -26,7 +26,7 @@ export const PRODUCTS: Product[] = [
     name: "Hoodie con capucha",
     description: "Hoodie fleece con bolsillo canguro, ideal para diseños grandes.",
     basePrice: 510,
-    image: "/products/hoodie.svg",
+    image: "https://images.unsplash.com/photo-1581655353466-d5ad6765dd37?w=900&q=80&auto=format&fit=crop",
     techniques: ["serigrafia", "sublimado"],
     variants: [
       { color: "Negro", colorHex: "#111111", sizes: ["S", "M", "L", "XL", "XXL"] },
@@ -41,7 +41,7 @@ export const PRODUCTS: Product[] = [
     name: "Tote bag",
     description: "Bolsa de tela resistente, tamaño único. Perfecta para eventos y regalos.",
     basePrice: 165,
-    image: "/products/tote.svg",
+    image: "https://images.unsplash.com/photo-1574365569389-a10d488ca3fb?w=900&q=80&auto=format&fit=crop",
     techniques: ["serigrafia", "sublimado"],
     variants: [
       { color: "Natural", colorHex: "#EFE7D8", sizes: ["Único"] },
