@@ -1,18 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { OrderStatus } from "@/lib/types";
+import { OrderStatus, PaymentStatus } from "@/lib/types";
 
-const VALID_STATUSES: OrderStatus[] = [
-  "recibido",
-  "diseno_aprobado",
-  "en_produccion",
-  "listo_entregado",
-];
+const VALID_STATUSES: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
+const VALID_PAYMENT_STATUSES: PaymentStatus[] = ["en_revision", "pagado", "fallido"];
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
@@ -27,16 +20,27 @@ export async function PATCH(
   }
 
   const body = await req.json().catch(() => null);
-  const status = body?.status as OrderStatus | undefined;
+  const update: { status?: OrderStatus; payment_status?: PaymentStatus; updated_at: string } = {
+    updated_at: new Date().toISOString(),
+  };
 
-  if (!status || !VALID_STATUSES.includes(status)) {
-    return NextResponse.json({ error: "Estado inválido." }, { status: 400 });
+  if (body?.status !== undefined) {
+    if (!VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json({ error: "Estado inválido." }, { status: 400 });
+    }
+    update.status = body.status;
+  }
+  if (body?.paymentStatus !== undefined) {
+    if (!VALID_PAYMENT_STATUSES.includes(body.paymentStatus)) {
+      return NextResponse.json({ error: "Estado de pago inválido." }, { status: 400 });
+    }
+    update.payment_status = body.paymentStatus;
+  }
+  if (!update.status && !update.payment_status) {
+    return NextResponse.json({ error: "Nada que actualizar." }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from("orders")
-    .update({ status, updated_at: new Date().toISOString() })
-    .eq("id", id);
+  const { error } = await supabase.from("orders").update(update).eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

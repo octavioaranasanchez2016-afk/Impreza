@@ -123,9 +123,9 @@ export default function HomePage() {
           <h2 className="text-2xl font-bold text-ink md:text-3xl">Cómo funciona</h2>
           <ol className="mt-8 grid gap-6 md:grid-cols-4">
             {[
-              ["1", "Sube tu diseño", "PNG, JPG o PDF, en buena resolución."],
+              ["1", "Crea tu diseño", "Sube una imagen JPG o escribe tu texto, y acomódalo a escala real."],
               ["2", "Elige producto", "Talla, color, cantidad y técnica."],
-              ["3", "Confirma tu pedido", "Te contactamos por WhatsApp para coordinar pago y entrega."],
+              ["3", "Paga por transferencia", "Revisa tu factura, transfiere y adjunta el comprobante. Así queda confirmado."],
               ["4", "Recíbelo listo", "Sigue el estado de tu pedido hasta la entrega."],
             ].map(([n, title, text]) => (
               <li key={n} className="rounded-brand border border-black/5 p-6">

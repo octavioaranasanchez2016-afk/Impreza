@@ -1,24 +1,34 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
 import {
   ACCEPTED_DESIGN_TYPES,
   DesignContent,
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
-  FontFamilyKey,
+  MAX_DESIGN_SIZE_MB,
+  MockupTextContent,
   TEXT_COLOR_OPTIONS,
   fontFamilyCss,
   validateDesignFile,
 } from "@/lib/design";
-import { GarmentShape, getZonesForCategory, ZONE_LABEL } from "./GarmentShape";
-import { DesignMockup } from "./DesignMockup";
+import {
+  ZONE_LABEL,
+  getMeasure,
+  getPrintArea,
+  getPrintAreaCm,
+  getZonesForCategory,
+  isDarkColor,
+} from "./GarmentShape";
+import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
 
 export function DesignCanvas({
   category,
   color,
+  size,
   zone,
+  zonesWithContent,
   onZoneChange,
   content,
   onContentChange,
@@ -27,64 +37,72 @@ export function DesignCanvas({
 }: {
   category: ProductCategory;
   color: string;
+  size: string;
   zone: DesignZone;
+  zonesWithContent: DesignZone[];
   onZoneChange: (zone: DesignZone) => void;
   content: DesignContent | null;
-  onContentChange: (content: DesignContent | null) => void;
+  // resetTransform: true cuando es un diseño nuevo en la zona (se recoloca).
+  onContentChange: (content: DesignContent | null, resetTransform: boolean) => void;
   transform: DesignTransform;
   onTransformChange: (t: DesignTransform) => void;
 }) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const textInputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const textRef = useRef<HTMLInputElement>(null);
+  const focusText = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [textDraft, setTextDraft] = useState("");
-  const [textColor, setTextColor] = useState(TEXT_COLOR_OPTIONS[0].value);
-  const [textFont, setTextFont] = useState<FontFamilyKey>(FONT_OPTIONS[0].value);
-  const [editingText, setEditingText] = useState(false);
 
   const zones = getZonesForCategory(category);
+  const measure = getMeasure(category, size);
+  const printCm = getPrintAreaCm(category, zone);
+
+  useEffect(() => {
+    if (focusText.current && content?.kind === "texto") {
+      textRef.current?.focus();
+      focusText.current = false;
+    }
+  }, [content]);
 
   async function handleFile(file: File | undefined) {
     setError(null);
     if (!file) return;
-
     const { content: validated, error: validationError } = await validateDesignFile(file);
     if (validationError) {
       setError(validationError);
       return;
     }
-    onContentChange(validated);
+    onContentChange(validated, true);
   }
 
-  function openTextEditor() {
+  function addText() {
     setError(null);
-    setTextDraft(content?.kind === "texto" ? content.texto : "");
-    setTextColor(content?.kind === "texto" ? content.color : TEXT_COLOR_OPTIONS[0].value);
-    setTextFont(content?.kind === "texto" ? content.fontFamily : FONT_OPTIONS[0].value);
-    setEditingText(true);
+    focusText.current = true;
+    onContentChange(
+      { kind: "texto", texto: "", color: isDarkColor(color) ? "#FFFFFF" : "#111111", fontFamily: "sans" },
+      true
+    );
   }
 
-  function confirmText() {
-    const texto = textDraft.trim();
-    if (!texto) {
-      setEditingText(false);
-      return;
-    }
-    onContentChange({ kind: "texto", texto, color: textColor, fontFamily: textFont });
-    setEditingText(false);
+  function updateText(patch: Partial<MockupTextContent>) {
+    if (content?.kind !== "texto") return;
+    onContentChange({ ...content, ...patch }, false);
   }
 
   function insertEmoji(emoji: string) {
-    const el = textInputRef.current;
-    const start = el?.selectionStart ?? textDraft.length;
-    const end = el?.selectionEnd ?? textDraft.length;
-    const next = textDraft.slice(0, start) + emoji + textDraft.slice(end);
-    setTextDraft(next);
+    if (content?.kind !== "texto") return;
+    const el = textRef.current;
+    const start = el?.selectionStart ?? content.texto.length;
+    const end = el?.selectionEnd ?? content.texto.length;
+    updateText({ texto: content.texto.slice(0, start) + emoji + content.texto.slice(end) });
     requestAnimationFrame(() => {
       el?.focus();
       el?.setSelectionRange(start + emoji.length, start + emoji.length);
     });
   }
+
+  const rotationDisplay = transform.rotation > 180 ? transform.rotation - 360 : transform.rotation;
+  const setRotation = (deg: number) => onTransformChange({ ...transform, rotation: ((deg % 360) + 360) % 360 });
+  const area = getPrintArea(category, zone);
 
   return (
     <div>
@@ -95,81 +113,119 @@ export function DesignCanvas({
               key={z}
               type="button"
               onClick={() => onZoneChange(z)}
-              className={`rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                zone === z
-                  ? "border-ink bg-ink text-paper"
-                  : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
+              className={`flex items-center gap-1.5 rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                zone === z ? "border-ink bg-ink text-paper" : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
               }`}
             >
               {ZONE_LABEL[z]}
+              {zonesWithContent.includes(z) && (
+                <span className={`h-1.5 w-1.5 rounded-full ${zone === z ? "bg-paper" : "bg-ink"}`} aria-label="con diseño" />
+              )}
             </button>
           ))}
         </div>
       )}
 
-      <div className="relative aspect-square w-full overflow-hidden rounded-brand bg-white ring-1 ring-black/5">
-        {content && !editingText ? (
-          <DesignMockup
-            category={category}
-            zone={zone}
-            color={color}
-            content={content}
-            transform={transform}
-            onTransformChange={onTransformChange}
-          />
+      <DesignMockup
+        category={category}
+        zone={zone}
+        color={color}
+        size={size}
+        content={content}
+        transform={transform}
+        onTransformChange={onTransformChange}
+      />
+
+      <p className="mt-1 text-center text-[11px] text-ink-muted">
+        {category === "tote"
+          ? `Tote bag de ${measure.ancho} × ${measure.largo} cm`
+          : zone === "manga"
+          ? `Manga talla ${size}`
+          : `Talla ${size}: ${measure.ancho} cm de ancho × ${measure.largo} cm de largo`}
+        {" · "}área máxima de impresión {printCm.w} × {printCm.h} cm (línea punteada)
+      </p>
+
+      <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
+        {!content ? (
+          <div>
+            <p className="text-sm font-semibold text-ink">¿Qué quieres poner en {ZONE_LABEL[zone].toLowerCase()}?</p>
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                className="flex items-center justify-center gap-2 rounded-brand bg-ink px-4 py-3 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
+              >
+                <UploadIcon /> Subir imagen JPG
+              </button>
+              <button
+                type="button"
+                onClick={addText}
+                className="flex items-center justify-center gap-2 rounded-brand border border-ink/20 px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+              >
+                <TextIcon /> Agregar texto
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-ink-muted">
+              Solo JPG · máximo {MAX_DESIGN_SIZE_MB} MB · mínimo 1000 px por lado
+            </p>
+          </div>
         ) : (
-          <>
-            <GarmentShape category={category} zone={zone} color={color} showGuide />
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-white/10 p-4">
-              {editingText ? (
-                <div className="w-full max-w-[280px] rounded-brand border border-black/10 bg-white p-3 shadow-lg">
-                  <input
-                    ref={textInputRef}
-                    autoFocus
-                    value={textDraft}
-                    onChange={(e) => setTextDraft(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && confirmText()}
-                    placeholder="Escribe tu texto"
-                    className="input text-center"
-                  />
+          <div className="space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="truncate text-sm font-semibold text-ink">
+                {content.kind === "imagen" ? `Imagen: ${content.file.name}` : "Texto"}
+              </p>
+              <div className="flex shrink-0 gap-3 text-xs">
+                {content.kind === "imagen" && (
+                  <button type="button" onClick={() => fileRef.current?.click()} className="font-semibold text-ink hover:underline">
+                    Cambiar imagen
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onContentChange(null, true)}
+                  className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                >
+                  Quitar
+                </button>
+              </div>
+            </div>
 
-                  <div className="mt-2 flex flex-wrap justify-center gap-1">
-                    {EMOJI_QUICK_PICKS.map((emoji) => (
-                      <button
-                        key={emoji}
-                        type="button"
-                        onClick={() => insertEmoji(emoji)}
-                        className="flex h-6 w-6 items-center justify-center rounded text-sm hover:bg-paper"
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                  </div>
+            {content.kind === "texto" && (
+              <div className="space-y-3">
+                <input
+                  ref={textRef}
+                  value={content.texto}
+                  onChange={(e) => updateText({ texto: e.target.value })}
+                  placeholder="Escribe tu texto"
+                  maxLength={40}
+                  className="input"
+                />
 
-                  <div className="mt-2 flex justify-center gap-1.5">
-                    {TEXT_COLOR_OPTIONS.map((c) => (
-                      <button
-                        key={c.value}
-                        type="button"
-                        onClick={() => setTextColor(c.value)}
-                        title={c.label}
-                        className={`h-5 w-5 rounded-full border ${
-                          textColor === c.value ? "ring-2 ring-ink ring-offset-1" : "border-black/15"
-                        }`}
-                        style={{ backgroundColor: c.value }}
-                      />
-                    ))}
-                  </div>
+                <div className="flex flex-wrap gap-1">
+                  {EMOJI_QUICK_PICKS.map((emoji) => (
+                    <button
+                      key={emoji}
+                      type="button"
+                      onClick={() => insertEmoji(emoji)}
+                      className="flex h-7 w-7 items-center justify-center rounded border border-black/10 text-sm hover:border-ink"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
 
-                  <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Letra</p>
+                  <div className="flex flex-wrap gap-1.5">
                     {FONT_OPTIONS.map((f) => (
                       <button
                         key={f.value}
                         type="button"
-                        onClick={() => setTextFont(f.value)}
+                        onClick={() => updateText({ fontFamily: f.value })}
                         style={{ fontFamily: fontFamilyCss(f.value) }}
-                        className={`rounded-brand border px-2 py-1 text-xs ${
-                          textFont === f.value
+                        className={`rounded-brand border px-3 py-1.5 text-sm ${
+                          content.fontFamily === f.value
                             ? "border-ink bg-ink text-paper"
                             : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
                         }`}
@@ -178,94 +234,139 @@ export function DesignCanvas({
                       </button>
                     ))}
                   </div>
+                </div>
 
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      onClick={confirmText}
-                      className="flex-1 rounded-brand bg-ink px-3 py-1.5 text-xs font-semibold text-paper transition-opacity hover:opacity-80"
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Color</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {TEXT_COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => updateText({ color: c.value })}
+                        title={c.label}
+                        aria-label={c.label}
+                        className={`h-7 w-7 rounded-full border ${
+                          content.color.toLowerCase() === c.value.toLowerCase()
+                            ? "ring-2 ring-ink ring-offset-2"
+                            : "border-black/15"
+                        }`}
+                        style={{ backgroundColor: c.value }}
+                      />
+                    ))}
+                    <label
+                      title="Otro color"
+                      className="relative flex h-7 cursor-pointer items-center gap-1 rounded-full border border-black/15 px-2 text-xs text-ink-soft hover:border-ink"
                     >
-                      Listo
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setEditingText(false)}
-                      className="rounded-brand border border-black/15 px-3 py-1.5 text-xs font-semibold text-ink-soft"
-                    >
-                      Cancelar
-                    </button>
+                      Otro
+                      <input
+                        type="color"
+                        value={content.color}
+                        onChange={(e) => updateText({ color: e.target.value })}
+                        className="absolute inset-0 cursor-pointer opacity-0"
+                      />
+                    </label>
                   </div>
                 </div>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => inputRef.current?.click()}
-                    className="flex items-center gap-2 rounded-brand bg-ink px-5 py-3 text-sm font-semibold text-paper shadow-lg transition-opacity hover:opacity-80"
-                  >
-                    <UploadIcon /> Subir diseño
-                  </button>
-                  <button
-                    type="button"
-                    onClick={openTextEditor}
-                    className="flex items-center gap-2 rounded-brand border border-ink/20 bg-white px-5 py-3 text-sm font-semibold text-ink shadow transition-colors hover:border-ink hover:bg-ink hover:text-paper"
-                  >
-                    <TextIcon /> Agregar texto
-                  </button>
-                </>
-              )}
-            </div>
-          </>
-        )}
-      </div>
+              </div>
+            )}
 
-      <div className="mt-2 flex items-center justify-between gap-3 text-xs">
-        {content && !editingText ? (
-          <>
-            <span className="truncate text-ink-soft">
-              {content.kind === "imagen" ? content.file.name : `“${content.texto}”`}
-            </span>
-            <div className="flex shrink-0 gap-3">
-              {content.kind === "texto" ? (
-                <button type="button" onClick={openTextEditor} className="font-semibold text-ink hover:underline">
-                  Editar texto
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => inputRef.current?.click()}
-                  className="font-semibold text-ink hover:underline"
-                >
-                  Cambiar diseño
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onContentChange(null)}
-                className="font-semibold text-ink-soft hover:text-ink hover:underline"
-              >
-                Quitar
-              </button>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Slider
+                label="Tamaño"
+                value={transform.scale}
+                min={MIN_SCALE}
+                max={MAX_SCALE}
+                step={0.01}
+                display={`${Math.round(transform.scale * 100)}%`}
+                onChange={(scale) => onTransformChange({ ...transform, scale })}
+              />
+              <Slider
+                label="Girar"
+                value={rotationDisplay}
+                min={-180}
+                max={180}
+                step={1}
+                display={`${Math.round(rotationDisplay)}°`}
+                onChange={setRotation}
+              />
             </div>
-          </>
-        ) : (
-          !editingText && <p className="text-ink-soft">PNG, JPG o PDF — máx. 25MB</p>
+
+            <div className="flex flex-wrap gap-2">
+              <ToolButton onClick={() => onTransformChange({ ...transform, x: area.x + area.w / 2 })}>Centrar</ToolButton>
+              <ToolButton onClick={() => setRotation(0)}>Enderezar</ToolButton>
+              <ToolButton onClick={() => onTransformChange({ ...transform, scale: MAX_SCALE })}>Tamaño máximo</ToolButton>
+              <ToolButton onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</ToolButton>
+            </div>
+
+            <p className="text-xs text-ink-muted">
+              También puedes arrastrar el diseño. Punto negro: tamaño · punto blanco: girar.
+            </p>
+          </div>
         )}
       </div>
 
       <input
-        ref={inputRef}
+        ref={fileRef}
         type="file"
-        accept={ACCEPTED_DESIGN_TYPES.join(",")}
+        accept={[...ACCEPTED_DESIGN_TYPES, ".jpg", ".jpeg"].join(",")}
         className="hidden"
-        onChange={(e) => handleFile(e.target.files?.[0])}
+        onChange={(e) => {
+          handleFile(e.target.files?.[0]);
+          e.target.value = "";
+        }}
       />
 
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
-      {!error && content?.kind === "imagen" && content.warning && (
-        <p className="mt-2 text-sm font-medium text-yellow-700">{content.warning}</p>
-      )}
     </div>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (v: number) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="mb-1 flex justify-between text-xs font-medium text-ink-soft">
+        {label}
+        <span className="text-ink">{display}</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-ink"
+      />
+    </label>
+  );
+}
+
+function ToolButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-brand border border-black/15 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink"
+    >
+      {children}
+    </button>
   );
 }
 

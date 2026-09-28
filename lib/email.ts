@@ -41,6 +41,7 @@ export async function sendNewOrderEmail(params: {
           <p><strong>Teléfono:</strong> ${escapeHtml(params.clienteTelefono)}</p>
           <p><strong>Técnica:</strong> ${escapeHtml(params.tecnica)}</p>
           <p><strong>Total:</strong> ${formatCordobas(params.total)}</p>
+          <p>El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>
           <p style="margin-top: 24px;">
             <a href="${siteUrl}/admin/pedidos/${params.orderId}"
                style="background:#111;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;">
@@ -80,8 +81,8 @@ export async function sendCustomerConfirmationEmail(params: {
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
           <h2>¡Gracias por tu pedido, ${escapeHtml(params.clienteNombre)}!</h2>
-          <p>Tu pedido <strong>#${shortId}</strong> está en revisión. Vamos a confirmar
-          tu diseño y coordinar el pago contigo.</p>
+          <p>Tu pedido <strong>#${shortId}</strong> está confirmado. Recibimos tu comprobante
+          de transferencia; vamos a verificar el pago y te escribimos por WhatsApp.</p>
           <p><strong>Total:</strong> ${formatCordobas(params.total)}</p>
           <p style="margin-top: 24px;">
             <a href="https://wa.me/${whatsappNumber}?text=${waMessage}"

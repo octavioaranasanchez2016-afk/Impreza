@@ -1,17 +1,24 @@
-export const ACCEPTED_DESIGN_TYPES = ["image/png", "image/jpeg", "application/pdf"];
+export const ACCEPTED_DESIGN_TYPES = ["image/jpeg"];
 export const MAX_DESIGN_SIZE_MB = 25;
-// Heurística simple para MVP: lado más corto en píxeles. La validación de
-// DPI real (fase 3) requiere leer metadata de la imagen o el tamaño de
-// impresión que elija el cliente.
 const MIN_SHORT_SIDE_PX = 1000;
-const WARN_SHORT_SIDE_PX = 1500;
+// Por debajo de esto, al tamaño real de impresión, la imagen se ve pixelada.
+export const MIN_PRINT_DPI = 150;
 
 export const TEXT_COLOR_OPTIONS = [
   { label: "Negro", value: "#111111" },
   { label: "Blanco", value: "#FFFFFF" },
+  { label: "Gris", value: "#9CA3AF" },
+  { label: "Rojo", value: "#DC2626" },
+  { label: "Naranja", value: "#F97316" },
+  { label: "Amarillo", value: "#FBC72D" },
+  { label: "Verde", value: "#16A34A" },
+  { label: "Azul", value: "#2563EB" },
+  { label: "Azul marino", value: "#1E3A8A" },
+  { label: "Morado", value: "#7C3AED" },
+  { label: "Rosado", value: "#EC4899" },
   { label: "Magenta", value: "#E5007E" },
   { label: "Cian", value: "#00A6E0" },
-  { label: "Amarillo", value: "#FBC72D" },
+  { label: "Dorado", value: "#B8860B" },
 ];
 
 export type FontFamilyKey = "sans" | "display" | "script" | "serif" | "mono";
@@ -69,7 +76,6 @@ export type MockupContent = MockupImageContent | MockupTextContent;
 
 export interface ImageDesignContent extends MockupImageContent {
   file: File;
-  warning: string | null;
 }
 
 export type DesignContent = ImageDesignContent | MockupTextContent;
@@ -79,22 +85,19 @@ export interface DesignFileResult {
   error: string | null;
 }
 
+// Algunos navegadores dejan file.type vacío; en ese caso se decide por la extensión.
+function isJpeg(file: File): boolean {
+  if (file.type) return file.type === "image/jpeg";
+  return /\.jpe?g$/i.test(file.name);
+}
+
 export async function validateDesignFile(file: File): Promise<DesignFileResult> {
-  if (!ACCEPTED_DESIGN_TYPES.includes(file.type)) {
-    return { content: null, error: "Formato no válido. Sube un archivo PNG, JPG o PDF." };
+  if (!isJpeg(file)) {
+    return { content: null, error: "Formato no válido. Solo aceptamos imágenes JPG." };
   }
 
   if (file.size > MAX_DESIGN_SIZE_MB * 1024 * 1024) {
     return { content: null, error: `El archivo pesa demasiado (máximo ${MAX_DESIGN_SIZE_MB}MB).` };
-  }
-
-  if (file.type === "application/pdf") {
-    // Un PDF no tiene dimensiones de imagen; usamos un tamaño de referencia
-    // neutro (cuadrado) para que el ajuste automático no falle.
-    return {
-      content: { kind: "imagen", file, previewUrl: "", warning: null, width: 1000, height: 1000 },
-      error: null,
-    };
   }
 
   const previewUrl = URL.createObjectURL(file);
@@ -109,13 +112,8 @@ export async function validateDesignFile(file: File): Promise<DesignFileResult> 
     };
   }
 
-  const warning =
-    shortSide < WARN_SHORT_SIDE_PX
-      ? "La resolución es aceptable pero no ideal. Para impresiones grandes podría verse borrosa."
-      : null;
-
   return {
-    content: { kind: "imagen", file, previewUrl, warning, width: dimensions.width, height: dimensions.height },
+    content: { kind: "imagen", file, previewUrl, width: dimensions.width, height: dimensions.height },
     error: null,
   };
 }

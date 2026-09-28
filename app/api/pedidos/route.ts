@@ -27,7 +27,7 @@ interface CreateOrderBody {
   notas: string | null;
   items: OrderItemInput[];
   paymentMethod: PaymentMethod;
-  comprobantePath: string | null;
+  comprobantePath: string;
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga"];
@@ -78,8 +78,8 @@ export async function POST(req: NextRequest) {
       tecnica: body.tecnica,
       disenos,
       notas: body.notas,
-      payment_method: body.paymentMethod,
-      payment_status: body.comprobantePath ? "en_revision" : "pendiente",
+      payment_method: "transferencia",
+      payment_status: "en_revision",
       comprobante_url: body.comprobantePath,
       subtotal: pricing.subtotal,
       descuento_pct: pricing.discountPct,
@@ -174,8 +174,15 @@ function validate(body: CreateOrderBody): string | null {
       return "Cada producto debe tener cantidad válida.";
     }
   }
-  if (!["contra_entrega", "transferencia", "whatsapp", "en_linea"].includes(body.paymentMethod)) {
-    return "Método de pago inválido.";
+  if (body.paymentMethod !== "transferencia") {
+    return "Solo aceptamos pago por transferencia bancaria.";
+  }
+  if (
+    typeof body.comprobantePath !== "string" ||
+    !body.comprobantePath.startsWith("comprobantes/") ||
+    body.comprobantePath.includes("..")
+  ) {
+    return "Adjunta el comprobante de transferencia para confirmar el pedido.";
   }
   return null;
 }

@@ -2,78 +2,88 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
+import { Invoice } from "@/components/Invoice";
 import { formatCordobas } from "@/lib/currency";
+import { buildInvoiceLines } from "@/lib/pricing";
+import { Technique } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-export default async function ConfirmacionPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function ConfirmacionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = createServiceClient();
   const { data: order } = await supabase
     .from("orders")
-    .select("id, cliente_nombre, total, payment_method, status")
+    .select("id, cliente_nombre, tecnica, subtotal, descuento_pct, descuento_monto, cargo_diseno, total, created_at")
     .eq("id", id)
     .single();
 
   if (!order) notFound();
 
+  const { data: items } = await supabase
+    .from("order_items")
+    .select("product_id, color, talla, cantidad")
+    .eq("order_id", id);
+
+  const technique = order.tecnica as Technique;
+  const orderItems = (items ?? []).map((i) => ({
+    productId: i.product_id,
+    color: i.color,
+    size: i.talla,
+    quantity: i.cantidad,
+  }));
   const shortId = order.id.slice(0, 8).toUpperCase();
-  const message = `Hola, soy ${order.cliente_nombre}. Acabo de hacer el pedido #${shortId} en Impreza por un total de ${formatCordobas(
-    Number(order.total)
-  )}. Quiero confirmar los detalles.`;
+  const total = Number(order.total);
+  const message = `Hola, soy ${order.cliente_nombre}. Hice el pedido #${shortId} en Impreza por ${formatCordobas(
+    total
+  )} y adjunté mi comprobante de transferencia.`;
 
   return (
-    <section className="mx-auto max-w-xl px-4 py-16 text-center md:px-6">
-      <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-ink text-3xl text-paper">
-        ✓
-      </div>
-      <h1 className="mt-6 text-3xl font-bold text-ink">¡Pedido recibido!</h1>
-      <p className="mt-2 text-ink-soft">
-        Tu pedido <span className="font-semibold text-ink">#{shortId}</span> está en revisión.
-        Nuestro equipo va a confirmar el diseño y coordinar el pago contigo.
-      </p>
-
-      <div className="mt-6 rounded-brand border border-black/10 bg-white p-6 text-left">
-        <Row label="Total" value={formatCordobas(Number(order.total))} />
-        <Row label="Forma de pago" value={paymentLabel(order.payment_method)} />
-        <Row label="Estado" value="Recibido" />
+    <section className="mx-auto max-w-2xl px-4 py-16 md:px-6">
+      <div className="text-center">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-ink text-3xl text-paper">✓</div>
+        <h1 className="mt-6 text-3xl font-bold text-ink">¡Pedido confirmado!</h1>
+        <p className="mt-2 text-ink-soft">
+          Recibimos tu pedido <span className="font-semibold text-ink">#{shortId}</span> y tu comprobante de
+          transferencia. Vamos a verificar el pago y te escribimos por WhatsApp para coordinar la entrega.
+        </p>
       </div>
 
-      <WhatsAppLinkButton
-        message={message}
-        className="mt-8 inline-block rounded-brand bg-[#25D366] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-      >
-        Confirmar por WhatsApp
-      </WhatsAppLinkButton>
+      <div className="mt-8">
+        <Invoice
+          title="Factura"
+          lines={buildInvoiceLines(orderItems, technique)}
+          pricing={{
+            totalQuantity: orderItems.reduce((sum, i) => sum + i.quantity, 0),
+            subtotal: Number(order.subtotal),
+            discountPct: Number(order.descuento_pct),
+            discountAmount: Number(order.descuento_monto),
+            setupFee: Number(order.cargo_diseno),
+            total,
+          }}
+          technique={technique}
+          clienteNombre={order.cliente_nombre}
+          orderNumber={shortId}
+          date={new Date(order.created_at)}
+        />
+        <p className="mt-2 text-center text-xs text-ink-muted">
+          Pago por transferencia · en verificación. Guarda esta página o toma una captura como respaldo.
+        </p>
+      </div>
 
-      <div className="mt-4">
-        <Link href="/" className="text-sm text-ink-soft hover:text-ink">
-          Volver al inicio
-        </Link>
+      <div className="mt-8 text-center">
+        <WhatsAppLinkButton
+          message={message}
+          className="inline-block rounded-brand bg-[#25D366] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
+        >
+          Escribir por WhatsApp
+        </WhatsAppLinkButton>
+        <div className="mt-4">
+          <Link href="/" className="text-sm text-ink-soft hover:text-ink">
+            Volver al inicio
+          </Link>
+        </div>
       </div>
     </section>
   );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex justify-between border-b border-black/5 py-2 text-sm last:border-0">
-      <span className="text-ink-soft">{label}</span>
-      <span className="font-medium text-ink">{value}</span>
-    </div>
-  );
-}
-
-function paymentLabel(method: string) {
-  const map: Record<string, string> = {
-    contra_entrega: "Pago contra entrega",
-    transferencia: "Transferencia bancaria",
-    whatsapp: "Coordinar por WhatsApp",
-    en_linea: "Pago en línea",
-  };
-  return map[method] ?? method;
 }

@@ -3,11 +3,13 @@ import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
+import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { DesignMockup } from "@/components/DesignMockup";
+import { Invoice } from "@/components/Invoice";
 import { ZONE_LABEL } from "@/components/GarmentShape";
-import { formatCordobas } from "@/lib/currency";
-import { DesignZone } from "@/lib/types";
+import { buildInvoiceLines } from "@/lib/pricing";
+import { DesignZone, Technique } from "@/lib/types";
 import { FontFamilyKey, MockupContent } from "@/lib/design";
 
 export const dynamic = "force-dynamic";
@@ -71,6 +73,14 @@ export default async function AdminPedidoDetailPage({
   const firstProduct = firstItem ? getProductById(firstItem.product_id) : undefined;
   const firstColorHex = firstProduct?.variants.find((v) => v.color === firstItem?.color)?.colorHex ?? "#111111";
 
+  const technique = order.tecnica as Technique;
+  const orderItems = (items ?? []).map((i) => ({
+    productId: i.product_id,
+    color: i.color,
+    size: i.talla,
+    quantity: i.cantidad,
+  }));
+
   return (
     <div>
       <Link href="/admin/pedidos" className="text-sm text-ink-soft hover:text-ink">
@@ -128,6 +138,7 @@ export default async function AdminPedidoDetailPage({
                             category={firstProduct.category}
                             zone={d.zona}
                             color={firstColorHex}
+                            size={firstItem?.talla}
                             content={content}
                             transform={{ x: d.posX, y: d.posY, scale: d.escala || 1, rotation: d.rotacion ?? 0 }}
                             interactive={false}
@@ -156,46 +167,42 @@ export default async function AdminPedidoDetailPage({
             </div>
           )}
 
-          <div className="rounded-brand border border-black/10 bg-white p-5">
-            <p className="text-sm font-semibold text-ink">Productos</p>
-            <ul className="mt-3 divide-y divide-black/5">
-              {items?.map((item) => (
-                <li key={item.id} className="flex justify-between py-2 text-sm">
-                  <span>
-                    {item.cantidad}× {getProductById(item.product_id)?.name ?? item.product_id} —{" "}
-                    {item.color} — {item.talla}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {comprobanteSigned?.data?.signedUrl && (
-            <div className="rounded-brand border border-black/10 bg-white p-5">
-              <p className="text-sm font-semibold text-ink">Comprobante de transferencia</p>
-              <a
-                href={comprobanteSigned.data.signedUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 inline-block text-sm text-ink hover:underline"
-              >
-                Ver comprobante
-              </a>
-            </div>
-          )}
+          <Invoice
+            title="Factura"
+            lines={buildInvoiceLines(orderItems, technique)}
+            pricing={{
+              totalQuantity: orderItems.reduce((sum, i) => sum + i.quantity, 0),
+              subtotal: Number(order.subtotal),
+              discountPct: Number(order.descuento_pct),
+              discountAmount: Number(order.descuento_monto),
+              setupFee: Number(order.cargo_diseno),
+              total: Number(order.total),
+            }}
+            technique={technique}
+            clienteNombre={order.cliente_nombre}
+            orderNumber={order.id.slice(0, 8).toUpperCase()}
+            date={new Date(order.created_at)}
+          />
         </div>
 
         <div className="space-y-6">
           <div className="rounded-brand border border-black/10 bg-white p-5">
-            <p className="text-sm font-semibold text-ink">Total</p>
-            <p className="mt-1 text-2xl font-bold text-ink">{formatCordobas(Number(order.total))}</p>
-            <p className="mt-1 text-xs text-ink-soft">
-              Subtotal {formatCordobas(Number(order.subtotal))}
-              {order.descuento_monto > 0 &&
-                ` · Descuento -${formatCordobas(Number(order.descuento_monto))}`}
-              {order.cargo_diseno > 0 && ` · Diseño ${formatCordobas(Number(order.cargo_diseno))}`}
-            </p>
-            <p className="mt-3 text-sm text-ink-soft">Pago: {order.payment_method}</p>
+            <p className="text-sm font-semibold text-ink">Comprobante de transferencia</p>
+            {comprobanteSigned?.data?.signedUrl ? (
+              <a href={comprobanteSigned.data.signedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block">
+                <img
+                  src={comprobanteSigned.data.signedUrl}
+                  alt="Comprobante de transferencia"
+                  className="max-h-80 w-full rounded border border-black/10 object-contain"
+                />
+                <span className="mt-1 block text-xs text-ink hover:underline">Abrir en tamaño completo</span>
+              </a>
+            ) : (
+              <p className="mt-2 text-sm text-ink-soft">Este pedido no tiene comprobante adjunto.</p>
+            )}
+            <div className="mt-4 border-t border-black/5 pt-4">
+              <PaymentStatusChanger orderId={order.id} status={order.payment_status} />
+            </div>
           </div>
 
           <div className="rounded-brand border border-black/10 bg-white p-5">

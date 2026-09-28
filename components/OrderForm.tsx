@@ -1,14 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PRODUCTS, getProductById } from "@/lib/catalog";
-import { calculateOrderTotal } from "@/lib/pricing";
-import { DesignTransform, DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
+import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
+import { formatCordobas } from "@/lib/currency";
+import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
+import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { DesignCanvas } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
+import { Invoice } from "./Invoice";
+import { BankDetails } from "./BankDetails";
 import { defaultTransform } from "./DesignMockup";
 import { getZonesForCategory } from "./GarmentShape";
 
@@ -21,15 +25,18 @@ const TECHNIQUE_LABEL: Record<Technique, string> = {
   sublimado: "Sublimado",
 };
 
-const PAYMENT_LABEL: Record<PaymentMethod, string> = {
-  contra_entrega: "Pago contra entrega",
-  transferencia: "Transferencia bancaria",
-  whatsapp: "Coordinar por WhatsApp",
-  en_linea: "Pago en línea (próximamente)",
-};
-
 type ZoneContentMap = Partial<Record<DesignZone, DesignContent>>;
 type ZoneTransformMap = Partial<Record<DesignZone, DesignTransform>>;
+
+// Talla M cuando existe, para que la vista previa arranque en una talla típica.
+function defaultSize(sizes: string[]): string {
+  return sizes.includes("M") ? "M" : sizes[0] ?? "";
+}
+
+// Un texto vacío no cuenta como diseño.
+function hasDesign(content: DesignContent | undefined): content is DesignContent {
+  return Boolean(content && (content.kind === "imagen" || content.texto.trim()));
+}
 
 export function OrderForm() {
   const router = useRouter();
@@ -41,26 +48,26 @@ export function OrderForm() {
 
   const [productId, setProductId] = useState(preselected);
   const [color, setColor] = useState(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.color ?? "");
-  const [size, setSize] = useState(
-    PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes[0] ?? ""
-  );
+  const [size, setSize] = useState(defaultSize(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? []));
   const [quantity, setQuantity] = useState(1);
 
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
   const [notas, setNotas] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("whatsapp");
+
   const [comprobante, setComprobante] = useState<File | null>(null);
+  const [comprobantePreview, setComprobantePreview] = useState<string | null>(null);
+  const [comprobanteError, setComprobanteError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedProduct = getProductById(productId);
+  const selectedVariant = selectedProduct?.variants.find((v) => v.color === color);
   const pricing = useMemo(() => calculateOrderTotal(items, technique), [items, technique]);
+  const invoiceLines = useMemo(() => buildInvoiceLines(items, technique), [items, technique]);
 
-  // El diseño se maneja por zona (frente/espalda/manga) para que el cliente
-  // pueda poner un logo distinto adelante y atrás, o solo texto en una manga.
   const zones = selectedProduct ? getZonesForCategory(selectedProduct.category) : (["frente"] as DesignZone[]);
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
   const [zoneContent, setZoneContent] = useState<ZoneContentMap>({});
@@ -70,27 +77,28 @@ export function OrderForm() {
   const currentContent = zoneContent[currentZone] ?? null;
   const currentTransform =
     zoneTransform[currentZone] ??
-    (selectedProduct
-      ? defaultTransform(selectedProduct.category, currentZone)
-      : { x: 50, y: 50, scale: 1, rotation: 0 });
+    (selectedProduct ? defaultTransform(selectedProduct.category, currentZone) : { x: 50, y: 50, scale: 1, rotation: 0 });
+  const zonesWithContent = zones.filter((z) => hasDesign(zoneContent[z]));
 
-  function handleZoneChange(zone: DesignZone) {
-    setActiveZone(zone);
-  }
+  useEffect(() => {
+    if (!comprobante) {
+      setComprobantePreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(comprobante);
+    setComprobantePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [comprobante]);
 
-  function handleContentChange(next: DesignContent | null) {
+  function handleContentChange(next: DesignContent | null, resetTransform: boolean) {
     setZoneContent((prev) => {
       const copy = { ...prev };
       if (next) copy[currentZone] = next;
       else delete copy[currentZone];
       return copy;
     });
-    // Diseño nuevo (o quitado) en esta zona: recentrar y volver a escala 1.
-    if (selectedProduct) {
-      setZoneTransform((prev) => ({
-        ...prev,
-        [currentZone]: defaultTransform(selectedProduct.category, currentZone),
-      }));
+    if (resetTransform && selectedProduct) {
+      setZoneTransform((prev) => ({ ...prev, [currentZone]: defaultTransform(selectedProduct.category, currentZone) }));
     }
   }
 
@@ -101,19 +109,29 @@ export function OrderForm() {
   function handleProductChange(id: string) {
     setProductId(id);
     const product = getProductById(id);
+    const sizes = product?.variants[0]?.sizes ?? [];
     setColor(product?.variants[0]?.color ?? "");
-    setSize(product?.variants[0]?.sizes[0] ?? "");
+    setSize(sizes.includes(size) ? size : defaultSize(sizes));
     if (product && !getZonesForCategory(product.category).includes(activeZone)) {
       setActiveZone("frente");
     }
   }
 
+  function handleColorChange(next: string) {
+    setColor(next);
+    const sizes = selectedProduct?.variants.find((v) => v.color === next)?.sizes ?? [];
+    if (!sizes.includes(size)) setSize(defaultSize(sizes));
+  }
+
   function addItem() {
     if (!selectedProduct || !color || !size || quantity < 1) return;
-    setItems((prev) => [
-      ...prev,
-      { key: crypto.randomUUID(), productId, color, size, quantity },
-    ]);
+    setItems((prev) => {
+      const existing = prev.find((i) => i.productId === productId && i.color === color && i.size === size);
+      if (existing) {
+        return prev.map((i) => (i === existing ? { ...i, quantity: i.quantity + quantity } : i));
+      }
+      return [...prev, { key: crypto.randomUUID(), productId, color, size, quantity }];
+    });
     setQuantity(1);
   }
 
@@ -121,24 +139,29 @@ export function OrderForm() {
     setItems((prev) => prev.filter((i) => i.key !== key));
   }
 
-  const hasFrontDesign = Boolean(zoneContent.frente);
-  const canSubmit =
-    items.length > 0 &&
-    hasFrontDesign &&
-    clienteNombre.trim().length > 1 &&
-    clienteTelefono.trim().length > 5 &&
-    !submitting;
+  function handleComprobante(file: File | undefined) {
+    setComprobanteError(null);
+    if (!file) return;
+    const validationError = validateReceiptFile(file);
+    if (validationError) {
+      setComprobante(null);
+      setComprobanteError(validationError);
+      return;
+    }
+    setComprobante(file);
+  }
+
+  const missing = [
+    !hasDesign(zoneContent.frente) && "un diseño en el frente",
+    items.length === 0 && "al menos un producto",
+    clienteNombre.trim().length < 2 && "tu nombre",
+    clienteTelefono.trim().length < 6 && "tu teléfono",
+    !comprobante && "el comprobante de transferencia",
+  ].filter(Boolean) as string[];
+  const canSubmit = missing.length === 0 && !submitting;
 
   async function handleSubmit() {
-    if (!hasFrontDesign) {
-      setError("Agrega al menos un diseño o texto en el frente antes de confirmar el pedido.");
-      return;
-    }
-    if (items.length === 0) {
-      setError("Agrega al menos un producto al pedido.");
-      return;
-    }
-
+    if (!canSubmit || !comprobante) return;
     setSubmitting(true);
     setError(null);
 
@@ -147,47 +170,35 @@ export function OrderForm() {
 
       const disenos = [];
       for (const [zone, content] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
-        const transform = zoneTransform[zone] ?? { x: 50, y: 50, scale: 1, rotation: 0 };
+        if (!hasDesign(content)) continue;
+        const transform = zoneTransform[zone] ?? defaultTransform(selectedProduct!.category, zone);
+        const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
 
         if (content.kind === "imagen") {
-          const ext = content.file.name.split(".").pop();
-          const path = `disenos/${crypto.randomUUID()}-${zone}.${ext}`;
-          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file);
-          if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
-
-          disenos.push({
-            zona: zone,
-            tipo: "imagen" as const,
-            path,
-            posX: transform.x,
-            posY: transform.y,
-            escala: transform.scale,
-            rotacion: transform.rotation,
+          const path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
+          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
+            contentType: "image/jpeg",
           });
+          if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
+          disenos.push({ zona: zone, tipo: "imagen" as const, path, ...placement });
         } else {
           disenos.push({
             zona: zone,
             tipo: "texto" as const,
-            texto: content.texto,
+            texto: content.texto.trim(),
             color: content.color,
             fuente: content.fontFamily,
-            posX: transform.x,
-            posY: transform.y,
-            escala: transform.scale,
-            rotacion: transform.rotation,
+            ...placement,
           });
         }
       }
 
-      let comprobantePath: string | null = null;
-      if (paymentMethod === "transferencia" && comprobante) {
-        const cExt = comprobante.name.split(".").pop();
-        comprobantePath = `comprobantes/${crypto.randomUUID()}.${cExt}`;
-        const { error: compError } = await supabase.storage
-          .from("comprobantes")
-          .upload(comprobantePath, comprobante);
-        if (compError) throw new Error(`No se pudo subir el comprobante: ${compError.message}`);
-      }
+      const ext = comprobante.type === "image/png" ? "png" : "jpg";
+      const comprobantePath = `comprobantes/${crypto.randomUUID()}.${ext}`;
+      const { error: compError } = await supabase.storage
+        .from("comprobantes")
+        .upload(comprobantePath, comprobante, { contentType: comprobante.type });
+      if (compError) throw new Error(`No se pudo subir el comprobante: ${compError.message}`);
 
       const res = await fetch("/api/pedidos", {
         method: "POST",
@@ -195,12 +206,12 @@ export function OrderForm() {
         body: JSON.stringify({
           clienteNombre,
           clienteTelefono,
-          clienteEmail: clienteEmail || null,
+          clienteEmail: clienteEmail.trim() || null,
           tecnica: technique,
           disenos,
-          notas: notas || null,
+          notas: notas.trim() || null,
           items: items.map(({ key, ...rest }) => rest),
-          paymentMethod,
+          paymentMethod: "transferencia",
           comprobantePath,
         }),
       });
@@ -214,61 +225,20 @@ export function OrderForm() {
       router.push(`/pedido/${orderId}/confirmacion`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocurrió un error inesperado.");
-    } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_360px]">
-      <div className="space-y-8">
+    <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+      <div className="min-w-0 space-y-10">
         <section>
           <h2 className="text-lg font-semibold text-ink">1. Diseña tu producto</h2>
 
-          <div className="mt-3 grid gap-6 lg:grid-cols-[300px_1fr]">
-            {/* Panel lateral: producto, técnica, variantes — como el panel de Printeez */}
-            <div className="order-2 space-y-5 rounded-brand border border-black/10 bg-white p-5 lg:order-1">
-              {selectedProduct && (
-                <div className="flex items-center gap-3 border-b border-black/5 pb-4">
-                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-brand bg-paper p-2">
-                    <img src={selectedProduct.image} alt="" className="h-full w-full object-contain" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-ink">{selectedProduct.name}</p>
-                    <p className="text-xs text-ink-soft">
-                      {selectedProduct.variants.length} color{selectedProduct.variants.length !== 1 && "es"} ·{" "}
-                      {color}
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <p className="text-sm font-semibold text-ink">Técnica</p>
-                <div className="mt-2 flex gap-2">
-                  {(["serigrafia", "sublimado"] as Technique[]).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTechnique(t)}
-                      className={`rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        technique === t
-                          ? "border-ink bg-ink text-paper"
-                          : "border-black/15 text-ink hover:border-ink"
-                      }`}
-                    >
-                      {TECHNIQUE_LABEL[t]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+          <div className="mt-3 grid gap-6 lg:grid-cols-[260px_1fr]">
+            <div className="order-2 space-y-5 self-start rounded-brand border border-black/10 bg-white p-5 lg:order-1">
               <Field label="Producto">
-                <select
-                  value={productId}
-                  onChange={(e) => handleProductChange(e.target.value)}
-                  className="input"
-                >
+                <select value={productId} onChange={(e) => handleProductChange(e.target.value)} className="input">
                   {PRODUCTS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -278,14 +248,33 @@ export function OrderForm() {
               </Field>
 
               <div>
+                <p className="text-sm font-medium text-ink-soft">Técnica</p>
+                <div className="mt-1.5 flex gap-2">
+                  {(["serigrafia", "sublimado"] as Technique[]).map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTechnique(t)}
+                      className={`flex-1 rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        technique === t ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                      }`}
+                    >
+                      {TECHNIQUE_LABEL[t]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
                 <p className="mb-2 text-sm font-medium text-ink-soft">Color — {color}</p>
                 <div className="flex flex-wrap gap-2">
                   {selectedProduct?.variants.map((v) => (
                     <button
                       key={v.color}
                       type="button"
-                      onClick={() => setColor(v.color)}
+                      onClick={() => handleColorChange(v.color)}
                       title={v.color}
+                      aria-label={v.color}
                       className={`h-8 w-8 rounded-full border-2 transition-transform ${
                         color === v.color ? "scale-110 border-ink" : "border-black/10"
                       }`}
@@ -295,79 +284,79 @@ export function OrderForm() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Talla">
-                  <select value={size} onChange={(e) => setSize(e.target.value)} className="input">
-                    {selectedProduct?.variants
-                      .find((v) => v.color === color)
-                      ?.sizes.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                  </select>
-                </Field>
-
-                <Field label="Cantidad">
-                  <input
-                    type="number"
-                    min={1}
-                    value={quantity}
-                    onChange={(e) => setQuantity(Math.max(1, Number(e.target.value)))}
-                    className="input"
-                  />
-                </Field>
+              <div>
+                <p className="mb-2 text-sm font-medium text-ink-soft">Talla</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {selectedVariant?.sizes.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setSize(s)}
+                      className={`min-w-[2.5rem] rounded-brand border px-2.5 py-1.5 text-sm font-medium transition-colors ${
+                        size === s ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                      }`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              <Field label="Cantidad">
+                <input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
+                  className="input"
+                />
+              </Field>
 
               <button
                 type="button"
                 onClick={addItem}
-                className="w-full rounded-brand border border-ink/15 px-4 py-2 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+                className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
               >
                 + Agregar al pedido
               </button>
 
               {items.length > 0 && (
                 <ul className="divide-y divide-black/5 rounded-brand border border-black/10">
-                  {items.map((item) => {
-                    const product = getProductById(item.productId);
-                    return (
-                      <li key={item.key} className="flex items-center justify-between px-3 py-2 text-xs">
-                        <span>
-                          {item.quantity}× {product?.name} — {item.color} — {item.size}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(item.key)}
-                          className="font-semibold text-ink-soft hover:text-ink hover:underline"
-                        >
-                          Quitar
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {items.map((item) => (
+                    <li key={item.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
+                      <span>
+                        {item.quantity}× {getProductById(item.productId)?.name} — {item.color} — {item.size}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => removeItem(item.key)}
+                        className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                      >
+                        Quitar
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
 
-            {/* Lienzo: subir/arrastrar/redimensionar el diseño sobre el producto, por zona */}
-            <div className="order-1 lg:order-2">
+            <div className="order-1 min-w-0 lg:order-2">
               {selectedProduct && (
                 <DesignCanvas
                   category={selectedProduct.category}
-                  color={selectedProduct.variants.find((v) => v.color === color)?.colorHex ?? "#111111"}
+                  color={selectedVariant?.colorHex ?? "#111111"}
+                  size={size}
                   zone={currentZone}
-                  onZoneChange={handleZoneChange}
+                  zonesWithContent={zonesWithContent}
+                  onZoneChange={setActiveZone}
                   content={currentContent}
                   onContentChange={handleContentChange}
                   transform={currentTransform}
                   onTransformChange={handleTransformChange}
                 />
               )}
-              {!hasFrontDesign && (
-                <p className="mt-2 text-xs text-ink-soft">
-                  El diseño del frente es obligatorio. Espalda y manga son opcionales.
-                </p>
+              {!hasDesign(zoneContent.frente) && (
+                <p className="mt-2 text-xs text-ink-soft">El diseño del frente es obligatorio. Espalda y manga son opcionales.</p>
               )}
             </div>
           </div>
@@ -377,12 +366,7 @@ export function OrderForm() {
           <h2 className="text-lg font-semibold text-ink">2. Tus datos</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <Field label="Nombre completo *">
-              <input
-                value={clienteNombre}
-                onChange={(e) => setClienteNombre(e.target.value)}
-                className="input"
-                placeholder="Ej. María Gómez"
-              />
+              <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
             </Field>
             <Field label="Teléfono / WhatsApp *">
               <input
@@ -390,6 +374,7 @@ export function OrderForm() {
                 onChange={(e) => setClienteTelefono(e.target.value)}
                 className="input"
                 placeholder="Ej. 8888 8888"
+                inputMode="tel"
               />
             </Field>
             <Field label="Correo (opcional)">
@@ -398,74 +383,82 @@ export function OrderForm() {
                 onChange={(e) => setClienteEmail(e.target.value)}
                 className="input"
                 placeholder="correo@ejemplo.com"
+                inputMode="email"
               />
             </Field>
             <Field label="Notas para el taller (opcional)">
-              <input
-                value={notas}
-                onChange={(e) => setNotas(e.target.value)}
-                className="input"
-                placeholder="Ej. logo en el pecho, no en la espalda"
-              />
+              <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. entregar el viernes" />
             </Field>
           </div>
         </section>
 
         <section>
-          <h2 className="text-lg font-semibold text-ink">3. Forma de pago</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            No se cobra nada todavía. Esto solo nos dice cómo prefieres pagar.
-          </p>
-          <div className="mt-3 space-y-2">
-            {(["contra_entrega", "transferencia", "whatsapp"] as PaymentMethod[]).map((m) => (
-              <label
-                key={m}
-                className={`flex items-center gap-3 rounded-brand border px-4 py-3 text-sm ${
-                  paymentMethod === m ? "border-ink" : "border-black/10"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === m}
-                  onChange={() => setPaymentMethod(m)}
-                />
-                {PAYMENT_LABEL[m]}
-              </label>
-            ))}
+          <h2 className="text-lg font-semibold text-ink">3. Tu factura</h2>
+          <div className="mt-3">
+            {items.length > 0 ? (
+              <Invoice lines={invoiceLines} pricing={pricing} technique={technique} clienteNombre={clienteNombre} />
+            ) : (
+              <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
+                Agrega al menos un producto (paso 1) para ver tu factura.
+              </p>
+            )}
           </div>
-
-          {paymentMethod === "transferencia" && (
-            <div className="mt-3">
-              <Field label="Comprobante de transferencia (opcional ahora, puedes enviarlo luego por WhatsApp)">
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,application/pdf"
-                  onChange={(e) => setComprobante(e.target.files?.[0] ?? null)}
-                  className="input"
-                />
-              </Field>
-            </div>
-          )}
         </section>
 
-        {error && (
-          <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-            {error}
+        <section>
+          <h2 className="text-lg font-semibold text-ink">4. Pago por transferencia</h2>
+          <p className="mt-1 text-sm text-ink-soft">
+            Es la única forma de pago. Tu pedido queda confirmado cuando adjuntas el comprobante.
           </p>
-        )}
 
-        <button
-          type="button"
-          disabled={!canSubmit}
-          onClick={handleSubmit}
-          className="w-full rounded-brand bg-ink px-6 py-4 text-base font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40 lg:w-auto"
-        >
-          {submitting ? "Enviando pedido..." : "Confirmar pedido"}
-        </button>
+          <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
+            <BankDetails total={formatCordobas(pricing.total)} />
+
+            <div>
+              <p className="text-sm font-medium text-ink">Comprobante de transferencia *</p>
+              <p className="text-xs text-ink-muted">Foto o captura de pantalla (JPG o PNG)</p>
+              <label className="mt-2 flex cursor-pointer items-center gap-4 rounded-brand border-2 border-dashed border-black/15 p-4 transition-colors hover:border-ink">
+                {comprobantePreview ? (
+                  <img src={comprobantePreview} alt="Comprobante" className="h-20 w-20 rounded object-cover" />
+                ) : (
+                  <span className="flex h-20 w-20 items-center justify-center rounded bg-paper-soft text-2xl text-ink-muted">+</span>
+                )}
+                <span className="text-sm">
+                  <span className="font-semibold text-ink">{comprobante ? comprobante.name : "Adjuntar comprobante"}</span>
+                  <span className="block text-xs text-ink-soft">{comprobante ? "Toca para cambiarlo" : "Toca para elegir el archivo"}</span>
+                </span>
+                <input
+                  type="file"
+                  accept={ACCEPTED_RECEIPT_TYPES.join(",")}
+                  className="hidden"
+                  onChange={(e) => {
+                    handleComprobante(e.target.files?.[0]);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {comprobanteError && <p className="mt-2 text-sm font-medium text-red-600">{comprobanteError}</p>}
+            </div>
+          </div>
+        </section>
+
+        <div className="space-y-3">
+          {error && <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={handleSubmit}
+            className="w-full rounded-brand bg-ink px-6 py-4 text-base font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatCordobas(pricing.total)}` : ""}`}
+          </button>
+          {missing.length > 0 && !submitting && (
+            <p className="text-center text-xs text-ink-soft">Para confirmar falta: {missing.join(", ")}.</p>
+          )}
+        </div>
       </div>
 
-      <div className="lg:sticky lg:top-24 lg:self-start">
+      <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
         <PricingSummary pricing={pricing} />
       </div>
     </div>

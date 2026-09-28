@@ -28,7 +28,15 @@ const FAQS = [
   },
   {
     q: "¿Qué formas de pago aceptan?",
-    a: "Por ahora: pago contra entrega, transferencia bancaria (con comprobante), o coordinar directamente por WhatsApp. Ningún pedido se cobra automáticamente.",
+    a: "Solo transferencia bancaria. Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado; nosotros verificamos el pago y te escribimos por WhatsApp.",
+  },
+  {
+    q: "¿Qué archivo necesito para mi diseño?",
+    a: "Una imagen JPG de al menos 1000 píxeles por lado. También puedes escribir un texto directamente en el sitio, sin subir nada.",
+  },
+  {
+    q: "¿De qué tamaño se imprime mi diseño?",
+    a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en la manga y 30 × 30 cm en la tote bag.",
   },
 ];
 

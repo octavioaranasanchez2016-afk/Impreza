@@ -25,9 +25,36 @@ const TECHNIQUE_SETUP_FEE: Record<Technique, number> = {
   sublimado: 0,
 };
 
+export const SETUP_FEE_LABEL = "Preparación de malla (serigrafía)";
+
 export function getVolumeDiscountPct(totalQuantity: number): number {
   const tier = VOLUME_TIERS.find((t) => totalQuantity >= t.min);
   return tier ? tier.discountPct : 0;
+}
+
+export function getUnitPrice(productId: string, technique: Technique): number {
+  const product = getProductById(productId);
+  return product ? product.basePrice + TECHNIQUE_UNIT_MODIFIER[technique] : 0;
+}
+
+export interface InvoiceLine {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export function buildInvoiceLines(items: OrderItemInput[], technique: Technique): InvoiceLine[] {
+  return items.map((item) => {
+    const unitPrice = getUnitPrice(item.productId, technique);
+    const name = getProductById(item.productId)?.name ?? item.productId;
+    return {
+      description: `${name} — ${item.color}, talla ${item.size}`,
+      quantity: item.quantity,
+      unitPrice,
+      lineTotal: round2(unitPrice * item.quantity),
+    };
+  });
 }
 
 export function calculateOrderTotal(
@@ -47,14 +74,7 @@ export function calculateOrderTotal(
     };
   }
 
-  const unitModifier = TECHNIQUE_UNIT_MODIFIER[technique];
-
-  const subtotal = items.reduce((sum, item) => {
-    const product = getProductById(item.productId);
-    if (!product) return sum;
-    const unitPrice = product.basePrice + unitModifier;
-    return sum + unitPrice * item.quantity;
-  }, 0);
+  const subtotal = items.reduce((sum, item) => sum + getUnitPrice(item.productId, technique) * item.quantity, 0);
 
   const discountPct = getVolumeDiscountPct(totalQuantity);
   const discountAmount = subtotal * discountPct;
