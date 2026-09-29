@@ -10,6 +10,7 @@ import { isDarkColor } from "@/components/GarmentShape";
 import { parseShipping, shippingSummary } from "@/lib/shipping";
 import { parseBilling } from "@/lib/billing";
 import { ArchiveButton } from "@/components/admin/ArchiveButton";
+import { TestEmailButton } from "@/components/admin/TestEmailButton";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +150,10 @@ export default async function AdminPedidosPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-ink">Pedidos</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <h1 className="text-2xl font-bold text-ink">Pedidos</h1>
+        <TestEmailButton />
+      </div>
 
       <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <SummaryCard

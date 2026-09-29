@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "El pedido no tiene productos válidos." }, { status: 400 });
   }
 
-  const disenos = body.disenos.map((d) => ({
+  const disenos = (body.disenos ?? []).map((d) => ({
     zona: d.zona,
     tipo: d.tipo,
     path: d.tipo === "imagen" ? d.path : undefined,
@@ -185,6 +185,7 @@ export async function POST(req: NextRequest) {
         piezas: pricing.totalQuantity,
         entrega,
         factura,
+        sinDiseno: disenos.length === 0,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })
@@ -208,13 +209,11 @@ function validate(body: CreateOrderBody): string | null {
   if (!body.tecnica || !(body.tecnica in TECHNIQUE_LABEL)) {
     return "Técnica de impresión inválida.";
   }
-  if (!Array.isArray(body.disenos) || body.disenos.length === 0) {
-    return "Falta el diseño del pedido.";
+  // Ningún diseño es obligatorio: el cliente puede mandarlo después por WhatsApp.
+  if (body.disenos != null && !Array.isArray(body.disenos)) {
+    return "Diseños inválidos.";
   }
-  if (!body.disenos.some((d) => d.zona === "frente")) {
-    return "El diseño del frente es obligatorio.";
-  }
-  for (const d of body.disenos) {
+  for (const d of body.disenos ?? []) {
     if (!VALID_ZONES.includes(d.zona)) {
       return `Zona de diseño inválida: ${d.zona}`;
     }

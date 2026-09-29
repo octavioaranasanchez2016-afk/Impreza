@@ -209,6 +209,11 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               </tbody>
             </table>
 
+            {disenosConUrl.length === 0 && (
+              <p className="mt-4 rounded-brand border-2 border-ink px-4 py-3 text-sm font-medium text-ink">
+                El cliente hizo el pedido sin diseño. Pídeselo por WhatsApp antes de producir.
+              </p>
+            )}
             {firstProduct && disenosConUrl.length > 0 && (
               <div className="mt-6 grid gap-8 sm:grid-cols-2">
                 {disenosConUrl.map((d) => {

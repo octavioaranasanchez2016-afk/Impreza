@@ -16,15 +16,44 @@ const shortId = (orderId: string) => orderId.slice(0, 8).toUpperCase();
 
 // Nunca lanza: un correo fallido no debe tumbar un pedido ni un cambio de estado.
 // Resend devuelve los errores de la API en `error` en vez de lanzarlos.
-async function send(to: string, subject: string, html: string) {
+async function send(to: string, subject: string, html: string): Promise<{ ok: boolean; error?: string }> {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey) {
+    console.error(`Sin RESEND_API_KEY: no se envió el correo "${subject}".`);
+    return { ok: false, error: "falta RESEND_API_KEY" };
+  }
   try {
     const { error } = await new Resend(apiKey).emails.send({ from: FROM_ADDRESS, to, subject, html });
-    if (error) console.error(`Resend rechazó el correo "${subject}" para ${to}:`, error);
+    if (error) {
+      console.error(`Resend rechazó el correo "${subject}" para ${to}:`, error);
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
   } catch (err) {
     console.error(`No se pudo enviar el correo "${subject}" para ${to}:`, err);
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
   }
+}
+
+// Para el botón "Probar correo de avisos" del panel: explica en español qué falla.
+export async function sendAdminTestEmail(): Promise<{ ok: boolean; message: string }> {
+  if (!process.env.RESEND_API_KEY) {
+    return { ok: false, message: "En Vercel falta la variable RESEND_API_KEY (la clave de Resend)." };
+  }
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!to) {
+    return { ok: false, message: "En Vercel falta la variable ADMIN_NOTIFICATION_EMAIL (tu correo para los avisos)." };
+  }
+  const result = await send(
+    to,
+    "Prueba de avisos — Impreza",
+    layout(`<h2 style="margin:0 0 12px;">¡Los avisos funcionan!</h2><p>Así te van a llegar los correos de cada pedido nuevo.</p>`)
+  );
+  const masked = to.replace(/^(.{3}).*@/, "$1…@");
+  if (result.ok) {
+    return { ok: true, message: `Correo de prueba enviado a ${masked}. Si no lo ves en 2 minutos, revisa Spam y Promociones.` };
+  }
+  return { ok: false, message: `Resend no pudo enviarlo a ${masked}: ${result.error}` };
 }
 
 function layout(body: string) {
@@ -63,6 +92,7 @@ interface NewOrderParams {
   piezas: number;
   entrega: ShippingInfo | null;
   factura: BillingInfo | null;
+  sinDiseno?: boolean;
 }
 
 export async function sendNewOrderEmail(params: NewOrderParams) {
@@ -83,6 +113,7 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       ${params.clienteEmail ? `<p style="margin:4px 0;"><strong>Correo:</strong> ${escapeHtml(params.clienteEmail)}</p>` : ""}
       <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? params.tecnica} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
+      ${params.sinDiseno ? `<p style="margin:4px 0;"><strong>Diseño:</strong> el cliente no subió diseño; pídeselo por WhatsApp.</p>` : ""}
       ${shippingHtml(params.entrega)}
       ${params.factura ? `<p style="margin:4px 0;"><strong>Factura con RUC:</strong> ${escapeHtml(params.factura.razonSocial)} · RUC ${escapeHtml(params.factura.ruc)}</p>` : ""}
       <p style="margin:16px 0;">El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>

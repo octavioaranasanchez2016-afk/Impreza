@@ -96,7 +96,7 @@ const SECTIONS = [
       },
       {
         q: "¿Puedo poner diseños en la espalda o la manga?",
-        a: "Sí. El frente es obligatorio; espalda y manga son opcionales y cada una puede llevar un diseño distinto.",
+        a: "Sí. Ninguna zona es obligatoria: puedes poner un diseño distinto en frente, espalda y manga, o hacer tu pedido sin diseño y enviárnoslo después por WhatsApp.",
       },
     ],
   },

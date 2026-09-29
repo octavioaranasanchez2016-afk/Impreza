@@ -213,7 +213,6 @@ export function OrderForm() {
   // Lo que falta para confirmar, con la sección del formulario donde se completa.
   const addressGap = shipping ? missingAddressField(shipping) : null;
   const missingSteps = [
-    !hasDesign(zoneContent.frente) && { label: "un diseño en el frente", section: "diseno" },
     items.length === 0 && { label: "al menos un producto", section: "diseno" },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
     clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
@@ -475,8 +474,10 @@ export function OrderForm() {
                   onTransformChange={handleTransformChange}
                 />
               )}
-              {!hasDesign(zoneContent.frente) && (
-                <p className="mt-2 text-xs text-ink-soft">El diseño del frente es obligatorio. Espalda y manga son opcionales.</p>
+              {zonesWithContent.length === 0 && (
+                <p className="mt-2 text-xs text-ink-soft">
+                  El diseño es opcional: si todavía no lo tienes listo, puedes enviárnoslo después por WhatsApp.
+                </p>
               )}
             </div>
           </div>
