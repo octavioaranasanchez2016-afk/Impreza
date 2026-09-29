@@ -81,6 +81,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const done = status === "listo_entregado";
   const late = !done && paymentStatus === "pagado" && isPastDue(ready);
   const archivedAt = order.archivado_at ? new Date(order.archivado_at as string) : null;
+  const discarded = Boolean(order.descartado);
 
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id as string,
@@ -130,14 +131,14 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
       {archivedAt && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-brand bg-ink px-5 py-3 text-paper print:hidden">
           <p className="text-sm">
-            Pedido archivado el{" "}
-            {toManagua(archivedAt).toLocaleDateString("es-NI", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
-            . No aparece en la lista de pedidos activos.
+            Pedido {discarded ? "descartado" : "archivado"} el{" "}
+            {toManagua(archivedAt).toLocaleDateString("es-NI", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}.{" "}
+            {discarded ? "No cuenta en la facturación." : "No aparece en la lista de pedidos activos."}
           </p>
           <ArchiveButton
             ids={[order.id]}
-            archivar={false}
-            label="Sacar del archivo"
+            accion="restaurar"
+            label={discarded ? "Restaurar pedido" : "Sacar del archivo"}
             className="rounded-brand bg-paper px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-50"
           />
         </div>
@@ -389,10 +390,29 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 <p className="mb-2 text-xs text-ink-soft">
                   ¿Ya lo entregaste? Archívalo para sacarlo de la lista de pedidos activos.
                 </p>
-                <ArchiveButton ids={[order.id]} archivar label="Archivar pedido" />
+                <ArchiveButton ids={[order.id]} accion="archivar" label="Archivar pedido" />
               </div>
             )}
           </section>
+
+          {!discarded && (
+            <section className="rounded-brand border border-dashed border-red-300 bg-white p-5 print:hidden">
+              <h2 className="font-semibold text-ink">Descartar pedido</h2>
+              <p className="mt-1 text-xs text-ink-soft">
+                Para pedidos de prueba, falsos, duplicados o cancelados. Sale de la lista y no cuenta en la facturación.
+                Lo puedes restaurar después.
+              </p>
+              <div className="mt-3">
+                <ArchiveButton
+                  ids={[order.id]}
+                  accion="descartar"
+                  label="Descartar este pedido"
+                  confirmText="¿Descartar este pedido?"
+                  className="rounded-brand border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:border-red-600 disabled:opacity-50"
+                />
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </div>

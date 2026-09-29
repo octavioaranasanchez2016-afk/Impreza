@@ -33,9 +33,19 @@ interface OrderRow {
   entrega?: unknown; // columna nueva: no llega hasta correr supabase/entrega.sql
   archivado_at?: string | null; // columna nueva: supabase/archivo.sql
   factura?: unknown; // columna nueva: supabase/factura-ruc.sql
+  descartado?: boolean | null; // columna nueva: supabase/descartados.sql
 }
 
-type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "domicilio" | "entregados" | "rechazados" | "archivados";
+type FilterKey =
+  | "todos"
+  | "verificar"
+  | "proceso"
+  | "atrasados"
+  | "domicilio"
+  | "entregados"
+  | "rechazados"
+  | "archivados"
+  | "descartados";
 
 const isActive = (o: OrderRow) => o.payment_status === "pagado" && o.status !== "listo_entregado";
 const isLate = (o: OrderRow) => isActive(o) && isPastDue(estimateReadyDate(new Date(o.created_at)));
@@ -48,8 +58,9 @@ const FILTERS: { key: FilterKey; label: string; match: (o: OrderRow) => boolean 
   { key: "domicilio", label: "A domicilio", match: (o) => parseShipping(o.entrega)?.metodo === "domicilio" },
   { key: "entregados", label: "Listos / entregados", match: (o) => o.status === "listo_entregado" },
   { key: "rechazados", label: "Pago rechazado", match: (o) => o.payment_status === "fallido" },
-  // Los archivados no salen en ningún otro filtro.
+  // Archivados y descartados no salen en ningún otro filtro.
   { key: "archivados", label: "Archivados", match: () => true },
+  { key: "descartados", label: "Descartados", match: () => true },
 ];
 
 // Sin tildes ni mayúsculas, para que "maria" encuentre a "María".
@@ -84,14 +95,20 @@ export default async function AdminPedidosPage({
     itemsByOrder.set(it.order_id, entry);
   }
 
+  // Facturación: pedidos pagados, sin contar los descartados (pruebas, falsos, cancelados).
+  // Los archivados sí cuentan: son pedidos que se entregaron.
   const thisMonth = managuaDayKey(toManagua(new Date())).slice(0, 7);
-  const monthSales = orders
-    .filter((o) => o.payment_status === "pagado" && managuaDayKey(toManagua(new Date(o.created_at))).startsWith(thisMonth))
+  const paid = orders.filter((o) => o.payment_status === "pagado" && !o.descartado);
+  const monthSales = paid
+    .filter((o) => managuaDayKey(toManagua(new Date(o.created_at))).startsWith(thisMonth))
     .reduce((sum, o) => sum + Number(o.total), 0);
+  const totalSales = paid.reduce((sum, o) => sum + Number(o.total), 0);
 
-  const active = orders.filter((o) => !o.archivado_at);
-  const archived = orders.filter((o) => o.archivado_at);
-  const inFilter = (key: FilterKey) => (key === "archivados" ? archived : active).filter(FILTERS.find((x) => x.key === key)!.match);
+  const discarded = orders.filter((o) => o.descartado);
+  const archived = orders.filter((o) => o.archivado_at && !o.descartado);
+  const active = orders.filter((o) => !o.archivado_at && !o.descartado);
+  const listFor = (key: FilterKey) => (key === "archivados" ? archived : key === "descartados" ? discarded : active);
+  const inFilter = (key: FilterKey) => listFor(key).filter(FILTERS.find((x) => x.key === key)!.match);
   const counts = Object.fromEntries(FILTERS.map((x) => [x.key, inFilter(x.key).length])) as Record<FilterKey, number>;
   const completedIds = active.filter((o) => o.status === "listo_entregado").map((o) => o.id);
 
@@ -148,7 +165,12 @@ export default async function AdminPedidosPage({
           value={String(counts.atrasados)}
           tone={counts.atrasados > 0 ? "danger" : "plain"}
         />
-        <SummaryCard label="Ventas pagadas del mes" value={formatCordobas(monthSales)} sub={formatInDollars(monthSales)} tone="plain" />
+        <SummaryCard
+          label="Ventas pagadas del mes"
+          value={formatCordobas(monthSales)}
+          sub={`${formatInDollars(monthSales)} · Total: ${formatCordobas(totalSales)}`}
+          tone="plain"
+        />
       </div>
 
       <div className="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -187,7 +209,7 @@ export default async function AdminPedidosPage({
           </p>
           <ArchiveButton
             ids={completedIds}
-            archivar
+            accion="archivar"
             label={completedIds.length === 1 ? "Archivar" : `Archivar los ${completedIds.length}`}
           />
         </div>
@@ -203,6 +225,8 @@ export default async function AdminPedidosPage({
             ? "Todavía no hay pedidos."
             : filter.key === "archivados"
             ? "No hay pedidos archivados. Archiva los pedidos listos o entregados para sacarlos de la lista."
+            : filter.key === "descartados"
+            ? "No hay pedidos descartados. Descarta desde cada pedido los que sean de prueba, falsos o cancelados."
             : "No hay pedidos con este filtro."}
         </p>
       )}
@@ -251,9 +275,11 @@ export default async function AdminPedidosPage({
                 <div className="col-span-3 text-xs md:col-span-1 md:text-right">
                   <p className="text-ink-muted">Pedido {formatShortDate(toManagua(new Date(order.created_at)))}</p>
                   {order.archivado_at && (
-                    <p className="text-ink-soft">Archivado {formatShortDate(toManagua(new Date(order.archivado_at)))}</p>
+                    <p className={order.descartado ? "font-semibold text-red-700" : "text-ink-soft"}>
+                      {order.descartado ? "Descartado" : "Archivado"} {formatShortDate(toManagua(new Date(order.archivado_at)))}
+                    </p>
                   )}
-                  {!done && order.payment_status !== "fallido" && (
+                  {!done && !order.archivado_at && order.payment_status !== "fallido" && (
                     <p className={late ? "font-semibold text-red-700" : "text-ink-soft"}>
                       {late ? "Atrasado · " : "Entrega est. "}
                       {formatShortDate(ready)}

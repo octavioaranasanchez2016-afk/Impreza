@@ -3,8 +3,13 @@ import { createClient } from "@/lib/supabase/server";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// Archiva (o saca del archivo) uno o varios pedidos. Solo se archivan pedidos
-// completados; pasa por RLS con la sesión del admin, igual que los cambios de estado.
+// - archivar: pedidos completados que ya se entregaron; siguen contando en las ventas.
+// - descartar: pedidos malos (prueba, falsos, duplicados, cancelados), en cualquier
+//   estado; salen de la lista y NO cuentan en la facturación.
+// - restaurar: vuelve a la lista de activos.
+// Pasa por RLS con la sesión del admin, igual que los cambios de estado.
+type Accion = "archivar" | "descartar" | "restaurar";
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -19,23 +24,40 @@ export async function POST(req: NextRequest) {
   if (!Array.isArray(ids) || ids.length === 0 || ids.length > 500 || !ids.every((id) => typeof id === "string" && UUID.test(id))) {
     return NextResponse.json({ error: "Pedidos inválidos." }, { status: 400 });
   }
-  const archivar = body?.archivar !== false;
+  const accion: Accion = ["archivar", "descartar", "restaurar"].includes(body?.accion) ? body.accion : "archivar";
+  const now = new Date().toISOString();
 
-  let query = supabase
-    .from("orders")
-    .update({ archivado_at: archivar ? new Date().toISOString() : null })
-    .in("id", ids);
-  if (archivar) query = query.eq("status", "listo_entregado");
-  const { data, error } = await query.select("id");
+  const update = (values: Record<string, unknown>, onlyCompleted = false) => {
+    let query = supabase.from("orders").update(values).in("id", ids);
+    if (onlyCompleted) query = query.eq("status", "listo_entregado");
+    return query.select("id");
+  };
 
-  if (error?.code === "PGRST204") {
+  let result;
+  if (accion === "archivar") {
+    result = await update({ archivado_at: now }, true);
+  } else if (accion === "descartar") {
+    result = await update({ archivado_at: now, descartado: true });
+    if (result.error?.code === "PGRST204") {
+      return NextResponse.json(
+        { error: "Falta activar los pedidos descartados en Supabase (ejecuta supabase/descartados.sql)." },
+        { status: 409 }
+      );
+    }
+  } else {
+    result = await update({ archivado_at: null, descartado: false });
+    // Sin la columna "descartado" todavía, restaurar solo saca del archivo.
+    if (result.error?.code === "PGRST204") result = await update({ archivado_at: null });
+  }
+
+  if (result.error?.code === "PGRST204") {
     return NextResponse.json(
       { error: "Falta activar el archivo en Supabase (ejecuta supabase/archivo.sql)." },
       { status: 409 }
     );
   }
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (result.error) {
+    return NextResponse.json({ error: result.error.message }, { status: 500 });
   }
-  return NextResponse.json({ ok: true, count: data?.length ?? 0 });
+  return NextResponse.json({ ok: true, count: result.data?.length ?? 0 });
 }
