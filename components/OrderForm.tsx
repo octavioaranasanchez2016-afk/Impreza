@@ -711,11 +711,6 @@ export function OrderForm() {
                   onTransformChange={handleTransformChange}
                 />
               )}
-              {zonesWithContent.length === 0 && (
-                <p className="mt-2 text-xs text-ink-soft">
-                  El diseño es opcional: si todavía no lo tienes listo, puedes enviárnoslo después por WhatsApp.
-                </p>
-              )}
             </div>
           </div>
         </section>
