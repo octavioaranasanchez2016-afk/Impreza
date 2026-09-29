@@ -8,7 +8,6 @@ import { formatCordobas } from "@/lib/currency";
 import { DiscountProgress } from "./DiscountProgress";
 
 const QUICK = [12, 24, 48, 96, 144];
-const MAX = 200;
 
 // Calculadora de la página de inicio: el cliente mueve la barra y ve su descuento
 // y el precio por camisa al instante.
@@ -24,7 +23,7 @@ export function DiscountCalculator() {
   return (
     <div className="rounded-brand border border-black/10 bg-paper p-5 md:p-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
-        <label htmlFor="calc-piezas" className="text-sm font-semibold text-ink">
+        <label htmlFor="calc-piezas-numero" className="text-sm font-semibold text-ink">
           ¿Cuántas piezas necesitas?
         </label>
         <div className="flex items-center gap-2">
@@ -35,23 +34,13 @@ export function DiscountCalculator() {
             inputMode="numeric"
             value={quantity}
             onChange={(e) => set(Number(e.target.value))}
-            aria-label="Cantidad de piezas"
             className="w-20 rounded-brand border border-black/15 bg-white px-2 py-1.5 text-center text-lg font-bold text-ink outline-none focus:border-ink"
           />
           <span className="text-sm text-ink-soft">piezas</span>
         </div>
       </div>
 
-      <input
-        id="calc-piezas"
-        type="range"
-        min={1}
-        max={MAX}
-        value={Math.min(quantity, MAX)}
-        onChange={(e) => set(Number(e.target.value))}
-        className="mt-4 w-full accent-ink"
-      />
-      <div className="mt-2 flex flex-wrap gap-1.5">
+      <div className="mt-3 flex flex-wrap gap-1.5">
         {QUICK.map((n) => (
           <button
             key={n}
@@ -64,10 +53,11 @@ export function DiscountCalculator() {
             {n}
           </button>
         ))}
+        <span className="self-center text-[11px] text-ink-muted">o arrastra la barra ↓</span>
       </div>
 
       <div className="mt-6">
-        <DiscountProgress quantity={quantity} unitPrice={unit} />
+        <DiscountProgress quantity={quantity} unitPrice={unit} onQuantityChange={set} />
       </div>
 
       {camisa && (

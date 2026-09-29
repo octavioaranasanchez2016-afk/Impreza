@@ -27,6 +27,15 @@ function overallPosition(quantity: number) {
   return SEGMENTS.reduce((sum, seg) => sum + segmentFill(quantity, seg), 0) * (100 / SEGMENTS.length);
 }
 
+// Al revés: qué cantidad corresponde a un punto de la barra (para arrastrarla).
+function quantityAt(position: number): number {
+  const width = 100 / SEGMENTS.length;
+  const i = Math.min(SEGMENTS.length - 1, Math.max(0, Math.floor(position / width)));
+  const seg = SEGMENTS[i];
+  const t = Math.max(0, Math.min(1, (position - i * width) / width));
+  return Math.max(1, Math.round(seg.from + t * (seg.to - seg.from)));
+}
+
 const pct = (p: number) => `${Math.round(p * 100)}%`;
 const pieces = (n: number) => `${n} pieza${n === 1 ? "" : "s"}`;
 
@@ -66,6 +75,7 @@ const STRIPES = {
 // cliente escribió pero no agregó (pending) se ven en gris como adelanto.
 // unitPrice: precio promedio por pieza sin descuento (para el precio de cada escalón).
 // onQuickAdd: si viene, muestra un botón para sumar las piezas que faltan.
+// onQuantityChange: si viene, la barra se puede arrastrar para elegir la cantidad.
 export function DiscountProgress({
   quantity,
   pending = 0,
@@ -73,6 +83,7 @@ export function DiscountProgress({
   compact = false,
   onQuickAdd,
   quickAddLabel,
+  onQuantityChange,
 }: {
   quantity: number;
   pending?: number;
@@ -80,7 +91,11 @@ export function DiscountProgress({
   compact?: boolean;
   onQuickAdd?: (pieces: number) => void;
   quickAddLabel?: string;
+  onQuantityChange?: (quantity: number) => void;
 }) {
+  const interactive = Boolean(onQuantityChange);
+  // Al arrastrar, la barra sigue al dedo sin animación de retraso.
+  const motion = interactive ? "" : "transition-[width] duration-500 ease-out motion-reduce:transition-none";
   const current = tierIndex(quantity);
   const currentPct = quantity > 0 ? TIERS[current].discountPct : 0;
   const next = TIERS[current + 1];
@@ -99,6 +114,8 @@ export function DiscountProgress({
   useEffect(() => {
     const before = previousTier.current;
     previousTier.current = current;
+    // Al bajar de escalón se quita el aviso: no puede decir 40% si ya estás en 25%.
+    if (current < before) setUnlocked(null);
     if (current <= before || quantity === 0) return;
     setUnlocked(current);
     const timer = setTimeout(() => setUnlocked(null), 2800);
@@ -114,16 +131,13 @@ export function DiscountProgress({
         return (
           <div
             key={seg.to}
-            className={`relative flex-1 overflow-hidden rounded-full bg-black/10 ${compact ? "h-1.5" : "h-3"}`}
+            className={`relative flex-1 overflow-hidden rounded-full bg-black/10 ${compact ? "h-1.5" : interactive ? "h-4" : "h-3"}`}
           >
             {ghost > fill && (
-              <div
-                className="absolute inset-y-0 left-0 bg-ink/25 transition-[width] duration-500 ease-out motion-reduce:transition-none"
-                style={{ width: `${ghost * 100}%` }}
-              />
+              <div className={`absolute inset-y-0 left-0 bg-ink/25 ${motion}`} style={{ width: `${ghost * 100}%` }} />
             )}
             <div
-              className={`absolute inset-y-0 left-0 bg-ink transition-[width] duration-500 ease-out motion-reduce:transition-none ${
+              className={`absolute inset-y-0 left-0 bg-ink ${motion} ${
                 inProgress && !compact ? "motion-safe:animate-stripes" : ""
               }`}
               style={{ width: `${fill * 100}%`, ...(inProgress && !compact ? STRIPES : {}) }}
@@ -166,7 +180,13 @@ export function DiscountProgress({
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="font-display text-5xl leading-none text-ink tabular-nums">{Math.round(shownPct)}%</p>
-          <p className="mt-1 text-xs font-medium text-ink-soft">de descuento por cantidad</p>
+          {unlocked !== null ? (
+            <p key={unlocked} className="mt-1 text-xs font-bold text-ink motion-safe:animate-pop" role="status">
+              ✦ ¡Desbloqueaste {pct(TIERS[unlocked].discountPct)}!
+            </p>
+          ) : (
+            <p className="mt-1 text-xs font-medium text-ink-soft">de descuento por cantidad</p>
+          )}
         </div>
         <div className="text-right">
           {savings > 0 ? (
@@ -180,20 +200,12 @@ export function DiscountProgress({
         </div>
       </div>
 
-      {unlocked !== null && (
-        <p
-          key={unlocked}
-          className="mt-3 rounded-brand bg-ink px-3 py-2 text-center text-sm font-semibold text-paper motion-safe:animate-pop"
-          role="status"
-        >
-          ✦ ¡Desbloqueaste {pct(TIERS[unlocked].discountPct)} de descuento! ✦
-        </p>
-      )}
-
       <div className="relative mt-9">
         {quantity > 0 && (
           <span
-            className="absolute bottom-full mb-2 -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-paper transition-[left] duration-500 ease-out motion-reduce:transition-none"
+            className={`pointer-events-none absolute bottom-full -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[11px] font-bold text-paper ${
+              interactive ? "mb-3.5" : "mb-2 transition-[left] duration-500 ease-out motion-reduce:transition-none"
+            }`}
             style={{ left: `${Math.min(96, Math.max(4, position))}%` }}
           >
             {quantity} pzs
@@ -201,6 +213,32 @@ export function DiscountProgress({
           </span>
         )}
         {segments}
+        {onQuantityChange && (
+          <>
+            <span
+              aria-hidden
+              className="pointer-events-none absolute top-1/2 h-7 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] border-ink bg-white shadow-md"
+              style={{ left: `${position}%` }}
+            />
+            <input
+              type="range"
+              min={0}
+              max={1000}
+              step={1}
+              value={Math.round(position * 10)}
+              aria-label="Cantidad de piezas"
+              aria-valuetext={pieces(quantity)}
+              onChange={(e) => onQuantityChange(quantityAt(Number(e.target.value) / 10))}
+              onKeyDown={(e) => {
+                const delta = { ArrowRight: 1, ArrowUp: 1, ArrowLeft: -1, ArrowDown: -1 }[e.key];
+                if (!delta) return;
+                e.preventDefault();
+                onQuantityChange(Math.max(1, quantity + delta));
+              }}
+              className="absolute inset-x-0 top-1/2 h-12 w-full -translate-y-1/2 cursor-grab opacity-0 active:cursor-grabbing"
+            />
+          </>
+        )}
       </div>
 
       <div className="mt-2 grid grid-cols-5 gap-1 text-right">
