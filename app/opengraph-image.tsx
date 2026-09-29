@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // Imagen que aparece al compartir el enlace del sitio en WhatsApp, Facebook, etc.
-export const alt = "Impreza — Serigrafía y sublimado en Managua";
+export const alt = "Impreza — Serigrafía, sublimado y bordado en Managua";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -39,7 +39,7 @@ export default async function OpengraphImage() {
         }}
       >
         <div style={{ display: "flex", fontSize: 28, letterSpacing: 8, color: "#8A8A8D" }}>
-          SERIGRAFÍA · SUBLIMADO · MANAGUA
+          SERIGRAFÍA · SUBLIMADO · BORDADO · MANAGUA
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: bebas ? 230 : 150, fontFamily: bebas ? "Bebas" : undefined, letterSpacing: 6, lineHeight: 0.9 }}>

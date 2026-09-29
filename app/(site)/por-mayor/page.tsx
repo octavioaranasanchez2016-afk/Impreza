@@ -20,7 +20,7 @@ const GROUPS = [
   },
   {
     title: "Empresas y uniformes",
-    text: "Tu logo en camisas o hoodies para tu equipo, o para regalar a tus clientes.",
+    text: "Tu logo bordado en polos y gorras, o impreso en camisas y hoodies, para tu equipo o tus clientes.",
     pieces: "12 – 100 piezas",
     cta: "Cotizar para mi empresa",
     message: "Hola, quiero cotizar camisas con el logo de mi empresa (___ piezas).",
@@ -99,6 +99,21 @@ export default function PorMayorPage() {
             </div>
           ))}
         </div>
+
+        <div className="mt-4 flex flex-col gap-4 rounded-brand bg-ink p-6 text-paper sm:flex-row sm:items-center sm:justify-between md:p-8">
+          <div>
+            <h2 className="font-display text-3xl uppercase tracking-wide md:text-4xl">¿Necesitas más personalización?</h2>
+            <p className="mt-1 max-w-xl text-sm text-paper/70">
+              Si tu idea no cabe en el diseñador en línea, cuéntasela a nuestro diseñador y la vemos juntos.
+            </p>
+          </div>
+          <WhatsAppLinkButton
+            message="Hola, necesito una personalización especial y quiero hablar con el diseñador de Impreza."
+            className="shrink-0 self-start rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90 sm:self-center"
+          >
+            Contactar a nuestro diseñador
+          </WhatsAppLinkButton>
+        </div>
       </section>
 
       <section className="border-y border-black/10 bg-paper-soft py-16">
@@ -109,8 +124,8 @@ export default function PorMayorPage() {
               Entre más piezas, menos pagas
             </h2>
             <p className="mt-4 text-ink-soft">
-              Precio por camisa básica en serigrafía. La serigrafía lleva un cargo único por preparar la malla de cada
-              diseño; con sublimado no hay cargo de malla.
+              Precio por camisa básica en serigrafía. El descuento se aplica igual en polos, gorras, hoodies y tote
+              bags.
             </p>
             <div className="mt-6 rounded-brand bg-ink p-5 text-paper">
               <p className="text-xs font-semibold uppercase tracking-[0.15em] text-paper/60">Ejemplo</p>
@@ -119,7 +134,7 @@ export default function PorMayorPage() {
               </p>
               <p className="mt-1 text-sm text-paper/70">
                 {formatCordobas(Math.round(example.total / EXAMPLE_PIECES))} por persona ({formatInDollars(example.total / EXAMPLE_PIECES)}),
-                con {Math.round(example.discountPct * 100)}% de descuento y la malla incluida.
+                con {Math.round(example.discountPct * 100)}% de descuento.
               </p>
             </div>
           </div>

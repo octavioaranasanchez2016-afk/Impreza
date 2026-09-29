@@ -2,12 +2,13 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { getProductById } from "@/lib/catalog";
+import { TECHNIQUE_LABEL, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
+import { ArchiveButton } from "@/components/admin/ArchiveButton";
 import { StatusBadge } from "@/components/StatusBadge";
 import { DesignMockup } from "@/components/DesignMockup";
 import { Invoice } from "@/components/Invoice";
@@ -78,6 +79,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const ready = estimateReadyDate(createdAt);
   const done = status === "listo_entregado";
   const late = !done && paymentStatus === "pagado" && isPastDue(ready);
+  const archivedAt = order.archivado_at ? new Date(order.archivado_at as string) : null;
 
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id as string,
@@ -123,6 +125,22 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
         ← Volver a pedidos
       </Link>
 
+      {archivedAt && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-brand bg-ink px-5 py-3 text-paper print:hidden">
+          <p className="text-sm">
+            Pedido archivado el{" "}
+            {toManagua(archivedAt).toLocaleDateString("es-NI", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}
+            . No aparece en la lista de pedidos activos.
+          </p>
+          <ArchiveButton
+            ids={[order.id]}
+            archivar={false}
+            label="Sacar del archivo"
+            className="rounded-brand bg-paper px-4 py-2 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-50"
+          />
+        </div>
+      )}
+
       <div className="mt-4 rounded-brand border border-black/10 bg-white p-5 print:mt-0">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -163,7 +181,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-semibold text-ink">Hoja de producción</h2>
               <p className="text-xs text-ink-soft">
-                {technique === "serigrafia" ? "Serigrafía" : "Sublimado"} · {totalPieces} pieza{totalPieces === 1 ? "" : "s"}
+                {TECHNIQUE_LABEL[technique] ?? technique} · {totalPieces} pieza{totalPieces === 1 ? "" : "s"}
               </p>
             </div>
 
@@ -354,6 +372,14 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
           <section className="rounded-brand border border-black/10 bg-white p-5 print:hidden">
             <StatusChanger orderId={order.id} status={status} notify={notify} />
+            {done && !archivedAt && (
+              <div className="mt-5 border-t border-black/10 pt-4">
+                <p className="mb-2 text-xs text-ink-soft">
+                  ¿Ya lo entregaste? Archívalo para sacarlo de la lista de pedidos activos.
+                </p>
+                <ArchiveButton ids={[order.id]} archivar label="Archivar pedido" />
+              </div>
+            )}
           </section>
         </div>
       </div>

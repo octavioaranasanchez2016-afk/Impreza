@@ -2,7 +2,7 @@ import { WORKSHOP } from "./shipping";
 
 export const SITE_NAME = "Impreza";
 export const SITE_DESCRIPTION =
-  "Camisas, hoodies y tote bags con tu diseño. Serigrafía y sublimado en Managua, desde 1 pieza hasta pedidos por mayor. Diseña en línea a escala real y recibe en 7 días hábiles.";
+  "Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, sublimado y bordado en Managua, desde 1 pieza hasta pedidos por mayor. Diseña en línea a escala real y recibe en 7 días hábiles.";
 
 // Dominio público del sitio: el que se configure, o el de producción de Vercel.
 export function siteUrl(): string {

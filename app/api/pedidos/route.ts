@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { calculateOrderTotal } from "@/lib/pricing";
-import { getProductById } from "@/lib/catalog";
+import { TECHNIQUE_LABEL, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
 import { addressText, missingAddressField, parseShipping } from "@/lib/shipping";
@@ -120,6 +120,15 @@ export async function POST(req: NextRequest) {
       .single());
   }
 
+  // "bordado" es un valor nuevo del tipo technique en la base de datos; si todavía
+  // no se agregó (supabase/bordado.sql), el pedido no se puede guardar.
+  if (orderError?.code === "22P02" && body.tecnica === "bordado") {
+    return NextResponse.json(
+      { error: "Por ahora los pedidos con bordado se reciben por WhatsApp. Escríbenos y te atendemos." },
+      { status: 503 }
+    );
+  }
+
   if (orderError || !order) {
     return NextResponse.json(
       { error: `No se pudo crear el pedido: ${orderError?.message}` },
@@ -179,7 +188,7 @@ function validate(body: CreateOrderBody): string | null {
   if (body.clienteEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.clienteEmail.trim())) {
     return "El correo no es válido.";
   }
-  if (!body.tecnica || !["serigrafia", "sublimado"].includes(body.tecnica)) {
+  if (!body.tecnica || !(body.tecnica in TECHNIQUE_LABEL)) {
     return "Técnica de impresión inválida.";
   }
   if (!Array.isArray(body.disenos) || body.disenos.length === 0) {
@@ -203,8 +212,12 @@ function validate(body: CreateOrderBody): string | null {
     return "El pedido debe tener al menos un producto.";
   }
   for (const item of body.items) {
-    if (!getProductById(item.productId)) {
+    const product = getProductById(item.productId);
+    if (!product) {
       return `Producto inválido: ${item.productId}`;
+    }
+    if (!product.techniques.includes(body.tecnica)) {
+      return `${product.name} no se hace con ${TECHNIQUE_LABEL[body.tecnica].toLowerCase()}. Haz un pedido aparte para ese producto.`;
     }
     if (!item.quantity || item.quantity < 1) {
       return "Cada producto debe tener cantidad válida.";

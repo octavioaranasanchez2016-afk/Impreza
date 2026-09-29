@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProductBySlug, PRODUCTS } from "@/lib/catalog";
+import { TECHNIQUE_LABEL, getProductBySlug, PRODUCTS } from "@/lib/catalog";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { SIZE_MEASUREMENTS, ZONE_LABEL, getPrintAreaCm, getZonesForCategory } from "@/components/GarmentShape";
@@ -66,7 +66,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             <div className="mt-2 flex gap-2">
               {product.techniques.map((t) => (
                 <span key={t} className="rounded-full border border-ink/15 px-3 py-1.5 text-sm font-medium text-ink">
-                  {t === "serigrafia" ? "Serigrafía" : "Sublimado"}
+                  {TECHNIQUE_LABEL[t]}
                 </span>
               ))}
             </div>
@@ -90,31 +90,43 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             </li>
           </ul>
 
-          <div className="mt-10 rounded-brand border border-black/10 p-5">
-            <p className="font-semibold text-ink">Guía de tallas</p>
-            <p className="mt-1 text-xs text-ink-soft">Medidas aproximadas de la prenda extendida, en centímetros.</p>
-            <table className="mt-3 w-full text-sm">
-              <thead>
-                <tr className="border-b border-black/10 text-left text-xs text-ink-muted">
-                  <th className="pb-2 font-medium">Talla</th>
-                  <th className="pb-2 font-medium">Ancho (pecho)</th>
-                  <th className="pb-2 font-medium">Largo</th>
-                </tr>
-              </thead>
-              <tbody>
-                {sizes.map(([size, m]) => (
-                  <tr key={size} className="border-b border-black/5 last:border-0">
-                    <td className="py-2 font-semibold text-ink">{size}</td>
-                    <td className="py-2 text-ink">{m.ancho} cm</td>
-                    <td className="py-2 text-ink">{m.largo} cm</td>
+          {product.category === "gorra" ? (
+            <div className="mt-10 rounded-brand border border-black/10 p-5">
+              <p className="font-semibold text-ink">Talla</p>
+              <p className="mt-1 text-sm text-ink-soft">
+                Talla única con cierre ajustable atrás. El frente mide unos {sizes[0]?.[1].ancho} cm de ancho y{" "}
+                {sizes[0]?.[1].largo} cm de alto.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-10 rounded-brand border border-black/10 p-5">
+              <p className="font-semibold text-ink">Guía de tallas</p>
+              <p className="mt-1 text-xs text-ink-soft">Medidas aproximadas de la prenda extendida, en centímetros.</p>
+              <table className="mt-3 w-full text-sm">
+                <thead>
+                  <tr className="border-b border-black/10 text-left text-xs text-ink-muted">
+                    <th className="pb-2 font-medium">Talla</th>
+                    <th className="pb-2 font-medium">Ancho (pecho)</th>
+                    <th className="pb-2 font-medium">Largo</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {sizes.map(([size, m]) => (
+                    <tr key={size} className="border-b border-black/5 last:border-0">
+                      <td className="py-2 font-semibold text-ink">{size}</td>
+                      <td className="py-2 text-ink">{m.ancho} cm</td>
+                      <td className="py-2 text-ink">{m.largo} cm</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           <div className="mt-4 rounded-brand border border-black/10 p-5">
-            <p className="font-semibold text-ink">Área máxima de impresión</p>
+            <p className="font-semibold text-ink">
+              Área máxima de {product.techniques.includes("bordado") ? "bordado" : "impresión"}
+            </p>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {zones.map((z) => {
                 const area = getPrintAreaCm(product.category, z);

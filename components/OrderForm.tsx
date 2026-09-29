@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PRODUCTS, getProductById } from "@/lib/catalog";
+import { PRODUCTS, TECHNIQUE_LABEL, getProductById, sharedTechniques } from "@/lib/catalog";
 import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/types";
@@ -23,11 +23,6 @@ interface CartLine extends OrderItemInput {
   key: string;
 }
 
-const TECHNIQUE_LABEL: Record<Technique, string> = {
-  serigrafia: "Serigrafía",
-  sublimado: "Sublimado",
-};
-
 type ZoneContentMap = Partial<Record<DesignZone, DesignContent>>;
 type ZoneTransformMap = Partial<Record<DesignZone, DesignTransform>>;
 
@@ -46,7 +41,7 @@ export function OrderForm() {
   const searchParams = useSearchParams();
   const preselected = searchParams.get("producto") ?? PRODUCTS[0].id;
 
-  const [technique, setTechnique] = useState<Technique>("serigrafia");
+  const [technique, setTechnique] = useState<Technique>(getProductById(preselected)?.techniques[0] ?? "serigrafia");
   const [items, setItems] = useState<CartLine[]>([]);
 
   const [productId, setProductId] = useState(preselected);
@@ -69,6 +64,10 @@ export function OrderForm() {
 
   const selectedProduct = getProductById(productId);
   const selectedVariant = selectedProduct?.variants.find((v) => v.color === color);
+  // Un pedido lleva una sola técnica, así que solo se mezclan productos que la compartan.
+  const cartProductIds = [...new Set(items.map((i) => i.productId))];
+  const orderTechniques = sharedTechniques([...cartProductIds, productId]);
+  const fitsOrder = orderTechniques.length > 0;
   // La tinta de sublimación es transparente: sobre telas oscuras no se ve.
   const darkColorsInOrder = [
     ...new Set(
@@ -132,6 +131,10 @@ export function OrderForm() {
   function handleProductChange(id: string) {
     setProductId(id);
     const product = getProductById(id);
+    // Si la técnica actual no sirve para este producto, pasa a una que sirva
+    // para él y para lo que ya está en el pedido.
+    const shared = sharedTechniques([...cartProductIds, id]);
+    if (!shared.includes(technique) && shared.length > 0) setTechnique(shared[0]);
     const sizes = product?.variants[0]?.sizes ?? [];
     setColor(product?.variants[0]?.color ?? "");
     setSize(sizes.includes(size) ? size : defaultSize(sizes));
@@ -147,7 +150,7 @@ export function OrderForm() {
   }
 
   function addItem() {
-    if (!selectedProduct || !color || !size || quantity < 1) return;
+    if (!selectedProduct || !color || !size || quantity < 1 || !fitsOrder) return;
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === productId && i.color === color && i.size === size);
       if (existing) {
@@ -294,12 +297,13 @@ export function OrderForm() {
               <div>
                 <p className="text-sm font-medium text-ink-soft">Técnica</p>
                 <div className="mt-1.5 flex gap-2">
-                  {(["serigrafia", "sublimado"] as Technique[]).map((t) => (
+                  {(selectedProduct?.techniques ?? []).map((t) => (
                     <button
                       key={t}
                       type="button"
+                      disabled={!orderTechniques.includes(t)}
                       onClick={() => setTechnique(t)}
-                      className={`flex-1 rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      className={`flex-1 rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         technique === t ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
                       }`}
                     >
@@ -374,10 +378,18 @@ export function OrderForm() {
               <button
                 type="button"
                 onClick={addItem}
-                className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
+                disabled={!fitsOrder}
+                className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 + Agregar al pedido
               </button>
+              {!fitsOrder && selectedProduct && (
+                <p className="rounded-brand bg-paper-soft p-3 text-xs text-ink-soft">
+                  {selectedProduct.name} se hace con{" "}
+                  {selectedProduct.techniques.map((t) => TECHNIQUE_LABEL[t].toLowerCase()).join(" o ")}, y lo que ya
+                  agregaste no. Haz un pedido aparte para este producto, o quita lo que tienes en la lista.
+                </p>
+              )}
 
               {items.length > 0 && (
                 <ul className="divide-y divide-black/5 rounded-brand border border-black/10">

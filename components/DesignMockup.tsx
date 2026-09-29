@@ -387,6 +387,8 @@ const REFERENCE_LABEL: Record<ProductCategory, string> = {
   camisa: "del cuello",
   hoodie: "del cuello",
   tote: "del borde superior de la bolsa",
+  polo: "del cuello",
+  gorra: "del botón de arriba de la gorra",
 };
 
 function Placement({

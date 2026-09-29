@@ -1,5 +1,6 @@
 import { CORDOBAS_PER_DOLLAR, formatCordobas, formatInDollars } from "@/lib/currency";
 import { InvoiceLine, SETUP_FEE_LABEL } from "@/lib/pricing";
+import { TECHNIQUE_LABEL } from "@/lib/catalog";
 import { PricingBreakdown, Technique } from "@/lib/types";
 import { ShippingInfo } from "@/lib/shipping";
 
@@ -51,7 +52,7 @@ export function Invoice({
         )}
         <div>
           <dt className="text-ink-muted">Técnica</dt>
-          <dd className="font-medium text-ink">{technique === "serigrafia" ? "Serigrafía" : "Sublimado"}</dd>
+          <dd className="font-medium text-ink">{TECHNIQUE_LABEL[technique]}</dd>
         </div>
       </dl>
 

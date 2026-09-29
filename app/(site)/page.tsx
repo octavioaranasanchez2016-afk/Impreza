@@ -43,7 +43,7 @@ export default function HomePage() {
               debe ser.
             </h1>
             <p className="mt-6 max-w-md text-base text-ink-soft md:text-lg">
-              Camisas, hoodies y tote bags con tu diseño. Lo creas en línea, ves el tamaño real en centímetros y
+              Camisas, polos, hoodies, gorras y tote bags con tu diseño. Lo creas en línea, ves el tamaño real en centímetros y
               nosotros lo imprimimos, desde 1 pieza hasta pedidos por mayor.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
@@ -89,7 +89,7 @@ export default function HomePage() {
       </section>
 
       <Marquee
-        items={["Serigrafía", "Sublimado", "Camisas", "Hoodies", "Tote bags", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Entrega a domicilio"]}
+        items={["Serigrafía", "Sublimado", "Bordado", "Camisas", "Polos", "Hoodies", "Gorras", "Tote bags", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Entrega a domicilio"]}
       />
 
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">
@@ -164,8 +164,8 @@ export default function HomePage() {
       </section>
 
       <section id="tecnicas" className="mx-auto max-w-6xl px-4 pb-20 md:px-6">
-        <SectionTitle eyebrow="Calidad" title="Técnicas de impresión" />
-        <div className="mt-10 grid gap-6 md:grid-cols-2">
+        <SectionTitle eyebrow="Calidad" title="Nuestras técnicas" />
+        <div className="mt-10 grid gap-6 md:grid-cols-3">
           <div className="rounded-brand bg-ink p-8 text-paper">
             <p className="font-display text-4xl uppercase tracking-wide">Serigrafía</p>
             <p className="mt-3 text-paper/80">
@@ -185,7 +185,18 @@ export default function HomePage() {
             <ul className="mt-5 space-y-1.5 text-sm">
               <li>✦ Ideal para fotos y diseños a todo color</li>
               <li>✦ Acabado que no se agrieta ni se despega</li>
-              <li>✦ Sin cargo de preparación de malla</li>
+              <li>✦ Para prendas blancas o claras</li>
+            </ul>
+          </div>
+          <div className="rounded-brand bg-paper-soft p-8 text-ink">
+            <p className="font-display text-4xl uppercase tracking-wide">Bordado</p>
+            <p className="mt-3 text-ink-soft">
+              Tu logo cosido con hilo directo en la prenda. Un acabado elegante que dura años.
+            </p>
+            <ul className="mt-5 space-y-1.5 text-sm">
+              <li>✦ Ideal para logos en polos y gorras</li>
+              <li>✦ Perfecto para uniformes de empresa</li>
+              <li>✦ No se despinta ni se agrieta al lavar</li>
             </ul>
           </div>
         </div>

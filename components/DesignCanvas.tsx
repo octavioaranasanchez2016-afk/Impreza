@@ -60,6 +60,7 @@ export function DesignCanvas({
   const zones = getZonesForCategory(category);
   const measure = getMeasure(category, size);
   const printCm = getPrintAreaCm(category, zone);
+  const embroidered = category === "polo" || category === "gorra";
 
   useEffect(() => {
     if (focusText.current && content?.kind === "texto") {
@@ -169,10 +170,12 @@ export function DesignCanvas({
       <p className="mt-2 text-center text-[11px] text-ink-muted">
         {category === "tote"
           ? `Tote bag de ${measure.ancho} × ${measure.largo} cm`
+          : category === "gorra"
+          ? "Gorra de talla ajustable"
           : zone === "manga"
           ? `Manga talla ${size}`
           : `Talla ${size}: ${measure.ancho} cm de ancho × ${measure.largo} cm de largo`}
-        {" · "}área máxima de impresión {printCm.w} × {printCm.h} cm (línea punteada)
+        {" · "}área máxima de {embroidered ? "bordado" : "impresión"} {printCm.w} × {printCm.h} cm (línea punteada)
       </p>
 
       <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">

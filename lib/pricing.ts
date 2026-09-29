@@ -13,19 +13,24 @@ export const VOLUME_TIERS: { min: number; discountPct: number }[] = [
 ];
 
 // Costo por unidad que agrega cada técnica sobre el precio base de la prenda (córdobas).
+// El bordado ya va incluido en el precio base de polos y gorras.
 const TECHNIQUE_UNIT_MODIFIER: Record<Technique, number> = {
   serigrafia: 0,
   sublimado: 55,
+  bordado: 0,
 };
 
 // Cargo fijo por diseño (una sola vez por pedido), no por prenda (córdobas).
-// Serigrafía requiere preparar una malla/pantalla por diseño; sublimado no.
+// En 0 por decisión del dueño: la preparación (malla, ponchado) no se cobra
+// aparte, porque el cliente no tiene por qué ver los costos del taller.
 const TECHNIQUE_SETUP_FEE: Record<Technique, number> = {
-  serigrafia: 290,
+  serigrafia: 0,
   sublimado: 0,
+  bordado: 0,
 };
 
-export const SETUP_FEE_LABEL = "Preparación de malla (serigrafía)";
+// Solo para pedidos antiguos que sí traen este cargo.
+export const SETUP_FEE_LABEL = "Preparación del diseño";
 
 export function getVolumeDiscountPct(totalQuantity: number): number {
   const tier = VOLUME_TIERS.find((t) => totalQuantity >= t.min);

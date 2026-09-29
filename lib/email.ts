@@ -3,6 +3,8 @@ import { formatBoth } from "./currency";
 import { estimateReadyDate, formatReadyDate, PRODUCTION_BUSINESS_DAYS } from "./delivery";
 import { ShippingInfo, addressMapsUrl, areaLabel } from "./shipping";
 import { siteUrl } from "./site";
+import { TECHNIQUE_LABEL } from "./catalog";
+import { Technique } from "./types";
 
 // onboarding@resend.dev solo puede enviar al correo dueño de la cuenta de
 // Resend. Para escribirle a los clientes hay que verificar un dominio propio en
@@ -31,7 +33,7 @@ function layout(body: string) {
       <div style="background:#111;color:#fff;padding:18px 24px;font-size:22px;font-weight:bold;letter-spacing:2px;">IMPREZA</div>
       <div style="padding:24px;font-size:15px;line-height:1.5;">${body}</div>
       <div style="padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#8a8a8d;">
-        Impreza · Serigrafía y sublimado en Managua, Nicaragua
+        Impreza · Serigrafía, sublimado y bordado en Managua, Nicaragua
       </div>
     </div>
   </div>`;
@@ -77,7 +79,7 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       <p style="margin:4px 0;"><strong>Cliente:</strong> ${escapeHtml(params.clienteNombre)}</p>
       <p style="margin:4px 0;"><strong>Teléfono:</strong> ${escapeHtml(params.clienteTelefono)}</p>
       ${params.clienteEmail ? `<p style="margin:4px 0;"><strong>Correo:</strong> ${escapeHtml(params.clienteEmail)}</p>` : ""}
-      <p style="margin:4px 0;"><strong>Técnica:</strong> ${params.tecnica === "serigrafia" ? "Serigrafía" : "Sublimado"} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
+      <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? params.tecnica} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
       ${shippingHtml(params.entrega)}
       <p style="margin:16px 0;">El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>

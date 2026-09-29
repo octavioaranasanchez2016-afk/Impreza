@@ -1,3 +1,4 @@
+import { TECHNIQUE_LABEL } from "@/lib/catalog";
 import Link from "next/link";
 import { Product } from "@/lib/types";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
@@ -18,7 +19,7 @@ export function ProductCard({ product }: { product: Product }) {
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-ink backdrop-blur">
           {product.techniques
             .map((t, i) => {
-              const label = t === "serigrafia" ? "Serigrafía" : "Sublimado";
+              const label = TECHNIQUE_LABEL[t];
               return i === 0 ? label : label.toLowerCase();
             })
             .join(" o ")}

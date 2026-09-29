@@ -58,7 +58,7 @@ const SECTIONS = [
       },
       {
         q: "¿Cómo se calcula el precio?",
-        a: "Depende del producto, la técnica de impresión y la cantidad total del pedido. Entre más piezas, aplica un descuento automático que ves en tiempo real al armar tu pedido. La serigrafía tiene un cargo único por preparar la malla.",
+        a: "Depende del producto, la técnica de impresión y la cantidad total del pedido. Entre más piezas, aplica un descuento automático que ves en tiempo real al armar tu pedido.",
       },
     ],
   },
@@ -72,7 +72,11 @@ const SECTIONS = [
       },
       {
         q: "¿De qué tamaño se imprime mi diseño?",
-        a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en la manga y 30 × 30 cm en la tote bag.",
+        a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en la manga y 30 × 30 cm en la tote bag. En bordado: 10 × 10 cm al pecho de la polo, 25 × 20 cm en su espalda y 11 × 5.5 cm al frente de la gorra.",
+      },
+      {
+        q: "¿Hacen bordado?",
+        a: "Sí. Las polos y las gorras llevan tu logo bordado. Sube tu logo en JPG o escribe tu texto en el diseñador, y ves el tamaño real del bordado en centímetros.",
       },
       {
         q: "¿Puedo hacer que mi imagen ocupe todo el espacio?",

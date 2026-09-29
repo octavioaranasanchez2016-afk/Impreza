@@ -60,7 +60,7 @@ export default function NosotrosPage() {
           No competimos por ser los más grandes. Competimos por ser los más
           sencillos de usar, los más atentos con cada pedido, y los más
           accesibles para cualquiera que tenga una idea y quiera verla en una
-          camisa, un hoodie o una tote bag.
+          camisa, una polo, un hoodie, una gorra o una tote bag.
         </p>
 
         <Link

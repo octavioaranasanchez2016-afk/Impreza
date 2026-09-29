@@ -5,7 +5,7 @@ create extension if not exists "uuid-ossp";
 create type order_status as enum ('recibido', 'diseno_aprobado', 'en_produccion', 'listo_entregado');
 create type payment_method as enum ('contra_entrega', 'transferencia', 'whatsapp', 'en_linea');
 create type payment_status as enum ('pendiente', 'en_revision', 'pagado', 'fallido');
-create type technique as enum ('serigrafia', 'sublimado');
+create type technique as enum ('serigrafia', 'sublimado', 'bordado');
 
 create table admins (
   id uuid primary key references auth.users(id) on delete cascade,
@@ -27,6 +27,8 @@ create table orders (
   notas text,
   -- { metodo: "retiro" | "domicilio", municipio, barrio, direccion, recibe, lat, lng }
   entrega jsonb,
+  -- Fecha en que el admin archivó el pedido completado; null = activo.
+  archivado_at timestamptz,
   status order_status not null default 'recibido',
   payment_method payment_method not null,
   payment_status payment_status not null default 'pendiente',

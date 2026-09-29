@@ -4,6 +4,8 @@ export const ZONES_BY_CATEGORY: Record<ProductCategory, DesignZone[]> = {
   camisa: ["frente", "espalda", "manga"],
   hoodie: ["frente", "espalda"],
   tote: ["frente"],
+  polo: ["frente", "espalda", "manga"],
+  gorra: ["frente"],
 };
 
 export const ZONE_LABEL: Record<DesignZone, string> = {
@@ -36,9 +38,26 @@ export const SIZE_MEASUREMENTS: Record<ProductCategory, Record<string, GarmentMe
   tote: {
     Único: { ancho: 38, largo: 42 },
   },
+  polo: {
+    S: { ancho: 48, largo: 70 },
+    M: { ancho: 52, largo: 72 },
+    L: { ancho: 56, largo: 74 },
+    XL: { ancho: 60, largo: 76 },
+    XXL: { ancho: 64, largo: 78 },
+  },
+  // Frente de la corona, de costura a costura, y alto hasta la visera.
+  gorra: {
+    Ajustable: { ancho: 21, largo: 12 },
+  },
 };
 
-const REFERENCE_SIZE: Record<ProductCategory, string> = { camisa: "M", hoodie: "M", tote: "Único" };
+const REFERENCE_SIZE: Record<ProductCategory, string> = {
+  camisa: "M",
+  hoodie: "M",
+  tote: "Único",
+  polo: "M",
+  gorra: "Ajustable",
+};
 
 export function getMeasure(category: ProductCategory, size?: string): GarmentMeasure {
   const table = SIZE_MEASUREMENTS[category];
@@ -51,10 +70,12 @@ export function getMeasure(category: ProductCategory, size?: string): GarmentMea
 // — igual que en el taller, donde la posición se mide desde el cuello. Como
 // ese punto no se mueve entre tallas, el área y el diseño conservan su tamaño
 // real y lo que cambia es la prenda a su alrededor.
+// `print.dx` corre el área a un lado del centro (cm, + = derecha vista de frente),
+// como el logo al pecho izquierdo de una polo.
 interface ViewSpec {
   span: number;
   top: number;
-  print: { w: number; h: number; top: number };
+  print: { w: number; h: number; top: number; dx?: number };
 }
 
 const VIEWS: Record<string, ViewSpec> = {
@@ -64,6 +85,10 @@ const VIEWS: Record<string, ViewSpec> = {
   "hoodie:frente": { span: 115, top: 24, print: { w: 30, h: 22, top: 12 } },
   "hoodie:espalda": { span: 115, top: 24, print: { w: 34, h: 28, top: 32 } },
   "tote:frente": { span: 70, top: 26, print: { w: 30, h: 30, top: 5 } },
+  "polo:frente": { span: 110, top: 14, print: { w: 10, h: 10, top: 12, dx: 10 } },
+  "polo:espalda": { span: 110, top: 14, print: { w: 25, h: 20, top: 10 } },
+  "polo:manga": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
+  "gorra:frente": { span: 30, top: 6, print: { w: 11, h: 5.5, top: 4 } },
 };
 
 function getView(category: ProductCategory, zone: DesignZone): ViewSpec {
@@ -94,11 +119,15 @@ export function getPrintArea(category: ProductCategory, zone: DesignZone) {
   const v = getView(category, zone);
   const pct = (cm: number) => (cm / v.span) * 100;
   return {
-    x: pct(v.span / 2 - v.print.w / 2),
+    x: pct(printLeftCm(v)),
     y: pct(v.top + v.print.top),
     w: pct(v.print.w),
     h: pct(v.print.h),
   };
+}
+
+function printLeftCm(v: ViewSpec) {
+  return v.span / 2 + (v.print.dx ?? 0) - v.print.w / 2;
 }
 
 export function isDarkColor(hex: string): boolean {
@@ -138,7 +167,7 @@ export function GarmentShape({
       {renderGarment(category, zone, m, at, style)}
       {showGuide && (
         <rect
-          x={v.span / 2 - v.print.w / 2}
+          x={printLeftCm(v)}
           y={v.top + v.print.top}
           width={v.print.w}
           height={v.print.h}
@@ -181,6 +210,12 @@ function pointMapper(cx: number, cy: number): At {
 
 const mirror = ([x, y]: Pt): Pt => [-x, y];
 
+// Coordenadas numéricas del lienzo, para círculos.
+function coords(at: At, p: Pt): [number, number] {
+  const [x, y] = at(p).split(" ").map(Number);
+  return [x, y];
+}
+
 // Recorre el lado derecho del cuello al ruedo, cruza el ruedo y vuelve por el
 // lado izquierdo en espejo; `neck` cierra la figura de izquierda a derecha.
 function symmetricContour(at: At, start: Pt, segs: Seg[], neck: string): string {
@@ -219,9 +254,11 @@ const detailProps = (s: Style) => ({
 });
 
 function renderGarment(category: ProductCategory, zone: DesignZone, m: GarmentMeasure, at: At, s: Style) {
-  if (category === "camisa" && zone === "manga") return tshirtSleeve(m, at, s);
+  if ((category === "camisa" || category === "polo") && zone === "manga") return tshirtSleeve(m, at, s);
   if (category === "camisa") return tshirt(m, at, s, zone === "espalda");
+  if (category === "polo") return polo(m, at, s, zone === "espalda");
   if (category === "hoodie") return hoodie(m, at, s, zone === "espalda");
+  if (category === "gorra") return cap(at, s);
   return tote(at, s);
 }
 
@@ -360,6 +397,57 @@ function tote(at: At, s: Style) {
       <path d={handle} fill="none" stroke={s.fill} strokeWidth={2.5} />
       <path d={`M ${at([-19, 0])} L ${at([19, 0])} L ${at([19, 42])} L ${at([-19, 42])} Z`} fill={s.fill} {...outlineProps(s)} />
       <path d={line(at, [-19, 2.5], [19, 2.5])} {...detailProps(s)} strokeDasharray="3 3" />
+    </>
+  );
+}
+
+// Polo: el cuerpo de la camisa con escote alto, más cuello y tapeta con botones.
+function polo(m: GarmentMeasure, at: At, s: Style, back: boolean) {
+  const band = `M ${at([-9, 0.3])} C ${at([-9, -3.2])} ${at([9, -3.2])} ${at([9, 0.3])} C ${at([9, -1])} ${at([-9, -1])} ${at([-9, 0.3])} Z`;
+  if (back) {
+    return (
+      <>
+        {tshirt(m, at, s, true)}
+        <path d={band} fill={s.fill} {...outlineProps(s)} />
+      </>
+    );
+  }
+  const flap = (x: number) =>
+    `M ${at([9 * x, 0.2])} Q ${at([8.6 * x, 5])} ${at([5.6 * x, 8.4])} L ${at([0.5 * x, 4.2])} Q ${at([3.5 * x, 1.4])} ${at([9 * x, 0.2])} Z`;
+  return (
+    <>
+      {tshirt(m, at, s, true)}
+      <path d={band} fill={s.fill} {...outlineProps(s)} />
+      <path d={`M ${at([-1.7, 3.4])} L ${at([1.7, 3.4])} L ${at([1.7, 15.5])} L ${at([-1.7, 15.5])} Z`} {...detailProps(s)} fill={s.fill} />
+      {[6.5, 9.8, 13].map((y) => {
+        const [cx, cy] = coords(at, [0, y]);
+        return <circle key={y} cx={cx} cy={cy} r={0.5} fill={s.detail} />;
+      })}
+      <path d={flap(1)} fill={s.fill} {...outlineProps(s)} />
+      <path d={flap(-1)} fill={s.fill} {...outlineProps(s)} />
+    </>
+  );
+}
+
+// Gorra vista de frente. (0, 0) es el botón de arriba de la corona.
+function cap(at: At, s: Style) {
+  const crown = `M ${at([-10.5, 12])} C ${at([-10.8, 3.5])} ${at([-6, 0])} ${at([0, 0])} C ${at([6, 0])} ${at([10.8, 3.5])} ${at([10.5, 12])} Q ${at([0, 14.2])} ${at([-10.5, 12])} Z`;
+  const visor = `M ${at([-10.5, 12])} Q ${at([0, 14.2])} ${at([10.5, 12])} Q ${at([0, 20])} ${at([-10.5, 12])} Z`;
+  const seams = `M ${at([0, 0.4])} Q ${at([5.8, 3])} ${at([7.2, 12.6])} M ${at([0, 0.4])} Q ${at([-5.8, 3])} ${at([-7.2, 12.6])}`;
+  const stitching = `M ${at([-9, 13.1])} Q ${at([0, 16.1])} ${at([9, 13.1])} M ${at([-8, 13.3])} Q ${at([0, 17.5])} ${at([8, 13.3])}`;
+  const [bx, by] = coords(at, [0, 0.2]);
+  return (
+    <>
+      <path d={crown} fill={s.fill} {...outlineProps(s)} />
+      <path d={seams} {...detailProps(s)} />
+      {[-1, 1].map((x) => {
+        const [ex, ey] = coords(at, [5.2 * x, 4]);
+        return <circle key={x} cx={ex} cy={ey} r={0.35} fill={s.detail} />;
+      })}
+      <path d={visor} fill={s.fill} {...outlineProps(s)} />
+      <path d={visor} fill={s.shade} />
+      <path d={stitching} {...detailProps(s)} />
+      <circle cx={bx} cy={by} r={0.8} fill={s.fill} {...outlineProps(s)} />
     </>
   );
 }

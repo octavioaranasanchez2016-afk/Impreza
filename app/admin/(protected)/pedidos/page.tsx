@@ -8,6 +8,7 @@ import { getProductById } from "@/lib/catalog";
 import { DesignZone, OrderStatus } from "@/lib/types";
 import { isDarkColor } from "@/components/GarmentShape";
 import { parseShipping, shippingSummary } from "@/lib/shipping";
+import { ArchiveButton } from "@/components/admin/ArchiveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -29,21 +30,24 @@ interface OrderRow {
   created_at: string;
   disenos: StoredDiseno[] | null;
   entrega?: unknown; // columna nueva: no llega hasta correr supabase/entrega.sql
+  archivado_at?: string | null; // columna nueva: supabase/archivo.sql
 }
 
-type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "domicilio" | "entregados" | "rechazados";
+type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "domicilio" | "entregados" | "rechazados" | "archivados";
 
 const isActive = (o: OrderRow) => o.payment_status === "pagado" && o.status !== "listo_entregado";
 const isLate = (o: OrderRow) => isActive(o) && isPastDue(estimateReadyDate(new Date(o.created_at)));
 
 const FILTERS: { key: FilterKey; label: string; match: (o: OrderRow) => boolean }[] = [
-  { key: "todos", label: "Todos", match: () => true },
+  { key: "todos", label: "Activos", match: () => true },
   { key: "verificar", label: "Pago por verificar", match: (o) => o.payment_status === "en_revision" },
   { key: "proceso", label: "En proceso", match: isActive },
   { key: "atrasados", label: "Atrasados", match: isLate },
   { key: "domicilio", label: "A domicilio", match: (o) => parseShipping(o.entrega)?.metodo === "domicilio" },
   { key: "entregados", label: "Listos / entregados", match: (o) => o.status === "listo_entregado" },
   { key: "rechazados", label: "Pago rechazado", match: (o) => o.payment_status === "fallido" },
+  // Los archivados no salen en ningún otro filtro.
+  { key: "archivados", label: "Archivados", match: () => true },
 ];
 
 // Sin tildes ni mayúsculas, para que "maria" encuentre a "María".
@@ -83,11 +87,15 @@ export default async function AdminPedidosPage({
     .filter((o) => o.payment_status === "pagado" && managuaDayKey(toManagua(new Date(o.created_at))).startsWith(thisMonth))
     .reduce((sum, o) => sum + Number(o.total), 0);
 
-  const counts = Object.fromEntries(FILTERS.map((x) => [x.key, orders.filter(x.match).length])) as Record<FilterKey, number>;
+  const active = orders.filter((o) => !o.archivado_at);
+  const archived = orders.filter((o) => o.archivado_at);
+  const inFilter = (key: FilterKey) => (key === "archivados" ? archived : active).filter(FILTERS.find((x) => x.key === key)!.match);
+  const counts = Object.fromEntries(FILTERS.map((x) => [x.key, inFilter(x.key).length])) as Record<FilterKey, number>;
+  const completedIds = active.filter((o) => o.status === "listo_entregado").map((o) => o.id);
 
   const needle = normalize(query.replace(/^#/, ""));
   const needleDigits = query.replace(/\D/g, "");
-  const visible = orders.filter(filter.match).filter((o) => {
+  const visible = inFilter(filter.key).filter((o) => {
     if (!needle) return true;
     return (
       normalize(o.cliente_nombre).includes(needle) ||
@@ -169,13 +177,31 @@ export default async function AdminPedidosPage({
         </form>
       </div>
 
+      {(filter.key === "todos" || filter.key === "entregados") && completedIds.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-black/10 bg-white px-4 py-3">
+          <p className="text-sm text-ink-soft">
+            {completedIds.length === 1 ? "1 pedido ya está listo o entregado" : `${completedIds.length} pedidos ya están listos o entregados`}. Archívalos para
+            limpiar la lista; los encuentras en «Archivados».
+          </p>
+          <ArchiveButton
+            ids={completedIds}
+            archivar
+            label={completedIds.length === 1 ? "Archivar" : `Archivar los ${completedIds.length}`}
+          />
+        </div>
+      )}
+
       {error && (
         <p className="mt-4 rounded-brand bg-red-50 p-4 text-sm text-red-700">Error cargando pedidos: {error.message}</p>
       )}
 
       {!error && visible.length === 0 && (
         <p className="mt-8 rounded-brand border border-dashed border-black/15 bg-white p-8 text-center text-sm text-ink-soft">
-          {orders.length === 0 ? "Todavía no hay pedidos." : "No hay pedidos con este filtro."}
+          {orders.length === 0
+            ? "Todavía no hay pedidos."
+            : filter.key === "archivados"
+            ? "No hay pedidos archivados. Archiva los pedidos listos o entregados para sacarlos de la lista."
+            : "No hay pedidos con este filtro."}
         </p>
       )}
 
@@ -219,6 +245,9 @@ export default async function AdminPedidosPage({
 
                 <div className="col-span-3 text-xs md:col-span-1 md:text-right">
                   <p className="text-ink-muted">Pedido {formatShortDate(toManagua(new Date(order.created_at)))}</p>
+                  {order.archivado_at && (
+                    <p className="text-ink-soft">Archivado {formatShortDate(toManagua(new Date(order.archivado_at)))}</p>
+                  )}
                   {!done && order.payment_status !== "fallido" && (
                     <p className={late ? "font-semibold text-red-700" : "text-ink-soft"}>
                       {late ? "Atrasado · " : "Entrega est. "}

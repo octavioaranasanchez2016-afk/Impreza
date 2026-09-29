@@ -14,13 +14,13 @@ const jetbrains = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono" }
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl()),
-  title: { default: "Impreza — Serigrafía y sublimado en Managua", template: "%s — Impreza" },
+  title: { default: "Impreza — Serigrafía, sublimado y bordado en Managua", template: "%s — Impreza" },
   description: SITE_DESCRIPTION,
   openGraph: {
     type: "website",
     locale: "es_NI",
     siteName: SITE_NAME,
-    title: "Impreza — Serigrafía y sublimado en Managua",
+    title: "Impreza — Serigrafía, sublimado y bordado en Managua",
     description: SITE_DESCRIPTION,
   },
   twitter: { card: "summary_large_image" },

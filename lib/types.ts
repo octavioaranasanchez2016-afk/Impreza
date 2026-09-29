@@ -1,6 +1,6 @@
-export type Technique = "serigrafia" | "sublimado";
+export type Technique = "serigrafia" | "sublimado" | "bordado";
 
-export type ProductCategory = "camisa" | "hoodie" | "tote";
+export type ProductCategory = "camisa" | "hoodie" | "tote" | "polo" | "gorra";
 
 // Zonas donde el cliente puede colocar un diseño distinto (frente, espalda, manga).
 export type DesignZone = "frente" | "espalda" | "manga";
