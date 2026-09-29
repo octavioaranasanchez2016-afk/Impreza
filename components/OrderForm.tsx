@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { PRODUCTS, TECHNIQUE_LABEL, getProductById, sharedTechniques } from "@/lib/catalog";
 import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
@@ -12,6 +12,15 @@ import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { ShippingInfo, missingAddressField } from "@/lib/shipping";
 import { BillingInfo, missingBillingField } from "@/lib/billing";
+import {
+  DraftDesign,
+  clearDraft,
+  draftHasProgress,
+  loadDraft,
+  loadDraftImages,
+  saveDraft,
+  saveDraftImages,
+} from "@/lib/draft";
 import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
 import { Invoice } from "./Invoice";
@@ -19,6 +28,7 @@ import { BankDetails } from "./BankDetails";
 import { ShippingForm } from "./ShippingForm";
 import { OrderCodeBox } from "./OrderCodeBox";
 import { PaymentMethods } from "./PaymentMethods";
+import { ProformaPrint } from "./ProformaPrint";
 import { defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -49,6 +59,11 @@ function defaultSize(sizes: string[]): string {
   return sizes.includes("M") ? "M" : sizes[0] ?? "";
 }
 
+// Con una sola talla (gorra, tote) no hay nada que elegir: arranca en 1.
+function initialSizeQty(sizes: string[]): Record<string, number> {
+  return sizes.length === 1 ? { [sizes[0]]: 1 } : {};
+}
+
 // Un texto vacío no cuenta como diseño.
 function hasDesign(content: DesignContent | undefined): content is DesignContent {
   return Boolean(content && (content.kind === "imagen" || content.texto.trim()));
@@ -65,7 +80,10 @@ export function OrderForm() {
   const [productId, setProductId] = useState(preselected);
   const [color, setColor] = useState(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.color ?? "");
   const [size, setSize] = useState(defaultSize(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? []));
-  const [quantity, setQuantity] = useState(1);
+  // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>(() =>
+    initialSizeQty(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? [])
+  );
 
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
@@ -135,6 +153,157 @@ export function OrderForm() {
   }, []);
   const orderCode = pendingOrderId ? pendingOrderId.slice(0, 8).toUpperCase() : null;
 
+  // Recupera el pedido en curso si la página se recargó (p. ej. al volver de la app del banco).
+  // Hasta que termine no se guarda nada, para no pisar el borrador con el formulario vacío.
+  const [draftReady, setDraftReady] = useState(false);
+  const [restored, setRestored] = useState<{ imagesLost: boolean } | null>(null);
+  // Remonta las partes con estado propio (dirección escrita) al empezar de nuevo.
+  const [formKey, setFormKey] = useState(0);
+  const savedFiles = useRef<Partial<Record<DesignZone, File>>>({});
+  const urlProduct = searchParams.get("producto");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const draft = loadDraft();
+      if (!draft) {
+        void saveDraftImages({});
+        if (!cancelled) setDraftReady(true);
+        return;
+      }
+      const files = await loadDraftImages();
+      if (cancelled) return;
+
+      const content: ZoneContentMap = {};
+      let imagesLost = false;
+      for (const [zone, d] of Object.entries(draft.designs) as [DesignZone, DraftDesign][]) {
+        if (d.kind === "texto") {
+          content[zone] = d;
+        } else if (files[zone]) {
+          const file = files[zone]!;
+          content[zone] = { ...d, file, previewUrl: URL.createObjectURL(file) };
+        } else {
+          imagesLost = true;
+        }
+      }
+      savedFiles.current = files;
+
+      setItems(draft.items);
+      // Si llegó desde la página de otro producto, ese queda elegido para agregarlo.
+      const keepProduct = (!urlProduct || urlProduct === draft.productId) && getProductById(draft.productId);
+      if (keepProduct) {
+        setProductId(draft.productId);
+        setColor(draft.color);
+        setSize(draft.size);
+        setTechnique(draft.technique);
+      } else {
+        const shared = sharedTechniques([...new Set([...draft.items.map((i) => i.productId), productId])]);
+        setTechnique(shared.length === 0 || shared.includes(draft.technique) ? draft.technique : shared[0]);
+      }
+      setActiveZone(draft.activeZone);
+      setZoneContent(content);
+      setZoneTransform(draft.transforms);
+      setClienteNombre(draft.clienteNombre);
+      setClienteTelefono(draft.clienteTelefono);
+      setClienteEmail(draft.clienteEmail);
+      setNotas(draft.notas);
+      setWantsRuc(draft.wantsRuc);
+      setBilling(draft.billing);
+      setShipping(draft.shipping);
+      if (draftHasProgress(draft)) setRestored({ imagesLost });
+      setDraftReady(true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Solo al abrir la página.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!draftReady) return;
+    const designs: Partial<Record<DesignZone, DraftDesign>> = {};
+    for (const [zone, c] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
+      designs[zone] =
+        c.kind === "texto" ? c : { kind: "imagen", width: c.width, height: c.height, fill: c.fill };
+    }
+    saveDraft({
+      v: 1,
+      items,
+      technique,
+      productId,
+      color,
+      size,
+      activeZone,
+      designs,
+      transforms: zoneTransform,
+      clienteNombre,
+      clienteTelefono,
+      clienteEmail,
+      notas,
+      wantsRuc,
+      billing,
+      shipping,
+    });
+  }, [
+    draftReady,
+    items,
+    technique,
+    productId,
+    color,
+    size,
+    activeZone,
+    zoneContent,
+    zoneTransform,
+    clienteNombre,
+    clienteTelefono,
+    clienteEmail,
+    notas,
+    wantsRuc,
+    billing,
+    shipping,
+  ]);
+
+  // Las imágenes solo se vuelven a guardar cuando cambia algún archivo, no al moverlas.
+  useEffect(() => {
+    if (!draftReady) return;
+    const files: Partial<Record<DesignZone, File>> = {};
+    for (const [zone, c] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
+      if (c.kind === "imagen") files[zone] = c.file;
+    }
+    const prev = savedFiles.current;
+    const zonesNow = Object.keys(files) as DesignZone[];
+    const same = zonesNow.length === Object.keys(prev).length && zonesNow.every((z) => prev[z] === files[z]);
+    if (same) return;
+    savedFiles.current = files;
+    void saveDraftImages(files);
+  }, [draftReady, zoneContent]);
+
+  function startOver() {
+    clearDraft();
+    savedFiles.current = {};
+    const product = getProductById(urlProduct ?? "") ?? PRODUCTS[0];
+    setItems([]);
+    setTechnique(product.techniques[0]);
+    setProductId(product.id);
+    setColor(product.variants[0]?.color ?? "");
+    setSize(defaultSize(product.variants[0]?.sizes ?? []));
+    setSizeQty(initialSizeQty(product.variants[0]?.sizes ?? []));
+    setActiveZone("frente");
+    setZoneContent({});
+    setZoneTransform({});
+    setClienteNombre("");
+    setClienteTelefono("");
+    setClienteEmail("");
+    setNotas("");
+    setWantsRuc(false);
+    setBilling({ razonSocial: "", ruc: "" });
+    setShipping(null);
+    setComprobante(null);
+    setRestored(null);
+    setFormKey((k) => k + 1);
+  }
+
   useEffect(() => {
     if (!comprobante) {
       setComprobantePreview(null);
@@ -171,6 +340,7 @@ export function OrderForm() {
     const sizes = product?.variants[0]?.sizes ?? [];
     setColor(product?.variants[0]?.color ?? "");
     setSize(sizes.includes(size) ? size : defaultSize(sizes));
+    setSizeQty(initialSizeQty(sizes));
     if (product && !getZonesForCategory(product.category).includes(activeZone)) {
       setActiveZone("frente");
     }
@@ -182,16 +352,35 @@ export function OrderForm() {
     if (!sizes.includes(size)) setSize(defaultSize(sizes));
   }
 
+  const availableSizes = selectedVariant?.sizes ?? [];
+  const pendingLines = availableSizes
+    .filter((s) => (sizeQty[s] ?? 0) > 0)
+    .map((s) => ({ size: s, quantity: sizeQty[s] }));
+  const pendingTotal = pendingLines.reduce((sum, l) => sum + l.quantity, 0);
+
   function addItem() {
-    if (!selectedProduct || !color || !size || quantity < 1 || !fitsOrder) return;
+    if (!selectedProduct || !color || pendingTotal === 0 || !fitsOrder) return;
     setItems((prev) => {
-      const existing = prev.find((i) => i.productId === productId && i.color === color && i.size === size);
-      if (existing) {
-        return prev.map((i) => (i === existing ? { ...i, quantity: i.quantity + quantity } : i));
+      let next = prev;
+      for (const line of pendingLines) {
+        const existing = next.find((i) => i.productId === productId && i.color === color && i.size === line.size);
+        next = existing
+          ? next.map((i) => (i === existing ? { ...i, quantity: i.quantity + line.quantity } : i))
+          : [...next, { key: crypto.randomUUID(), productId, color, size: line.size, quantity: line.quantity }];
       }
-      return [...prev, { key: crypto.randomUUID(), productId, color, size, quantity }];
+      return next;
     });
-    setQuantity(1);
+    setSizeQty(initialSizeQty(availableSizes));
+  }
+
+  function setQtyFor(s: string, value: number) {
+    setSizeQty((prev) => ({ ...prev, [s]: Math.max(0, Math.min(9999, Math.floor(value) || 0)) }));
+  }
+
+  // Tocar una talla la muestra en el diseño y, si estaba en 0, le pone 1.
+  function pickSize(s: string) {
+    setSize(s);
+    if (!(sizeQty[s] > 0)) setQtyFor(s, 1);
   }
 
   function removeItem(key: string) {
@@ -213,7 +402,10 @@ export function OrderForm() {
   // Lo que falta para confirmar, con la sección del formulario donde se completa.
   const addressGap = shipping ? missingAddressField(shipping) : null;
   const missingSteps = [
-    items.length === 0 && { label: "al menos un producto", section: "diseno" },
+    items.length === 0 && {
+      label: pendingTotal > 0 ? "tocar «Agregar al pedido» en el paso 1" : "al menos un producto",
+      section: "diseno",
+    },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
     clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
     wantsRuc && missingBillingField(billing) && { label: missingBillingField(billing)!, section: "datos" },
@@ -316,6 +508,7 @@ export function OrderForm() {
       } catch {
         // Nada que limpiar.
       }
+      clearDraft();
       router.push(`/pedido/${orderId}/confirmacion`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocurrió un error inesperado.");
@@ -326,6 +519,31 @@ export function OrderForm() {
   return (
     <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
       <div className="min-w-0 space-y-10">
+        {restored && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3 text-sm">
+            <p className="text-ink">
+              <span className="font-semibold">Recuperamos tu pedido en curso.</span>{" "}
+              <span className="text-ink-soft">
+                {restored.imagesLost
+                  ? "Tu imagen no se pudo recuperar: vuelve a subirla en el paso 1."
+                  : "Sigue donde lo dejaste."}
+              </span>
+            </p>
+            <div className="flex shrink-0 gap-3">
+              <button type="button" onClick={startOver} className="text-xs font-semibold text-ink-soft hover:text-ink hover:underline">
+                Empezar de nuevo
+              </button>
+              <button
+                type="button"
+                onClick={() => setRestored(null)}
+                className="text-xs font-semibold text-ink hover:underline"
+              >
+                Cerrar
+              </button>
+            </div>
+          </div>
+        )}
+
         <section id="diseno" className="scroll-mt-28">
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">1. Diseña tu producto</h2>
 
@@ -394,41 +612,60 @@ export function OrderForm() {
                 </div>
               </div>
 
-              <div>
-                <p className="mb-2 text-sm font-medium text-ink-soft">Talla</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {selectedVariant?.sizes.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => setSize(s)}
-                      className={`min-w-[2.5rem] rounded-brand border px-2.5 py-1.5 text-sm font-medium transition-colors ${
-                        size === s ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
-                      }`}
-                    >
-                      {s}
-                    </button>
-                  ))}
+              {availableSizes.length > 1 ? (
+                <div>
+                  <p className="text-sm font-medium text-ink-soft">Cantidad por talla</p>
+                  <p className="mb-2 text-[11px] text-ink-muted">Toca tu talla o escribe cuántas quieres de cada una.</p>
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {availableSizes.map((s) => (
+                      <div key={s} className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => pickSize(s)}
+                          aria-pressed={size === s}
+                          className={`w-full rounded-t-brand border px-1 py-1 text-xs font-semibold transition-colors ${
+                            size === s ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          aria-label={`Cantidad talla ${s}`}
+                          value={sizeQty[s] ? sizeQty[s] : ""}
+                          placeholder="0"
+                          onFocus={() => setSize(s)}
+                          onChange={(e) => setQtyFor(s, Number(e.target.value))}
+                          className="w-full rounded-b-brand border border-t-0 border-black/15 bg-white px-1 py-1.5 text-center text-sm font-semibold text-ink outline-none [appearance:textfield] placeholder:font-normal placeholder:text-ink-muted focus:border-ink [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                        />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-
-              <Field label="Cantidad">
-                <input
-                  type="number"
-                  min={1}
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, Number(e.target.value) || 1))}
-                  className="input"
-                />
-              </Field>
+              ) : (
+                <Field label={`Cantidad${availableSizes[0] ? ` (talla ${availableSizes[0].toLowerCase()})` : ""}`}>
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    value={sizeQty[availableSizes[0]] || ""}
+                    onChange={(e) => setQtyFor(availableSizes[0], Number(e.target.value))}
+                    className="input"
+                  />
+                </Field>
+              )}
 
               <button
                 type="button"
                 onClick={addItem}
-                disabled={!fitsOrder}
+                disabled={!fitsOrder || pendingTotal === 0}
                 className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                + Agregar al pedido
+                {pendingTotal > 0
+                  ? `+ Agregar ${pendingTotal} pieza${pendingTotal === 1 ? "" : "s"} al pedido`
+                  : "+ Agregar al pedido"}
               </button>
               {!fitsOrder && selectedProduct && (
                 <p className="rounded-brand bg-paper-soft p-3 text-xs text-ink-soft">
@@ -555,7 +792,7 @@ export function OrderForm() {
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Entrega</h2>
           <p className="mt-1 text-sm text-ink-soft">¿Cómo quieres recibir tu pedido?</p>
           <div className="mt-3">
-            <ShippingForm value={shipping} onChange={setShipping} />
+            <ShippingForm key={formKey} value={shipping} onChange={setShipping} />
           </div>
         </section>
 
@@ -563,14 +800,27 @@ export function OrderForm() {
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Tu factura</h2>
           <div className="mt-3">
             {items.length > 0 ? (
-              <Invoice
-                lines={invoiceLines}
-                pricing={pricing}
-                technique={technique}
-                clienteNombre={clienteNombre}
-                shipping={shipping}
-                billing={wantsRuc ? billing : null}
-              />
+              <>
+                <Invoice
+                  lines={invoiceLines}
+                  pricing={pricing}
+                  technique={technique}
+                  clienteNombre={clienteNombre}
+                  shipping={shipping}
+                  billing={wantsRuc ? billing : null}
+                />
+                <ProformaPrint>
+                  <Invoice
+                    title="Proforma"
+                    lines={invoiceLines}
+                    pricing={pricing}
+                    technique={technique}
+                    clienteNombre={clienteNombre}
+                    shipping={shipping}
+                    billing={wantsRuc ? billing : null}
+                  />
+                </ProformaPrint>
+              </>
             ) : (
               <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
                 Agrega al menos un producto (paso 1) para ver tu factura.

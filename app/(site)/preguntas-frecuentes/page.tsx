@@ -61,6 +61,10 @@ const SECTIONS = [
         a: "Sí. Al hacer tu pedido marca «Necesito factura con RUC» y escribe el nombre de tu empresa y tu número RUC. Te entregamos la factura junto con tu pedido.",
       },
       {
+        q: "¿Me pueden dar una proforma para que mi empresa la apruebe?",
+        a: "Sí. Arma tu pedido en el diseñador y, en el paso «Tu factura», toca «Descargar proforma (PDF)». Sale con los productos, el total en córdobas y dólares y las cuentas para transferir, lista para enviarla a quien aprueba el pago.",
+      },
+      {
         q: "¿Qué escribo en el concepto de la transferencia?",
         a: "El código de tu pedido, que aparece en el paso de pago antes de transferir (por ejemplo CB07F9DB). Así identificamos tu pago más rápido.",
       },

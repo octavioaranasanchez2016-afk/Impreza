@@ -29,3 +29,16 @@ body {
     padding-bottom: 76px;
   }
 }
+
+/* En /pedido, imprimir (o "Guardar como PDF") saca solo la proforma. */
+@media print {
+  body.has-proforma > *:not(#proforma-print) {
+    display: none !important;
+  }
+  body.has-proforma {
+    padding-bottom: 0 !important;
+  }
+  body.has-proforma #proforma-print {
+    display: block !important;
+  }
+}

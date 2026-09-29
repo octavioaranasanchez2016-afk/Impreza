@@ -78,6 +78,7 @@ export function DesignMockup({
   interactive = true,
   showPlacement = false,
   compact = false,
+  onSizeCm,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -91,6 +92,8 @@ export function DesignMockup({
   showPlacement?: boolean;
   // Miniatura: sin textos de medidas debajo.
   compact?: boolean;
+  // Avisa el tamaño real del diseño (sin girar), para escribir las medidas en cm.
+  onSizeCm?: (size: { w: number; h: number } | null) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -146,17 +149,34 @@ export function DesignMockup({
     return () => observer.disconnect();
   }, [measure]);
 
+  // Tamaño del diseño calculado desde la escala actual, en % del lienzo. Medirlo en
+  // pantalla llega un render tarde, y reacomodar con el tamaño viejo corría el diseño
+  // de lugar al achicarlo o agrandarlo. La medida en pantalla queda de respaldo.
+  const exactDims =
+    content?.kind === "imagen"
+      ? imageFill
+        ? { w: area.w * transform.scale, h: area.h * transform.scale }
+        : content.width > 0
+        ? { w: imageWidthPct, h: (imageWidthPct * content.height) / content.width }
+        : null
+      : content?.kind === "texto" && measuredRatio
+      ? { w: textFontSize * measuredRatio, h: textFontSize }
+      : null;
+  const liveDims = exactDims ?? dims;
+  const liveW = liveDims?.w ?? 0;
+  const liveH = liveDims?.h ?? 0;
+
   const clampTransform = useCallback(
     (t: DesignTransform): DesignTransform => {
-      if (!dims) return t;
-      const box = rotatedBox(dims.w, dims.h, t.rotation);
+      if (!liveW || !liveH) return t;
+      const box = rotatedBox(liveW, liveH, t.rotation);
       return {
         ...t,
         x: clampCenter(t.x, box.w, area.x, area.w),
         y: clampCenter(t.y, box.h, area.y, area.h),
       };
     },
-    [dims, area.x, area.y, area.w, area.h]
+    [liveW, liveH, area.x, area.y, area.w, area.h]
   );
 
   // Si un cambio de tamaño, giro o texto saca el diseño del área, se reacomoda.
@@ -223,22 +243,22 @@ export function DesignMockup({
     setMode(next);
   }
 
-  // Las imágenes tienen tamaño exacto calculable; medir en píxeles agrega redondeo.
-  const exactImageDims =
-    content?.kind !== "imagen"
-      ? null
-      : imageFill
-      ? { w: area.w * transform.scale, h: area.h * transform.scale }
-      : content.width > 0
-      ? { w: imageWidthPct, h: (imageWidthPct * content.height) / content.width }
-      : null;
-  const shownDims = exactImageDims ?? dims;
-  const widthCm = shownDims ? (shownDims.w / 100) * spanCm : null;
-  const heightCm = shownDims ? (shownDims.h / 100) * spanCm : null;
+  const widthCm = liveDims ? (liveDims.w / 100) * spanCm : null;
+  const heightCm = liveDims ? (liveDims.h / 100) * spanCm : null;
   // En "llenar" la imagen se estira hasta cubrir ambos lados: manda el lado con menos píxeles por cm.
   const dpi =
     content?.kind === "imagen" && content.width > 0 && widthCm && heightCm
       ? Math.round(Math.min(content.width / (widthCm / 2.54), content.height / (heightCm / 2.54)))
+      : null;
+
+  useEffect(() => {
+    onSizeCm?.(widthCm && heightCm ? { w: widthCm, h: heightCm } : null);
+  }, [onSizeCm, widthCm, heightCm]);
+
+  // Distancia del borde de arriba del diseño al cuello (o al borde de la bolsa), como la mide el taller.
+  const fromReferenceCm =
+    widthCm && heightCm && zone !== "manga" && category !== "gorra"
+      ? Math.max(0, topEdgeCm(category, zone, transform, spanCm, widthCm, heightCm))
       : null;
 
   const zoomIndex = ZOOM_LEVELS.indexOf(zoom);
@@ -361,6 +381,12 @@ export function DesignMockup({
           <span className="font-semibold text-ink">
             {widthCm.toFixed(1)} × {heightCm.toFixed(1)} cm
           </span>
+          {!showPlacement && fromReferenceCm !== null && (
+            <>
+              {" · "}a <span className="font-semibold text-ink">{fromReferenceCm.toFixed(1)} cm</span>{" "}
+              {REFERENCE_LABEL[category]}
+            </>
+          )}
         </p>
       )}
       {showPlacement && content && widthCm && heightCm && (
@@ -408,9 +434,8 @@ function Placement({
   heightCm: number;
   dpi: number | null;
 }) {
-  const box = rotatedBox(widthCm, heightCm, transform.rotation);
   const offsetX = ((transform.x - 50) / 100) * spanCm;
-  const topEdge = (transform.y / 100) * spanCm - box.h / 2 - getReferenceTopCm(category, zone);
+  const topEdge = topEdgeCm(category, zone, transform, spanCm, widthCm, heightCm);
   const reference = zone === "manga" ? "del borde superior de la manga" : REFERENCE_LABEL[category];
   const rotation = Math.round(transform.rotation > 180 ? transform.rotation - 360 : transform.rotation);
 
@@ -437,6 +462,19 @@ function Placement({
       )}
     </ul>
   );
+}
+
+// cm desde el cuello (o el borde de arriba de la bolsa/manga) hasta el borde de arriba del diseño ya girado.
+function topEdgeCm(
+  category: ProductCategory,
+  zone: DesignZone,
+  transform: DesignTransform,
+  spanCm: number,
+  widthCm: number,
+  heightCm: number
+) {
+  const box = rotatedBox(widthCm, heightCm, transform.rotation);
+  return (transform.y / 100) * spanCm - box.h / 2 - getReferenceTopCm(category, zone);
 }
 
 // Un poco arriba del centro del área: así queda un estampado típico de pecho.

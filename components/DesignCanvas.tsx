@@ -15,6 +15,7 @@ import {
 } from "@/lib/design";
 import {
   ZONE_LABEL,
+  getCanvasSpanCm,
   getMeasure,
   getPrintArea,
   getPrintAreaCm,
@@ -22,6 +23,69 @@ import {
   isDarkColor,
 } from "./GarmentShape";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
+
+// Posiciones rápidas, como las del taller. Sin ancho ni "max" es la posición estándar.
+// topCm se mide desde el borde de arriba del área de impresión; dxCm, desde su centro
+// (+ = derecha vista de frente, que es el lado izquierdo de quien la lleva puesta).
+interface PlacementPreset {
+  label: string;
+  widthCm?: number;
+  dxCm?: number;
+  topCm?: number;
+  max?: boolean;
+}
+
+const CHEST_PRESETS: PlacementPreset[] = [
+  { label: "Estándar" },
+  { label: "Pecho izquierdo", widthCm: 9, dxCm: 9.5 },
+  { label: "Centro del pecho", widthCm: 10 },
+  { label: "Grande", max: true },
+];
+const BASIC_PRESETS: PlacementPreset[] = [{ label: "Estándar" }, { label: "Grande", max: true }];
+
+const PLACEMENT_PRESETS: Record<string, PlacementPreset[]> = {
+  "camisa:frente": CHEST_PRESETS,
+  "camisa:espalda": [{ label: "Estándar" }, { label: "Nuca", widthCm: 8 }, { label: "Grande", max: true }],
+  "hoodie:frente": CHEST_PRESETS,
+  "hoodie:espalda": BASIC_PRESETS,
+  "polo:espalda": BASIC_PRESETS,
+  "tote:frente": BASIC_PRESETS,
+};
+
+type SizeCm = { w: number; h: number };
+
+const clampScale = (s: number) => Math.min(MAX_SCALE, Math.max(MIN_SCALE, s));
+
+// El tamaño del diseño crece en línea recta con la escala, así que para llegar a un
+// ancho en cm basta una regla de tres con el tamaño actual.
+function presetTransform(
+  p: PlacementPreset,
+  category: ProductCategory,
+  zone: DesignZone,
+  transform: DesignTransform,
+  sizeCm: SizeCm
+): DesignTransform {
+  if (!p.widthCm && !p.max) return defaultTransform(category, zone);
+  const span = getCanvasSpanCm(category, zone);
+  const area = getPrintArea(category, zone);
+  const scale = p.widthCm ? clampScale((transform.scale * p.widthCm) / sizeCm.w) : MAX_SCALE;
+  const heightCm = (sizeCm.h * scale) / transform.scale;
+  return {
+    x: area.x + area.w / 2 + ((p.dxCm ?? 0) / span) * 100,
+    y: area.y + (((p.topCm ?? 0) + heightCm / 2) / span) * 100,
+    scale,
+    rotation: 0,
+  };
+}
+
+function sameTransform(a: DesignTransform, b: DesignTransform) {
+  return (
+    Math.abs(a.x - b.x) < 0.6 &&
+    Math.abs(a.y - b.y) < 0.6 &&
+    Math.abs(a.scale - b.scale) < 0.02 &&
+    Math.abs(a.rotation - b.rotation) < 1
+  );
+}
 
 // Lo que ya lleva cada zona, para dibujar las miniaturas de Frente / Espalda / Manga.
 export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform }>>;
@@ -56,6 +120,7 @@ export function DesignCanvas({
   const textRef = useRef<HTMLInputElement>(null);
   const focusText = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
 
   const zones = getZonesForCategory(category);
   const measure = getMeasure(category, size);
@@ -109,6 +174,13 @@ export function DesignCanvas({
   const rotationDisplay = transform.rotation > 180 ? transform.rotation - 360 : transform.rotation;
   const setRotation = (deg: number) => onTransformChange({ ...transform, rotation: ((deg % 360) + 360) % 360 });
   const area = getPrintArea(category, zone);
+  const presets = PLACEMENT_PRESETS[`${category}:${zone}`];
+  const maxCm = sizeCm && transform.scale > 0 ? { w: (sizeCm.w / transform.scale) * MAX_SCALE, h: (sizeCm.h / transform.scale) * MAX_SCALE } : null;
+
+  function resizeTo(target: number, current: number) {
+    if (!(target > 0) || !(current > 0)) return;
+    onTransformChange({ ...transform, scale: clampScale((transform.scale * target) / current) });
+  }
 
   return (
     <div>
@@ -120,6 +192,7 @@ export function DesignCanvas({
         content={content}
         transform={transform}
         onTransformChange={onTransformChange}
+        onSizeCm={setSizeCm}
       />
 
       {zones.length > 1 && (
@@ -327,6 +400,44 @@ export function DesignCanvas({
               </div>
             )}
 
+            {presets && sizeCm && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink-soft">Posición rápida</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {presets.map((p) => {
+                    const target = presetTransform(p, category, zone, transform, sizeCm);
+                    const active = sameTransform(target, transform);
+                    return (
+                      <button
+                        key={p.label}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => onTransformChange(target)}
+                        className={`rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {sizeCm && maxCm && (
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-ink-soft">Medidas exactas</p>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <CmInput label="Ancho" value={sizeCm.w} onCommit={(cm) => resizeTo(cm, sizeCm.w)} />
+                  <CmInput label="Alto" value={sizeCm.h} onCommit={(cm) => resizeTo(cm, sizeCm.h)} />
+                  <span className="text-[11px] text-ink-muted">
+                    máx. {maxCm.w.toFixed(1)} × {maxCm.h.toFixed(1)} cm
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="grid gap-4 sm:grid-cols-2">
               <Slider
                 label="Tamaño"
@@ -361,7 +472,9 @@ export function DesignCanvas({
             <div className="flex flex-wrap gap-2">
               <ToolButton onClick={() => onTransformChange({ ...transform, x: area.x + area.w / 2 })}>Centrar</ToolButton>
               <ToolButton onClick={() => setRotation(0)}>Enderezar</ToolButton>
-              <ToolButton onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</ToolButton>
+              {!presets && (
+                <ToolButton onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</ToolButton>
+              )}
             </div>
 
             <p className="text-xs text-ink-muted">
@@ -425,6 +538,40 @@ function Slider({
         className="w-full accent-ink"
       />
     </div>
+  );
+}
+
+// Campo en cm: se aplica al salir del campo o con Enter, para no brincar mientras se escribe.
+function CmInput({ label, value, onCommit }: { label: string; value: number; onCommit: (cm: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+
+  function commit() {
+    if (draft === null) return;
+    const cm = parseFloat(draft.replace(",", "."));
+    setDraft(null);
+    if (cm > 0 && Math.abs(cm - value) >= 0.05) onCommit(cm);
+  }
+
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-ink-soft">
+      {label}
+      <input
+        type="text"
+        inputMode="decimal"
+        value={draft ?? value.toFixed(1)}
+        onFocus={(e) => {
+          setDraft(value.toFixed(1));
+          e.target.select();
+        }}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+        className="w-16 rounded-brand border border-black/15 bg-white px-2 py-1 text-center text-sm font-semibold text-ink outline-none focus:border-ink"
+      />
+      cm
+    </label>
   );
 }
 
