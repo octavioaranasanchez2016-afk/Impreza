@@ -3,6 +3,7 @@ import { InvoiceLine, SETUP_FEE_LABEL } from "@/lib/pricing";
 import { TECHNIQUE_LABEL } from "@/lib/catalog";
 import { PricingBreakdown, Technique } from "@/lib/types";
 import { ShippingInfo } from "@/lib/shipping";
+import { BillingInfo } from "@/lib/billing";
 
 export function Invoice({
   lines,
@@ -12,6 +13,7 @@ export function Invoice({
   orderNumber,
   date,
   shipping,
+  billing,
   title = "Factura proforma",
 }: {
   lines: InvoiceLine[];
@@ -21,6 +23,7 @@ export function Invoice({
   orderNumber?: string;
   date?: Date;
   shipping?: ShippingInfo | null;
+  billing?: BillingInfo | null;
   title?: string;
 }) {
   return (
@@ -48,6 +51,18 @@ export function Invoice({
           <div>
             <dt className="text-ink-muted">Cliente</dt>
             <dd className="font-medium text-ink">{clienteNombre}</dd>
+          </div>
+        )}
+        {billing?.razonSocial.trim() && (
+          <div>
+            <dt className="text-ink-muted">Facturar a</dt>
+            <dd className="font-medium text-ink">{billing.razonSocial}</dd>
+          </div>
+        )}
+        {billing?.ruc.trim() && (
+          <div>
+            <dt className="text-ink-muted">RUC</dt>
+            <dd className="font-mono font-medium uppercase text-ink">{billing.ruc}</dd>
           </div>
         )}
         <div>

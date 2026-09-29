@@ -19,6 +19,7 @@ import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/
 import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
 import { NotifyInfo, statusWhatsAppMessage, trackingPath } from "@/lib/notifications";
 import { parseShipping } from "@/lib/shipping";
+import { parseBilling } from "@/lib/billing";
 import { DesignZone, OrderStatus, PaymentStatus, Technique } from "@/lib/types";
 import { FontFamilyKey, MockupContent } from "@/lib/design";
 
@@ -102,6 +103,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const nombre = order.cliente_nombre as string;
   const telefono = order.cliente_telefono as string;
   const entrega = parseShipping(order.entrega);
+  const factura = parseBilling(order.factura);
   const notify: NotifyInfo = {
     nombre,
     telefono,
@@ -291,6 +293,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               orderNumber={shortId}
               date={createdAt}
               shipping={entrega}
+              billing={factura}
             />
           </div>
         </div>
@@ -301,6 +304,13 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             <p className="mt-2 text-lg font-semibold text-ink">{nombre}</p>
             <p className="text-sm text-ink-soft">{telefono}</p>
             {order.cliente_email && <p className="text-sm text-ink-soft">{order.cliente_email}</p>}
+            {factura && (
+              <div className="mt-3 rounded-brand border-2 border-ink px-3 py-2 text-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Pide factura con RUC</p>
+                <p className="font-semibold text-ink">{factura.razonSocial}</p>
+                <p className="font-mono text-ink">RUC {factura.ruc}</p>
+              </div>
+            )}
             <p className="mt-2 text-xs text-ink-muted print:hidden">
               Al verificar el pago o avanzar el pedido aparece un botón verde para avisarle por WhatsApp. Su código para
               rastrear el pedido es <span className="font-semibold text-ink">{shortId}</span>.

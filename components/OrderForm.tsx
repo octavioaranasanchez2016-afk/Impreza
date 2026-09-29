@@ -11,6 +11,7 @@ import { DesignContent } from "@/lib/design";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { ShippingInfo, missingAddressField } from "@/lib/shipping";
+import { BillingInfo, missingBillingField } from "@/lib/billing";
 import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
 import { Invoice } from "./Invoice";
@@ -69,6 +70,8 @@ export function OrderForm() {
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
   const [notas, setNotas] = useState("");
+  const [wantsRuc, setWantsRuc] = useState(false);
+  const [billing, setBilling] = useState<BillingInfo>({ razonSocial: "", ruc: "" });
   const [shipping, setShipping] = useState<ShippingInfo | null>(null);
 
   const [comprobante, setComprobante] = useState<File | null>(null);
@@ -213,6 +216,7 @@ export function OrderForm() {
     items.length === 0 && { label: "al menos un producto", section: "diseno" },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
     clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
+    wantsRuc && missingBillingField(billing) && { label: missingBillingField(billing)!, section: "datos" },
     !shipping && { label: "cómo quieres recibir tu pedido", section: "entrega" },
     addressGap && { label: addressGap, section: "entrega" },
     !comprobante && { label: "el comprobante de transferencia", section: "pago" },
@@ -286,6 +290,7 @@ export function OrderForm() {
           disenos,
           notas: notas.trim() || null,
           entrega: shipping,
+          factura: wantsRuc ? billing : null,
           items: items.map(({ key, ...rest }) => rest),
           paymentMethod: "transferencia",
           comprobantePath,
@@ -504,6 +509,44 @@ export function OrderForm() {
               <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. es un regalo, empacar aparte" />
             </Field>
           </div>
+
+          <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
+            <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-ink">
+              <input
+                id="factura-ruc"
+                type="checkbox"
+                checked={wantsRuc}
+                onChange={(e) => setWantsRuc(e.target.checked)}
+                className="h-4 w-4 accent-ink"
+              />
+              Necesito factura con RUC (empresas y negocios)
+            </label>
+            {wantsRuc && (
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Nombre o razón social *">
+                  <input
+                    id="factura-razon-social"
+                    value={billing.razonSocial}
+                    onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
+                    className="input"
+                    placeholder="Ej. Distribuidora Ejemplo, S.A."
+                    maxLength={120}
+                  />
+                </Field>
+                <Field label="Número RUC *">
+                  <input
+                    id="factura-ruc-numero"
+                    value={billing.ruc}
+                    onChange={(e) => setBilling({ ...billing, ruc: e.target.value })}
+                    className="input font-mono uppercase"
+                    placeholder="Ej. J0310000000000"
+                    maxLength={24}
+                  />
+                </Field>
+                <p className="text-xs text-ink-soft sm:col-span-2">Te entregamos la factura con RUC junto con tu pedido.</p>
+              </div>
+            )}
+          </div>
         </section>
 
         <section id="entrega" className="scroll-mt-28">
@@ -518,7 +561,14 @@ export function OrderForm() {
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Tu factura</h2>
           <div className="mt-3">
             {items.length > 0 ? (
-              <Invoice lines={invoiceLines} pricing={pricing} technique={technique} clienteNombre={clienteNombre} shipping={shipping} />
+              <Invoice
+                lines={invoiceLines}
+                pricing={pricing}
+                technique={technique}
+                clienteNombre={clienteNombre}
+                shipping={shipping}
+                billing={wantsRuc ? billing : null}
+              />
             ) : (
               <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
                 Agrega al menos un producto (paso 1) para ver tu factura.

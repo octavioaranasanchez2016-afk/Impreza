@@ -5,6 +5,7 @@ import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Invoice } from "@/components/Invoice";
 import { ReviewForm } from "@/components/ReviewForm";
 import { getOrderReviewState } from "@/lib/reviews";
+import { parseBilling } from "@/lib/billing";
 import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
@@ -176,6 +177,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
           orderNumber={shortId}
           date={new Date(order.created_at)}
           shipping={entrega}
+          billing={parseBilling(order.factura)}
         />
         <p className="mt-2 text-center text-xs text-ink-muted">
           Guarda esta página: aquí puedes ver en todo momento cómo va tu pedido.

@@ -8,6 +8,7 @@ import { getProductById } from "@/lib/catalog";
 import { DesignZone, OrderStatus } from "@/lib/types";
 import { isDarkColor } from "@/components/GarmentShape";
 import { parseShipping, shippingSummary } from "@/lib/shipping";
+import { parseBilling } from "@/lib/billing";
 import { ArchiveButton } from "@/components/admin/ArchiveButton";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ interface OrderRow {
   disenos: StoredDiseno[] | null;
   entrega?: unknown; // columna nueva: no llega hasta correr supabase/entrega.sql
   archivado_at?: string | null; // columna nueva: supabase/archivo.sql
+  factura?: unknown; // columna nueva: supabase/factura-ruc.sql
 }
 
 type FilterKey = "todos" | "verificar" | "proceso" | "atrasados" | "domicilio" | "entregados" | "rechazados" | "archivados";
@@ -230,7 +232,10 @@ export default async function AdminPedidosPage({
                   <p className="truncate text-xs text-ink-muted">
                     {items ? `${items.pieces} pieza${items.pieces === 1 ? "" : "s"} · ${[...items.products].join(", ")}` : "—"}
                   </p>
-                  <p className="truncate text-xs font-medium text-ink-soft">{shippingSummary(parseShipping(order.entrega))}</p>
+                  <p className="truncate text-xs font-medium text-ink-soft">
+                    {shippingSummary(parseShipping(order.entrega))}
+                    {parseBilling(order.factura) && " · Factura con RUC"}
+                  </p>
                 </div>
 
                 <div className="text-right md:text-left">

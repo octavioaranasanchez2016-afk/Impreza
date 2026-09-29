@@ -5,6 +5,7 @@ import { TECHNIQUE_LABEL, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
 import { addressText, missingAddressField, parseShipping } from "@/lib/shipping";
+import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -30,6 +31,7 @@ interface CreateOrderBody {
   disenos: DisenoInput[];
   notas: string | null;
   entrega: unknown;
+  factura?: unknown; // { razonSocial, ruc } si pide factura con RUC
   items: OrderItemInput[];
   paymentMethod: PaymentMethod;
   comprobantePath: string;
@@ -59,6 +61,11 @@ export async function POST(req: NextRequest) {
   const missingAddress = missingAddressField(entrega);
   if (missingAddress) {
     return NextResponse.json({ error: `Para la entrega a domicilio falta ${missingAddress}.` }, { status: 400 });
+  }
+
+  const factura = body.factura ? parseBilling(body.factura) : null;
+  if (body.factura && (!factura || missingBillingField(factura))) {
+    return NextResponse.json({ error: "Revisa el nombre y el número RUC para tu factura." }, { status: 400 });
   }
 
   // El total SIEMPRE se recalcula en el servidor — nunca se confía en un
@@ -106,21 +113,22 @@ export async function POST(req: NextRequest) {
     total: pricing.total,
   };
 
-  let { data: order, error: orderError } = await supabase
-    .from("orders")
-    .insert({ ...row, entrega })
-    .select("id")
-    .single();
+  const payload: Record<string, unknown> = { ...row, entrega, ...(factura ? { factura } : {}) };
+  const insertOrder = () => supabase.from("orders").insert(payload).select("id").single();
+  let { data: order, error: orderError } = await insertOrder();
 
-  // Si todavía no se creó la columna "entrega" en Supabase, el pedido no se
-  // pierde: la dirección se guarda en las notas para que el taller la vea.
-  if (orderError?.code === "PGRST204" && orderError.message.includes("entrega")) {
-    console.error("Falta la columna orders.entrega; guardando la dirección en las notas.");
-    ({ data: order, error: orderError } = await supabase
-      .from("orders")
-      .insert({ ...row, notas: [body.notas, addressText(entrega)].filter(Boolean).join("\n\n") })
-      .select("id")
-      .single());
+  // Si una columna nueva todavía no existe en Supabase (falta correr su .sql), el
+  // pedido no se pierde: ese dato se guarda en las notas para que el taller lo vea.
+  const notes = body.notas ? [body.notas] : [];
+  for (let i = 0; i < 2 && orderError?.code === "PGRST204"; i++) {
+    const missing = /'(\w+)' column/.exec(orderError.message)?.[1];
+    if (missing === "entrega") notes.push(addressText(entrega));
+    else if (missing === "factura" && factura) notes.push(billingText(factura));
+    else break;
+    console.error(`Falta la columna orders.${missing}; guardando ese dato en las notas.`);
+    delete payload[missing];
+    payload.notas = notes.join("\n\n");
+    ({ data: order, error: orderError } = await insertOrder());
   }
 
   // "bordado" es un valor nuevo del tipo technique en la base de datos; si todavía
@@ -176,6 +184,7 @@ export async function POST(req: NextRequest) {
         tecnica: body.tecnica,
         piezas: pricing.totalQuantity,
         entrega,
+        factura,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })

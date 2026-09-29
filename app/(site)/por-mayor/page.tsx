@@ -20,7 +20,7 @@ const GROUPS = [
   },
   {
     title: "Empresas y uniformes",
-    text: "Tu logo bordado en polos y gorras, o impreso en camisas y hoodies, para tu equipo o tus clientes.",
+    text: "Tu logo bordado en polos y gorras, o impreso en camisas y hoodies, para tu equipo o tus clientes. Con factura con RUC.",
     pieces: "12 – 100 piezas",
     cta: "Cotizar para mi empresa",
     message: "Hola, quiero cotizar camisas con el logo de mi empresa (___ piezas).",

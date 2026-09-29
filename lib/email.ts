@@ -3,6 +3,7 @@ import { formatBoth } from "./currency";
 import { estimateReadyDate, formatReadyDate, PRODUCTION_BUSINESS_DAYS } from "./delivery";
 import { ShippingInfo, addressMapsUrl, areaLabel } from "./shipping";
 import { siteUrl } from "./site";
+import { BillingInfo } from "./billing";
 import { TECHNIQUE_LABEL } from "./catalog";
 import { Technique } from "./types";
 
@@ -61,6 +62,7 @@ interface NewOrderParams {
   tecnica: string;
   piezas: number;
   entrega: ShippingInfo | null;
+  factura: BillingInfo | null;
 }
 
 export async function sendNewOrderEmail(params: NewOrderParams) {
@@ -82,6 +84,7 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? params.tecnica} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
       ${shippingHtml(params.entrega)}
+      ${params.factura ? `<p style="margin:4px 0;"><strong>Factura con RUC:</strong> ${escapeHtml(params.factura.razonSocial)} · RUC ${escapeHtml(params.factura.ruc)}</p>` : ""}
       <p style="margin:16px 0;">El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>
       ${button(`${siteUrl()}/admin/pedidos/${params.orderId}`, "Ver pedido en el panel")}
     `),

@@ -29,6 +29,8 @@ create table orders (
   entrega jsonb,
   -- Fecha en que el admin archivó el pedido completado; null = activo.
   archivado_at timestamptz,
+  -- { razonSocial, ruc } cuando el cliente pide factura con RUC; null si no.
+  factura jsonb,
   status order_status not null default 'recibido',
   payment_method payment_method not null,
   payment_status payment_status not null default 'pendiente',

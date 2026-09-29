@@ -57,6 +57,10 @@ const SECTIONS = [
         a: "Solo transferencia bancaria a nuestra cuenta BAC. Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado.",
       },
       {
+        q: "¿Dan factura con RUC?",
+        a: "Sí. Al hacer tu pedido marca «Necesito factura con RUC» y escribe el nombre de tu empresa y tu número RUC. Te entregamos la factura junto con tu pedido.",
+      },
+      {
         q: "¿Qué escribo en el concepto de la transferencia?",
         a: "El código de tu pedido, que aparece en el paso de pago antes de transferir (por ejemplo CB07F9DB). Así identificamos tu pago más rápido.",
       },
