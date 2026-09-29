@@ -32,6 +32,9 @@ export function Footer() {
             <Link href="/seguimiento" className="block hover:text-paper">
               Rastrear pedido
             </Link>
+            <Link href="/resenas" className="block hover:text-paper">
+              Reseñas
+            </Link>
             <Link href="/nosotros" className="block hover:text-paper">
               Quiénes somos
             </Link>

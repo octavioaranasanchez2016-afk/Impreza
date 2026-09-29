@@ -10,15 +10,18 @@ export interface NotifyInfo {
   entrega: ShippingInfo | null;
 }
 
-function readyMessage(info: NotifyInfo): string {
+function readyMessage(info: NotifyInfo, trackUrl: string): string {
+  const review = `
+
+Cuando lo recibas, nos ayudas mucho contándonos qué te pareció aquí: ${trackUrl}`;
   const intro = `Hola ${info.nombre}, ¡tu pedido #${info.code} está listo!`;
   if (info.entrega?.metodo === "domicilio") {
-    return `${intro} Lo llevamos a tu dirección en ${areaLabel(info.entrega)}. ¿En qué horario te queda bien recibirlo?`;
+    return `${intro} Lo llevamos a tu dirección en ${areaLabel(info.entrega)}. ¿En qué horario te queda bien recibirlo?${review}`;
   }
   if (info.entrega?.metodo === "retiro") {
-    return `${intro} Puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}). Ubicación: ${WORKSHOP.mapsUrl}`;
+    return `${intro} Puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}). Ubicación: ${WORKSHOP.mapsUrl}${review}`;
   }
-  return `${intro} ¿Cuándo te queda bien para la entrega o recogida?`;
+  return `${intro} ¿Cuándo te queda bien para la entrega o recogida?${review}`;
 }
 
 // Mensaje de WhatsApp que el admin le manda al cliente al cambiar el estado.
@@ -39,7 +42,7 @@ export function statusWhatsAppMessage(
     case "en_produccion":
       return `Hola ${info.nombre}, tu pedido #${info.code} ya está en producción. Te avisamos cuando esté listo.${track}`;
     case "listo_entregado":
-      return readyMessage(info);
+      return readyMessage(info, trackUrl);
     default:
       return null;
   }

@@ -39,6 +39,10 @@ const SECTIONS = [
         a: "Entra a «Rastrear pedido» (en el menú) y escribe el código de 8 caracteres que aparece en tu factura. Ahí ves si ya verificamos tu pago, si está en producción o si ya está listo. También te avisamos por WhatsApp en cada paso.",
       },
       {
+        q: "¿Cómo dejo una reseña?",
+        a: "Cuando tu pedido esté listo, entra a «Rastrear pedido» con tu código: ahí aparece un formulario para calificarnos. Solo publicamos reseñas de pedidos reales.",
+      },
+      {
         q: "¿Qué pasa después de hacer mi pedido?",
         a: "Revisamos tu diseño y verificamos tu transferencia. Si algo no está claro te escribimos por WhatsApp; si todo está bien, tu pedido pasa a producción.",
       },

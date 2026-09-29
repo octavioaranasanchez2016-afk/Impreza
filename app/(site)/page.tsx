@@ -6,6 +6,11 @@ import { DesignMockup } from "@/components/DesignMockup";
 import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { businessJsonLd } from "@/lib/site";
+import { getApprovedReviews } from "@/lib/reviews";
+import { ReviewGrid, ReviewSummary } from "@/components/ReviewCards";
+
+// Las reseñas aprobadas se actualizan cada 5 minutos sin volver a publicar el sitio.
+export const revalidate = 300;
 
 const PROCESS_PHOTO = "https://images.unsplash.com/photo-1643216674491-33878507b402?w=900&q=80&auto=format&fit=crop";
 const STUDIO_PHOTO = "https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d?w=900&q=80&auto=format&fit=crop";
@@ -23,8 +28,9 @@ const STEPS = [
   ["04", "Recíbelo en tu puerta", `En ${PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago: te lo llevamos a domicilio o lo recoges en el taller.`],
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
   const [tee, hoodie] = PRODUCTS;
+  const { reviews, stats } = await getApprovedReviews(6);
 
   return (
     <>
@@ -235,6 +241,23 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {reviews.length > 0 && (
+        <section className="border-t border-black/10 bg-paper-soft py-20">
+          <div className="mx-auto max-w-6xl px-4 md:px-6">
+            <div className="flex flex-wrap items-end justify-between gap-6">
+              <SectionTitle eyebrow="Reseñas" title="Lo que dicen nuestros clientes" />
+              <ReviewSummary stats={stats} />
+            </div>
+            <div className="mt-10">
+              <ReviewGrid reviews={reviews} />
+            </div>
+            <Link href="/resenas" className="mt-8 inline-block text-sm font-semibold text-ink hover:underline">
+              Ver todas las reseñas →
+            </Link>
+          </div>
+        </section>
+      )}
 
       <section className="bg-ink py-20 text-center text-paper">
         <div className="mx-auto max-w-3xl px-4">

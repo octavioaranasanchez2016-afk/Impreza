@@ -19,6 +19,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     redirect("/admin/login?error=sin_acceso");
   }
 
+  // Reseñas nuevas esperando aprobación (0 si la tabla todavía no existe).
+  const { count } = await supabase.from("resenas").select("id", { count: "exact", head: true }).eq("aprobada", false);
+  const pendingReviews = count ?? 0;
+
   return (
     <div className="min-h-screen bg-paper-soft print:bg-white">
       <header className="sticky top-0 z-30 bg-ink text-paper print:hidden">
@@ -30,6 +34,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <nav className="flex items-center gap-4 text-sm">
               <Link href="/admin/pedidos" className="text-paper/80 hover:text-paper">
                 Pedidos
+              </Link>
+              <Link href="/admin/resenas" className="text-paper/80 hover:text-paper">
+                Reseñas
+                {pendingReviews > 0 && (
+                  <span className="ml-1 rounded-full bg-paper px-1.5 text-[11px] font-bold text-ink">{pendingReviews}</span>
+                )}
               </Link>
               <a href="/" target="_blank" rel="noopener noreferrer" className="text-paper/80 hover:text-paper">
                 Ver sitio ↗

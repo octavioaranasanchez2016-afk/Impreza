@@ -3,6 +3,8 @@ import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Invoice } from "@/components/Invoice";
+import { ReviewForm } from "@/components/ReviewForm";
+import { getOrderReviewState } from "@/lib/reviews";
 import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
@@ -62,6 +64,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const entrega = parseShipping(order.entrega);
   const { title, text } = headline(status, payment, entrega);
   const done = status === "listo_entregado";
+  const reviewState = done ? await getOrderReviewState(order.id) : null;
 
   const steps = [
     { label: "Pedido recibido", done: true },
@@ -142,6 +145,17 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
         <p className="mt-4 rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
           Listo aproximadamente el <span className="font-semibold">{formatReadyDate(estimateReadyDate(new Date(order.created_at)))}</span>
           <span className="block text-xs text-ink-soft">{PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago.</span>
+        </p>
+      )}
+
+      {reviewState === "pendiente" && (
+        <div className="mt-8">
+          <ReviewForm orderId={order.id} defaultName={String(order.cliente_nombre).split(" ")[0] ?? ""} />
+        </div>
+      )}
+      {reviewState === "enviada" && (
+        <p className="mt-8 rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
+          ¡Gracias por dejarnos tu reseña!
         </p>
       )}
 
