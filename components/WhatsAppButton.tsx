@@ -23,7 +23,7 @@ export function WhatsAppFloatingButton() {
       rel="noopener noreferrer"
       aria-label="Escribir por WhatsApp"
       className={`fixed right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 md:right-8 lg:bottom-8 ${
-        raised ? "bottom-24" : "bottom-5 md:bottom-8"
+        raised ? "bottom-32" : "bottom-5 md:bottom-8"
       }`}
     >
       <WhatsAppIcon />

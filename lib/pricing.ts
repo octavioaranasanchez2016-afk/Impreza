@@ -1,5 +1,5 @@
 import { OrderItemInput, PricingBreakdown, Technique } from "./types";
-import { getProductById } from "./catalog";
+import { getFabric, getProductById } from "./catalog";
 
 // Descuentos por volumen sobre la cantidad TOTAL de piezas del pedido (todas las
 // prendas/colores/tallas se suman, ya que el ahorro viene de producir en lote).
@@ -37,9 +37,10 @@ export function getVolumeDiscountPct(totalQuantity: number): number {
   return tier ? tier.discountPct : 0;
 }
 
-export function getUnitPrice(productId: string, technique: Technique): number {
+export function getUnitPrice(productId: string, technique: Technique, fabricId?: string | null): number {
   const product = getProductById(productId);
-  return product ? product.basePrice + TECHNIQUE_UNIT_MODIFIER[technique] : 0;
+  if (!product) return 0;
+  return product.basePrice + TECHNIQUE_UNIT_MODIFIER[technique] + (getFabric(productId, fabricId)?.extra ?? 0);
 }
 
 export interface InvoiceLine {
@@ -51,10 +52,11 @@ export interface InvoiceLine {
 
 export function buildInvoiceLines(items: OrderItemInput[], technique: Technique): InvoiceLine[] {
   return items.map((item) => {
-    const unitPrice = getUnitPrice(item.productId, technique);
+    const unitPrice = getUnitPrice(item.productId, technique, item.fabric);
     const name = getProductById(item.productId)?.name ?? item.productId;
+    const fabric = getFabric(item.productId, item.fabric);
     return {
-      description: `${name} — ${item.color}, talla ${item.size}`,
+      description: `${name} — ${item.color}, talla ${item.size}${fabric ? ` · ${fabric.name}` : ""}`,
       quantity: item.quantity,
       unitPrice,
       lineTotal: round2(unitPrice * item.quantity),
@@ -79,7 +81,10 @@ export function calculateOrderTotal(
     };
   }
 
-  const subtotal = items.reduce((sum, item) => sum + getUnitPrice(item.productId, technique) * item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + getUnitPrice(item.productId, technique, item.fabric) * item.quantity,
+    0
+  );
 
   const discountPct = getVolumeDiscountPct(totalQuantity);
   const discountAmount = subtotal * discountPct;

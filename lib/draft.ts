@@ -31,6 +31,7 @@ export interface OrderDraft {
   items: DraftLine[];
   technique: Technique;
   productId: string;
+  fabric?: string | null;
   color: string;
   size: string;
   activeZone: DesignZone;

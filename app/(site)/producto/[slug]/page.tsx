@@ -73,6 +73,23 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             </div>
           </div>
 
+          {product.fabrics && (
+            <div className="mt-6">
+              <p className="text-sm font-semibold text-ink">Telas</p>
+              <ul className="mt-2 grid gap-2 sm:grid-cols-2">
+                {product.fabrics.map((f) => (
+                  <li key={f.id} className="rounded-brand border border-black/10 px-3 py-2.5">
+                    <p className="text-sm font-semibold text-ink">{f.name}</p>
+                    <p className="text-xs text-ink-soft">{f.description}</p>
+                    <p className="mt-1 text-[11px] font-medium text-ink-muted">
+                      {f.techniques.map((t) => TECHNIQUE_LABEL[t]).join(" o ")}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <Link
             href={`/pedido?producto=${product.id}`}
             className="mt-8 block rounded-brand bg-ink px-6 py-4 text-center text-base font-semibold text-paper transition-opacity hover:opacity-80"

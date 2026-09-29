@@ -3,7 +3,7 @@ import { PRODUCTS } from "@/lib/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { Marquee } from "@/components/Marquee";
 import { DesignMockup } from "@/components/DesignMockup";
-import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
+import { DiscountCalculator } from "@/components/DiscountCalculator";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { businessJsonLd } from "@/lib/site";
 import { getApprovedReviews } from "@/lib/reviews";
@@ -220,7 +220,7 @@ export default async function HomePage() {
               Graduaciones, empresas y equipos: ver precios por mayor →
             </Link>
           </div>
-          <VolumeDiscountBar />
+          <DiscountCalculator />
         </div>
       </section>
 

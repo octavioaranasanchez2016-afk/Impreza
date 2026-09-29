@@ -2,10 +2,17 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { PRODUCTS, TECHNIQUE_LABEL, getProductById, sharedTechniques } from "@/lib/catalog";
-import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
+import {
+  PRODUCTS,
+  TECHNIQUE_LABEL,
+  getFabric,
+  getProductById,
+  sharedTechniques,
+  sharedTechniquesForLines,
+} from "@/lib/catalog";
+import { buildInvoiceLines, calculateOrderTotal, getUnitPrice } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
-import { DesignTransform, DesignZone, OrderItemInput, ProductCategory, Technique } from "@/lib/types";
+import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
 import {
@@ -36,6 +43,7 @@ import {
 } from "@/lib/draft";
 import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
+import { DiscountProgress } from "./DiscountProgress";
 import { Invoice } from "./Invoice";
 import { BankDetails } from "./BankDetails";
 import { ShippingForm } from "./ShippingForm";
@@ -74,6 +82,12 @@ function defaultSize(sizes: string[]): string {
   return sizes.includes("M") ? "M" : sizes[0] ?? "";
 }
 
+// Primera tela que sirve para la técnica (null si el producto no tiene telas).
+function defaultFabricFor(product: Product | undefined, technique: Technique): string | null {
+  if (!product?.fabrics?.length) return null;
+  return (product.fabrics.find((f) => f.techniques.includes(technique)) ?? product.fabrics[0]).id;
+}
+
 // Con una sola talla (gorra, tote) no hay nada que elegir: arranca en 1.
 function initialSizeQty(sizes: string[]): Record<string, number> {
   return sizes.length === 1 ? { [sizes[0]]: 1 } : {};
@@ -88,6 +102,11 @@ export function OrderForm() {
   const [items, setItems] = useState<CartLine[]>([]);
 
   const [productId, setProductId] = useState(preselected);
+  const [fabric, setFabric] = useState<string | null>(() =>
+    defaultFabricFor(getProductById(preselected), getProductById(preselected)?.techniques[0] ?? "serigrafia")
+  );
+  // Aviso cuando cambiar la técnica obligó a cambiar la tela (o al revés).
+  const [fabricNote, setFabricNote] = useState<string | null>(null);
   const [color, setColor] = useState(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.color ?? "");
   const [size, setSize] = useState(defaultSize(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? []));
   // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
@@ -113,9 +132,11 @@ export function OrderForm() {
   const selectedProduct = getProductById(productId);
   const selectedVariant = selectedProduct?.variants.find((v) => v.color === color);
   // Un pedido lleva una sola técnica, así que solo se mezclan productos que la compartan.
-  const cartProductIds = [...new Set(items.map((i) => i.productId))];
-  const orderTechniques = sharedTechniques([...cartProductIds, productId]);
+  // Las técnicas dependen también de la tela: el sublimado solo agarra en poliéster.
+  const cartTechniques = items.length ? sharedTechniquesForLines(items) : (Object.keys(TECHNIQUE_LABEL) as Technique[]);
+  const orderTechniques = sharedTechniquesForLines([...items, { productId, fabric }]);
   const fitsOrder = orderTechniques.length > 0;
+  const selectedFabric = getFabric(productId, fabric);
   // La tinta de sublimación es transparente: sobre telas oscuras no se ve.
   const darkColorsInOrder = [
     ...new Set(
@@ -219,8 +240,8 @@ export function OrderForm() {
           if (c) designs[zone] = { content: c, transform: d.transform };
           else imagesLost = true;
         }
-        const { key, productId: id, color: lineColor, size: lineSize, quantity } = line;
-        return { key, productId: id, color: lineColor, size: lineSize, quantity, designs };
+        const { key, productId: id, color: lineColor, size: lineSize, quantity, fabric: lineFabric } = line;
+        return { key, productId: id, color: lineColor, size: lineSize, quantity, fabric: lineFabric ?? null, designs };
       });
       savedImageKeys.current = Object.keys(files).sort().join("|");
 
@@ -229,12 +250,15 @@ export function OrderForm() {
       const keepProduct = (!urlProduct || urlProduct === draft.productId) && getProductById(draft.productId);
       if (keepProduct) {
         setProductId(draft.productId);
+        setFabric(draft.fabric ?? defaultFabricFor(getProductById(draft.productId), draft.technique));
         setColor(draft.color);
         setSize(draft.size);
         setTechnique(draft.technique);
       } else {
         const shared = sharedTechniques([...new Set([...draft.items.map((i) => i.productId), productId])]);
-        setTechnique(shared.length === 0 || shared.includes(draft.technique) ? draft.technique : shared[0]);
+        const nextTechnique = shared.length === 0 || shared.includes(draft.technique) ? draft.technique : shared[0];
+        setTechnique(nextTechnique);
+        setFabric(defaultFabricFor(getProductById(productId), nextTechnique));
       }
       setActiveZone(draft.activeZone);
       setZoneContent(content);
@@ -270,6 +294,7 @@ export function OrderForm() {
       })),
       technique,
       productId,
+      fabric,
       color,
       size,
       activeZone,
@@ -288,6 +313,7 @@ export function OrderForm() {
     items,
     technique,
     productId,
+    fabric,
     color,
     size,
     activeZone,
@@ -325,6 +351,8 @@ export function OrderForm() {
     setItems([]);
     setTechnique(product.techniques[0]);
     setProductId(product.id);
+    setFabric(defaultFabricFor(product, product.techniques[0]));
+    setFabricNote(null);
     setColor(product.variants[0]?.color ?? "");
     setSize(defaultSize(product.variants[0]?.sizes ?? []));
     setSizeQty(initialSizeQty(product.variants[0]?.sizes ?? []));
@@ -374,14 +402,49 @@ export function OrderForm() {
     const product = getProductById(id);
     // Si la técnica actual no sirve para este producto, pasa a una que sirva
     // para él y para lo que ya está en el pedido.
-    const shared = sharedTechniques([...cartProductIds, id]);
-    if (!shared.includes(technique) && shared.length > 0) setTechnique(shared[0]);
+    const shared = sharedTechniquesForLines([...items, { productId: id, fabric: defaultFabricFor(product, technique) }]);
+    const nextTechnique = !shared.includes(technique) && shared.length > 0 ? shared[0] : technique;
+    setTechnique(nextTechnique);
+    setFabric(defaultFabricFor(product, nextTechnique));
+    setFabricNote(null);
     const sizes = product?.variants[0]?.sizes ?? [];
     setColor(product?.variants[0]?.color ?? "");
     setSize(sizes.includes(size) ? size : defaultSize(sizes));
     setSizeQty(initialSizeQty(sizes));
     if (product && !getZonesForCategory(product.category).includes(activeZone)) {
       setActiveZone("frente");
+    }
+  }
+
+  // ¿Hay alguna tela de este producto que sirva para la técnica?
+  function techniqueAvailable(t: Technique) {
+    if (!selectedProduct?.techniques.includes(t)) return false;
+    return !selectedProduct.fabrics || selectedProduct.fabrics.some((f) => f.techniques.includes(t));
+  }
+
+  function chooseTechnique(t: Technique) {
+    setTechnique(t);
+    setFabricNote(null);
+    if (selectedProduct?.fabrics && selectedFabric && !selectedFabric.techniques.includes(t)) {
+      const next = selectedProduct.fabrics.find((f) => f.techniques.includes(t));
+      if (next) {
+        setFabric(next.id);
+        setFabricNote(`Cambiamos la tela a ${next.name}: es la que sirve para ${TECHNIQUE_LABEL[t].toLowerCase()}.`);
+      }
+    }
+  }
+
+  function chooseFabric(id: string) {
+    const f = selectedProduct?.fabrics?.find((x) => x.id === id);
+    if (!f) return;
+    setFabric(id);
+    setFabricNote(null);
+    if (!f.techniques.includes(technique)) {
+      const next = f.techniques.find((t) => cartTechniques.includes(t));
+      if (next) {
+        setTechnique(next);
+        setFabricNote(`${f.name} se imprime con ${TECHNIQUE_LABEL[next].toLowerCase()}: cambiamos la técnica.`);
+      }
     }
   }
 
@@ -396,6 +459,9 @@ export function OrderForm() {
     .filter((s) => (sizeQty[s] ?? 0) > 0)
     .map((s) => ({ size: s, quantity: sizeQty[s] }));
   const pendingTotal = pendingLines.reduce((sum, l) => sum + l.quantity, 0);
+  // Precio promedio por pieza sin descuento, para decir en la barra cuánto baja cada una.
+  const unitPriceForBar =
+    pricing.totalQuantity > 0 ? pricing.subtotal / pricing.totalQuantity : getUnitPrice(productId, technique, fabric);
 
   // Cada línea guarda el diseño que hay en el diseñador en este momento. Solo se
   // juntan líneas de la misma prenda, color, talla y diseño.
@@ -409,11 +475,19 @@ export function OrderForm() {
     );
     for (const line of pendingLines) {
       const existing = next.find(
-        (i) => i.productId === productId && i.color === color && i.size === line.size && designKey(i.designs) === key
+        (i) =>
+          i.productId === productId &&
+          (i.fabric ?? null) === fabric &&
+          i.color === color &&
+          i.size === line.size &&
+          designKey(i.designs) === key
       );
       next = existing
         ? next.map((i) => (i === existing ? { ...i, quantity: i.quantity + line.quantity } : i))
-        : [...next, { key: crypto.randomUUID(), productId, color, size: line.size, quantity: line.quantity, designs }];
+        : [
+            ...next,
+            { key: crypto.randomUUID(), productId, fabric, color, size: line.size, quantity: line.quantity, designs },
+          ];
     }
     setItems(next);
     setSizeQty(initialSizeQty(availableSizes));
@@ -442,6 +516,7 @@ export function OrderForm() {
       transforms[zone] = d.transform;
     }
     setProductId(product.id);
+    setFabric(line.fabric ?? defaultFabricFor(product, technique));
     setColor(line.color);
     setSize(line.size);
     setSizeQty(initialSizeQty(product.variants.find((v) => v.color === line.color)?.sizes ?? []));
@@ -515,14 +590,14 @@ export function OrderForm() {
       // Cada diseño distinto es un grupo (1, 2, 3...) y cada línea dice cuál lleva.
       const groups: LineDesigns[] = [];
       const itemsPayload = items.map((line, i) => {
-        const { productId: id, color: lineColor, size: lineSize, quantity } = line;
+        const { productId: id, color: lineColor, size: lineSize, quantity, fabric: lineFabric } = line;
         const key = lineKeys[i];
         let diseno: number | null = null;
         if (key) {
           diseno = groupKeys.indexOf(key) + 1;
           groups[diseno - 1] ??= lineDesigns[i];
         }
-        return { productId: id, color: lineColor, size: lineSize, quantity, diseno };
+        return { productId: id, fabric: lineFabric ?? null, color: lineColor, size: lineSize, quantity, diseno };
       });
 
       // La misma imagen se sube una sola vez aunque la lleven varios diseños.
@@ -661,6 +736,45 @@ export function OrderForm() {
                 </select>
               </Field>
 
+              {selectedProduct?.fabrics && (
+                <div>
+                  <p className="text-sm font-medium text-ink-soft">Tela</p>
+                  <div className="mt-1.5 grid gap-1.5" role="radiogroup" aria-label="Tela">
+                    {selectedProduct.fabrics.map((f) => {
+                      const active = fabric === f.id;
+                      const usable = f.techniques.some((t) => cartTechniques.includes(t));
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={active}
+                          disabled={!usable}
+                          onClick={() => chooseFabric(f.id)}
+                          className={`rounded-brand border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                            active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                          }`}
+                        >
+                          <span className="flex items-baseline justify-between gap-2">
+                            <span className="text-sm font-semibold">{f.name}</span>
+                            {f.extra > 0 && (
+                              <span className={`text-[11px] font-semibold ${active ? "text-paper/80" : "text-ink-soft"}`}>
+                                +{formatCordobas(f.extra)}
+                              </span>
+                            )}
+                          </span>
+                          <span className={`block text-[11px] leading-snug ${active ? "text-paper/75" : "text-ink-muted"}`}>
+                            {f.description}{" "}
+                            {f.techniques.length === 1 ? `Solo ${TECHNIQUE_LABEL[f.techniques[0]].toLowerCase()}.` : ""}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {fabricNote && <p className="mt-1.5 text-[11px] font-medium text-ink">{fabricNote}</p>}
+                </div>
+              )}
+
               <div>
                 <p className="text-sm font-medium text-ink-soft">Técnica</p>
                 <div className="mt-1.5 flex gap-2">
@@ -668,8 +782,8 @@ export function OrderForm() {
                     <button
                       key={t}
                       type="button"
-                      disabled={!orderTechniques.includes(t)}
-                      onClick={() => setTechnique(t)}
+                      disabled={!cartTechniques.includes(t) || !techniqueAvailable(t)}
+                      onClick={() => chooseTechnique(t)}
                       className={`flex-1 rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                         technique === t ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
                       }`}
@@ -686,7 +800,7 @@ export function OrderForm() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setTechnique("serigrafia")}
+                      onClick={() => chooseTechnique("serigrafia")}
                       className="mt-2 font-semibold underline"
                     >
                       Cambiar a serigrafía
@@ -812,6 +926,7 @@ export function OrderForm() {
                           <p className="text-ink">
                             <span className="font-semibold">{item.quantity}×</span> {product?.name} — {item.color} —{" "}
                             {item.size}
+                            {getFabric(item.productId, item.fabric) && ` · ${getFabric(item.productId, item.fabric)!.name}`}
                           </p>
                           <p className={lineKeys[i] ? "text-ink-soft" : "font-medium text-yellow-700"}>
                             {lineKeys[i]
@@ -1068,11 +1183,20 @@ export function OrderForm() {
       </div>
 
       <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
-        <PricingSummary pricing={pricing} />
+        <PricingSummary
+          pricing={pricing}
+          pending={pendingTotal}
+          unitPrice={unitPriceForBar}
+          onQuickAdd={(n) => setQtyFor(size, (sizeQty[size] ?? 0) + n)}
+          quickAddLabel={`en talla ${size}`}
+        />
       </div>
 
       {showMobileBar && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-paper/95 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">
+          <div className="mx-auto mb-2 max-w-6xl">
+            <DiscountProgress quantity={pricing.totalQuantity} compact />
+          </div>
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] text-ink-soft">

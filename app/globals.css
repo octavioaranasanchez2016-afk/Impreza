@@ -26,7 +26,7 @@ body {
 /* Espacio para la barra fija del total en /pedido (solo celular y tablet). */
 @media (max-width: 1023px) {
   body.has-order-bar {
-    padding-bottom: 76px;
+    padding-bottom: 104px;
   }
 }
 

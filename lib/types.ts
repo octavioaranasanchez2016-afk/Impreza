@@ -11,6 +11,15 @@ export interface ProductVariantOption {
   sizes: string[];
 }
 
+// Tela en que se puede pedir un producto (piloto: solo la camisa básica).
+export interface FabricOption {
+  id: string;
+  name: string;
+  description: string;
+  techniques: Technique[]; // con qué técnicas se puede imprimir esta tela
+  extra: number; // córdobas que suma al precio base por pieza
+}
+
 export interface Product {
   id: string;
   slug: string;
@@ -21,6 +30,7 @@ export interface Product {
   image: string;
   variants: ProductVariantOption[];
   techniques: Technique[];
+  fabrics?: FabricOption[]; // si no tiene, el producto viene en una sola tela
 }
 
 export interface OrderItemInput {
@@ -28,6 +38,7 @@ export interface OrderItemInput {
   color: string;
   size: string;
   quantity: number;
+  fabric?: string | null; // id de la tela, solo en productos con telas
 }
 
 export type OrderStatus =

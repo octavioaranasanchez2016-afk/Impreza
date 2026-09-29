@@ -1,4 +1,39 @@
-import { Product, Technique } from "./types";
+import { FabricOption, Product, Technique } from "./types";
+
+// Piloto de telas para la camisa básica. Ajusta la lista a las telas que tiene el
+// taller. extra = córdobas que suma cada tela al precio por pieza (en 0 mientras
+// no haya costos reales). El sublimado solo agarra en poliéster: por eso las telas
+// de algodón no lo permiten.
+const CAMISA_FABRICS: FabricOption[] = [
+  {
+    id: "algodon",
+    name: "Algodón 100%",
+    description: "Suave y fresca, la de siempre.",
+    techniques: ["serigrafia"],
+    extra: 0,
+  },
+  {
+    id: "algodon-peinado",
+    name: "Algodón peinado",
+    description: "Premium: hilo más fino, más suave y resistente.",
+    techniques: ["serigrafia"],
+    extra: 0,
+  },
+  {
+    id: "mezcla",
+    name: "Mezcla 50/50",
+    description: "Algodón y poliéster: no se encoge ni se arruga.",
+    techniques: ["serigrafia"],
+    extra: 0,
+  },
+  {
+    id: "poliester",
+    name: "Poliéster dry-fit",
+    description: "Deportiva, liviana y seca rápido. La tela para sublimado.",
+    techniques: ["serigrafia", "sublimado"],
+    extra: 0,
+  },
+];
 
 export const TECHNIQUE_LABEL: Record<Technique, string> = {
   serigrafia: "Serigrafía",
@@ -14,7 +49,7 @@ export const PRODUCTS: Product[] = [
     slug: "camisa-basica",
     category: "camisa",
     name: "Camisa básica",
-    description: "Camisa 100% algodón, corte unisex. Ideal para serigrafía o sublimado.",
+    description: "Camisa corte unisex en cuatro telas: algodón para serigrafía o poliéster dry-fit para sublimado.",
     basePrice: 220,
     image: "https://images.unsplash.com/photo-1651761179569-4ba2aa054997?w=900&q=80&auto=format&fit=crop",
     techniques: ["serigrafia", "sublimado"],
@@ -24,6 +59,7 @@ export const PRODUCTS: Product[] = [
       { color: "Gris", colorHex: "#9CA3AF", sizes: ["S", "M", "L", "XL"] },
       { color: "Azul marino", colorHex: "#1E3A8A", sizes: ["S", "M", "L", "XL"] },
     ],
+    fabrics: CAMISA_FABRICS,
   },
   {
     id: "hoodie-basico",
@@ -101,4 +137,22 @@ export function getProductBySlug(slug: string): Product | undefined {
 export function sharedTechniques(productIds: string[]): Technique[] {
   const all = Object.keys(TECHNIQUE_LABEL) as Technique[];
   return all.filter((t) => productIds.every((id) => getProductById(id)?.techniques.includes(t)));
+}
+
+export function getFabric(productId: string, fabricId?: string | null): FabricOption | undefined {
+  return fabricId ? getProductById(productId)?.fabrics?.find((f) => f.id === fabricId) : undefined;
+}
+
+// Técnicas posibles para un producto en una tela (sin tela: las del producto).
+export function lineTechniques(productId: string, fabricId?: string | null): Technique[] {
+  const product = getProductById(productId);
+  if (!product) return [];
+  const fabric = getFabric(productId, fabricId);
+  return fabric ? product.techniques.filter((t) => fabric.techniques.includes(t)) : product.techniques;
+}
+
+// Como sharedTechniques, pero tomando en cuenta la tela de cada línea.
+export function sharedTechniquesForLines(lines: { productId: string; fabric?: string | null }[]): Technique[] {
+  const all = Object.keys(TECHNIQUE_LABEL) as Technique[];
+  return all.filter((t) => lines.every((l) => lineTechniques(l.productId, l.fabric).includes(t)));
 }

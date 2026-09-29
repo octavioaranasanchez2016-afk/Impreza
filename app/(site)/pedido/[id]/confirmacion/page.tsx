@@ -45,7 +45,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const [{ data: order }, { data: items }] = await Promise.all([
     // "*" y no una lista: la columna entrega puede no existir todavía en la base de datos.
     supabase.from("orders").select("*").eq("id", id).single(),
-    supabase.from("order_items").select("product_id, color, talla, cantidad").eq("order_id", id),
+    supabase.from("order_items").select("*").eq("order_id", id),
   ]);
 
   if (!order) notFound();
@@ -55,6 +55,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const payment = order.payment_status as PaymentStatus;
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id,
+    fabric: (i.tela as string | null) ?? null,
     color: i.color,
     size: i.talla,
     quantity: i.cantidad,

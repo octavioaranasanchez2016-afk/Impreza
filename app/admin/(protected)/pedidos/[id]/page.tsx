@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
-import { TECHNIQUE_LABEL, getProductById } from "@/lib/catalog";
+import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
@@ -68,6 +68,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id as string,
+    fabric: (i.tela as string | null) ?? null,
     color: i.color as string,
     size: i.talla as string,
     quantity: i.cantidad as number,
@@ -75,10 +76,12 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const piecesToMake = [...orderItems].sort(
     (a, b) =>
       a.productId.localeCompare(b.productId) ||
+      (a.fabric ?? "").localeCompare(b.fabric ?? "") ||
       a.color.localeCompare(b.color) ||
       SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size)
   );
   const totalPieces = orderItems.reduce((sum, i) => sum + i.quantity, 0);
+  const hasFabrics = orderItems.some((i) => i.fabric);
 
 
   const nombre = order.cliente_nombre as string;
@@ -172,6 +175,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               <thead>
                 <tr className="border-b border-black/10 text-left text-xs text-ink-muted">
                   <th className="pb-2 font-medium">Producto</th>
+                  {hasFabrics && <th className="pb-2 font-medium">Tela</th>}
                   <th className="pb-2 font-medium">Color</th>
                   <th className="pb-2 font-medium">Talla</th>
                   <th className="pb-2 text-right font-medium">Cantidad</th>
@@ -181,6 +185,9 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 {piecesToMake.map((p, i) => (
                   <tr key={i} className="border-b border-black/5">
                     <td className="py-2 text-ink">{getProductById(p.productId)?.name ?? p.productId}</td>
+                    {hasFabrics && (
+                      <td className="py-2 font-semibold text-ink">{getFabric(p.productId, p.fabric)?.name ?? "—"}</td>
+                    )}
                     <td className="py-2 text-ink">{p.color}</td>
                     <td className="py-2 font-semibold text-ink">{p.size}</td>
                     <td className="py-2 text-right font-semibold text-ink">{p.quantity}</td>

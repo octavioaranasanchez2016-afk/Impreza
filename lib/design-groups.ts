@@ -9,6 +9,7 @@ import { DesignZone, OrderItemInput } from "./types";
 
 export interface StoredPieza {
   productId: string;
+  tela?: string | null;
   color: string;
   talla: string;
   cantidad: number;
@@ -59,6 +60,7 @@ export function groupDesigns<D extends StoredDiseno>(
       disenos: ds,
       piezas: (ds.find((d) => d.piezas?.length)?.piezas ?? []).map((p) => ({
         productId: p.productId,
+        fabric: p.tela ?? null,
         color: p.color,
         size: p.talla,
         quantity: p.cantidad,
@@ -73,6 +75,8 @@ export function groupDesigns<D extends StoredDiseno>(
       for (const r of remaining) {
         if (left <= 0) break;
         if (r.productId !== p.productId || r.color !== p.color || r.size !== p.size || r.quantity <= 0) continue;
+        // La tela solo se compara si ambos lados la tienen (sin la columna order_items.tela no viene).
+        if (r.fabric && p.fabric && r.fabric !== p.fabric) continue;
         const take = Math.min(r.quantity, left);
         r.quantity -= take;
         left -= take;

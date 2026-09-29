@@ -1,4 +1,4 @@
-import { getProductById } from "@/lib/catalog";
+import { getFabric, getProductById } from "@/lib/catalog";
 import { MockupContent } from "@/lib/design";
 import { StoredDiseno, countPieces, groupDesigns } from "@/lib/design-groups";
 import { OrderItemInput, ProductCategory } from "@/lib/types";
@@ -69,7 +69,10 @@ function PiecesList({ items }: { items: OrderItemInput[] }) {
   return (
     <p className="mt-1 text-sm text-ink-soft">
       {items
-        .map((i) => `${i.quantity}× ${getProductById(i.productId)?.name ?? i.productId} — ${i.color} — ${i.size}`)
+        .map((i) => {
+          const fabric = getFabric(i.productId, i.fabric);
+          return `${i.quantity}× ${getProductById(i.productId)?.name ?? i.productId}${fabric ? ` (${fabric.name})` : ""} — ${i.color} — ${i.size}`;
+        })
         .join(" · ")}
     </p>
   );

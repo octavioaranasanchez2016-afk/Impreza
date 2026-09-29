@@ -1,8 +1,21 @@
 import { PricingBreakdown } from "@/lib/types";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
-import { VolumeDiscountBar } from "./VolumeDiscountBar";
+import { DiscountProgress } from "./DiscountProgress";
 
-export function PricingSummary({ pricing }: { pricing: PricingBreakdown }) {
+// pending y unitPrice alimentan la barra de descuento (ver DiscountProgress).
+export function PricingSummary({
+  pricing,
+  pending = 0,
+  unitPrice,
+  onQuickAdd,
+  quickAddLabel,
+}: {
+  pricing: PricingBreakdown;
+  pending?: number;
+  unitPrice?: number;
+  onQuickAdd?: (pieces: number) => void;
+  quickAddLabel?: string;
+}) {
   return (
     <div className="rounded-brand border border-black/10 bg-white p-5">
       <p className="text-sm font-semibold text-ink">Resumen del pedido</p>
@@ -29,17 +42,17 @@ export function PricingSummary({ pricing }: { pricing: PricingBreakdown }) {
         </span>
       </div>
 
-      {pricing.totalQuantity > 0 && pricing.discountPct === 0 && (
-        <p className="mt-3 text-xs text-ink-soft">
-          Tip: desde 12 piezas obtienes 15% de descuento.
-        </p>
-      )}
-
       <div className="mt-5 border-t border-black/10 pt-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
+        <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-soft">
           Descuento por cantidad
         </p>
-        <VolumeDiscountBar compact />
+        <DiscountProgress
+          quantity={pricing.totalQuantity}
+          pending={pending}
+          unitPrice={unitPrice}
+          onQuickAdd={onQuickAdd}
+          quickAddLabel={quickAddLabel}
+        />
       </div>
     </div>
   );
