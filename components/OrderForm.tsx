@@ -16,6 +16,7 @@ import { PricingSummary } from "./PricingSummary";
 import { Invoice } from "./Invoice";
 import { BankDetails } from "./BankDetails";
 import { ShippingForm } from "./ShippingForm";
+import { OrderCodeBox } from "./OrderCodeBox";
 import { defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -27,6 +28,21 @@ type ZoneContentMap = Partial<Record<DesignZone, DesignContent>>;
 type ZoneTransformMap = Partial<Record<DesignZone, DesignTransform>>;
 
 // Talla M cuando existe, para que la vista previa arranque en una talla típica.
+// El pedido recibe su código antes de pagar, para que el cliente lo escriba en el
+// concepto de la transferencia. Se guarda en la pestaña: si recarga, no cambia.
+const PENDING_ORDER_KEY = "impreza-pedido-en-curso";
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function newPendingOrderId(): string {
+  const id = crypto.randomUUID();
+  try {
+    sessionStorage.setItem(PENDING_ORDER_KEY, id);
+  } catch {
+    // Sin almacenamiento: el código vale mientras la página siga abierta.
+  }
+  return id;
+}
+
 function defaultSize(sizes: string[]): string {
   return sizes.includes("M") ? "M" : sizes[0] ?? "";
 }
@@ -101,6 +117,19 @@ export function OrderForm() {
       transform: zoneTransform[z] ?? (selectedProduct ? defaultTransform(selectedProduct.category, z) : currentTransform),
     };
   }
+
+  // Se crea en el navegador (no en el servidor) para que no cambie al cargar la página.
+  const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
+  useEffect(() => {
+    let saved: string | null = null;
+    try {
+      saved = sessionStorage.getItem(PENDING_ORDER_KEY);
+    } catch {
+      // Sin almacenamiento: se crea uno nuevo.
+    }
+    setPendingOrderId(saved && UUID_RE.test(saved) ? saved : newPendingOrderId());
+  }, []);
+  const orderCode = pendingOrderId ? pendingOrderId.slice(0, 8).toUpperCase() : null;
 
   useEffect(() => {
     if (!comprobante) {
@@ -260,15 +289,28 @@ export function OrderForm() {
           items: items.map(({ key, ...rest }) => rest),
           paymentMethod: "transferencia",
           comprobantePath,
+          orderId: pendingOrderId,
         }),
       });
 
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
+        if (body.codigoRepetido) {
+          const fresh = newPendingOrderId();
+          setPendingOrderId(fresh);
+          throw new Error(
+            `Tuvimos que darle un código nuevo a tu pedido: ${fresh.slice(0, 8).toUpperCase()}. Vuelve a confirmar; si ya transferiste, no pasa nada.`
+          );
+        }
         throw new Error(body.error || "No se pudo crear el pedido. Intenta de nuevo.");
       }
 
       const { orderId } = await res.json();
+      try {
+        sessionStorage.removeItem(PENDING_ORDER_KEY);
+      } catch {
+        // Nada que limpiar.
+      }
       router.push(`/pedido/${orderId}/confirmacion`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ocurrió un error inesperado.");
@@ -492,6 +534,7 @@ export function OrderForm() {
           </p>
 
           <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
+            <OrderCodeBox code={orderCode} />
             <BankDetails totalCordobas={pricing.total} />
 
             <div>

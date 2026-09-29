@@ -363,7 +363,9 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               <p className="mt-2 text-sm text-ink-soft">Este pedido no tiene comprobante adjunto.</p>
             )}
             <p className="mt-3 text-xs text-ink-muted">
-              Revisa en tu banca en línea que el monto llegó a la cuenta en córdobas o en dólares antes de verificar.
+              Revisa en tu banca en línea que el monto llegó a la cuenta en córdobas o en dólares antes de verificar. El
+              cliente debió escribir el código <span className="font-semibold text-ink">{shortId}</span> en el concepto de
+              la transferencia.
             </p>
             <div className="mt-3">
               <PaymentStatusChanger orderId={order.id} status={paymentStatus} notify={notify} />

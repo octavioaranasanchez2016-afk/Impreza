@@ -57,6 +57,10 @@ const SECTIONS = [
         a: "Solo transferencia bancaria a nuestra cuenta BAC. Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado.",
       },
       {
+        q: "¿Qué escribo en el concepto de la transferencia?",
+        a: "El código de tu pedido, que aparece en el paso de pago antes de transferir (por ejemplo CB07F9DB). Así identificamos tu pago más rápido.",
+      },
+      {
         q: "¿Puedo pagar en dólares?",
         a: "Sí. Tenemos una cuenta en córdobas y otra en dólares. El monto en dólares se calcula con el tipo de cambio oficial del Banco Central y lo ves junto a cada cuenta.",
       },

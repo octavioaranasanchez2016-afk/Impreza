@@ -33,9 +33,11 @@ interface CreateOrderBody {
   items: OrderItemInput[];
   paymentMethod: PaymentMethod;
   comprobantePath: string;
+  orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga"];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: NextRequest) {
   let body: CreateOrderBody;
@@ -87,6 +89,7 @@ export async function POST(req: NextRequest) {
   const supabase = createServiceClient();
 
   const row = {
+    ...(body.orderId && UUID.test(body.orderId) ? { id: body.orderId.toLowerCase() } : {}),
     cliente_nombre: body.clienteNombre.trim(),
     cliente_telefono: body.clienteTelefono.trim(),
     cliente_email: body.clienteEmail?.trim() || null,
@@ -127,6 +130,11 @@ export async function POST(req: NextRequest) {
       { error: "Por ahora los pedidos con bordado se reciben por WhatsApp. Escríbenos y te atendemos." },
       { status: 503 }
     );
+  }
+
+  // El código ya estaba usado (muy raro): el navegador pide uno nuevo.
+  if (orderError?.code === "23505") {
+    return NextResponse.json({ error: "Código de pedido repetido.", codigoRepetido: true }, { status: 409 });
   }
 
   if (orderError || !order) {
