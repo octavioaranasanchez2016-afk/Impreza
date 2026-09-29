@@ -18,6 +18,7 @@ import { Invoice } from "./Invoice";
 import { BankDetails } from "./BankDetails";
 import { ShippingForm } from "./ShippingForm";
 import { OrderCodeBox } from "./OrderCodeBox";
+import { PaymentMethods } from "./PaymentMethods";
 import { defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -578,10 +579,14 @@ export function OrderForm() {
         </section>
 
         <section id="pago" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">5. Pago por transferencia</h2>
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">5. Pago</h2>
           <p className="mt-1 text-sm text-ink-soft">
-            Es la única forma de pago. Tu pedido queda confirmado cuando adjuntas el comprobante.
+            Por ahora el pago es por transferencia: tu pedido queda confirmado cuando adjuntas el comprobante. Muy pronto
+            también podrás pagar con tarjeta.
           </p>
+          <div className="mt-3">
+            <PaymentMethods />
+          </div>
 
           <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
             <OrderCodeBox code={orderCode} />

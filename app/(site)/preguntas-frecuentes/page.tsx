@@ -54,7 +54,7 @@ const SECTIONS = [
     faqs: [
       {
         q: "¿Qué formas de pago aceptan?",
-        a: "Solo transferencia bancaria a nuestra cuenta BAC. Al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Así tu pedido queda confirmado.",
+        a: "Por ahora, transferencia bancaria a nuestra cuenta BAC: al armar tu pedido ves la factura con el total, transfieres y adjuntas la foto o captura del comprobante. Muy pronto también podrás pagar con tarjeta de crédito o débito.",
       },
       {
         q: "¿Dan factura con RUC?",
