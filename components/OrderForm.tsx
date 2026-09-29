@@ -401,6 +401,8 @@ export function OrderForm() {
 
   // Lo que falta para confirmar, con la sección del formulario donde se completa.
   const addressGap = shipping ? missingAddressField(shipping) : null;
+  // Misma regla que el servidor: un correo mal escrito haría fallar el pedido al final.
+  const emailInvalid = clienteEmail.trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteEmail.trim());
   const missingSteps = [
     items.length === 0 && {
       label: pendingTotal > 0 ? "tocar «Agregar al pedido» en el paso 1" : "al menos un producto",
@@ -408,6 +410,7 @@ export function OrderForm() {
     },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
     clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
+    emailInvalid && { label: "revisar tu correo", section: "datos" },
     wantsRuc && missingBillingField(billing) && { label: missingBillingField(billing)!, section: "datos" },
     !shipping && { label: "cómo quieres recibir tu pedido", section: "entrega" },
     addressGap && { label: addressGap, section: "entrega" },
@@ -730,14 +733,26 @@ export function OrderForm() {
                 inputMode="tel"
               />
             </Field>
-            <Field label="Correo (opcional)">
+            <Field label="Correo (opcional, recomendado)">
               <input
+                type="email"
                 value={clienteEmail}
                 onChange={(e) => setClienteEmail(e.target.value)}
                 className="input"
                 placeholder="correo@ejemplo.com"
                 inputMode="email"
+                autoComplete="email"
               />
+              {emailInvalid ? (
+                <span className="mt-1 block text-xs font-medium text-red-600">
+                  Revisa tu correo: parece incompleto. Si prefieres, déjalo vacío.
+                </span>
+              ) : (
+                <span className="mt-1 block text-xs text-ink-muted">
+                  Para seguir de cerca tu orden: te avisamos por correo cuando verifiquemos tu pago, cuando entre a
+                  producción y cuando esté lista.
+                </span>
+              )}
             </Field>
             <Field label="Notas para el taller (opcional)">
               <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. es un regalo, empacar aparte" />
