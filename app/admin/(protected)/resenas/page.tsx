@@ -76,7 +76,7 @@ function ReviewList({ title, empty, reviews }: { title: string; empty: string; r
               </div>
               <p className="mt-2 text-sm text-ink">{r.comentario}</p>
               <div className="mt-3">
-                <ReviewActions id={r.id} aprobada={r.aprobada} />
+                <ReviewActions review={r} />
               </div>
             </li>
           ))}

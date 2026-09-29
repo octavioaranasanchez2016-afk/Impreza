@@ -13,7 +13,12 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
 
-  const canSend = rating > 0 && nombre.trim().length >= 2 && comentario.trim().length >= MIN_COMMENT_LENGTH && !sending;
+  const missing = [
+    rating === 0 && "elige de 1 a 5 estrellas",
+    nombre.trim().length < 2 && "escribe tu nombre",
+    comentario.trim().length < MIN_COMMENT_LENGTH && `escribe un comentario de al menos ${MIN_COMMENT_LENGTH} letras`,
+  ].filter(Boolean) as string[];
+  const canSend = missing.length === 0 && !sending;
 
   async function send() {
     if (!canSend) return;
@@ -81,6 +86,9 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
             placeholder="¿Cómo quedó la impresión? ¿Llegó a tiempo? ¿Nos recomendarías?"
             className="input min-h-[96px] resize-y"
           />
+          <span className="mt-1 block text-right text-xs text-ink-muted">
+            {comentario.trim().length}/{MAX_COMMENT_LENGTH}
+          </span>
         </label>
       </div>
 
@@ -93,6 +101,9 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
       >
         {sending ? "Enviando..." : "Enviar reseña"}
       </button>
+      {missing.length > 0 && (
+        <p className="mt-2 text-center text-xs text-ink-soft">Para enviar tu reseña: {missing.join(", ")}.</p>
+      )}
     </div>
   );
 }
