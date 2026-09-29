@@ -36,7 +36,7 @@ export function ReviewGrid({ reviews }: { reviews: PublicReview[] }) {
           <div className="mt-4 flex items-center justify-between gap-2 text-xs">
             <span className="font-semibold text-ink">{r.nombre}</span>
             <span className="text-ink-soft">
-              ✓ Compra verificada ·{" "}
+              {r.verificada && "✓ Compra verificada · "}
               {new Date(r.created_at).toLocaleDateString("es-NI", { month: "short", year: "numeric", timeZone: "America/Managua" })}
             </span>
           </div>

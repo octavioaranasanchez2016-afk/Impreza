@@ -8,6 +8,7 @@ export interface PublicReview {
   calificacion: number;
   comentario: string;
   created_at: string;
+  verificada: boolean; // viene de un pedido real hecho en el sitio
 }
 
 export interface ReviewStats {
@@ -28,7 +29,7 @@ export async function getApprovedReviews(limit?: number): Promise<{ reviews: Pub
   const supabase = createServiceClient();
   let query = supabase
     .from("resenas")
-    .select("id, nombre, calificacion, comentario, created_at")
+    .select("id, nombre, calificacion, comentario, created_at, order_id")
     .eq("aprobada", true)
     .order("created_at", { ascending: false });
   if (limit) query = query.limit(limit);
@@ -42,7 +43,14 @@ export async function getApprovedReviews(limit?: number): Promise<{ reviews: Pub
   const ratings = (all ?? []).map((r) => Number(r.calificacion));
   const average = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : 0;
   return {
-    reviews: data.map((r) => ({ ...r, nombre: publicName(r.nombre) })) as PublicReview[],
+    reviews: data.map((r) => ({
+      id: r.id,
+      nombre: publicName(r.nombre),
+      calificacion: r.calificacion,
+      comentario: r.comentario,
+      created_at: r.created_at,
+      verificada: Boolean(r.order_id),
+    })),
     stats: { count: ratings.length, average: Math.round(average * 10) / 10 },
   };
 }

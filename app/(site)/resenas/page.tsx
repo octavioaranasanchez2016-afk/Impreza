@@ -4,7 +4,7 @@ import { ReviewGrid, ReviewSummary } from "@/components/ReviewCards";
 
 export const metadata = {
   title: "Reseñas",
-  description: "Lo que dicen los clientes de Impreza. Solo publicamos reseñas de pedidos reales ya entregados.",
+  description: "Lo que dicen los clientes de Impreza sobre sus camisas, polos, hoodies y gorras personalizadas.",
 };
 
 export const revalidate = 300;
@@ -17,7 +17,7 @@ export default async function ResenasPage() {
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Clientes</p>
       <h1 className="mt-2 font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">Reseñas</h1>
       <p className="mt-4 max-w-xl text-ink-soft">
-        Solo publicamos reseñas de pedidos reales ya entregados. Cada cliente la deja desde la página de su pedido.
+        Lo que dicen nuestros clientes. Las marcadas con «✓ Compra verificada» vienen de un pedido hecho en este sitio.
       </p>
 
       {reviews.length > 0 ? (

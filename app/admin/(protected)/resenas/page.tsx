@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { ReviewActions } from "@/components/admin/ReviewActions";
+import { AddReviewForm } from "@/components/admin/AddReviewForm";
 import { Stars } from "@/components/ReviewCards";
 import { formatShortDate, toManagua } from "@/lib/delivery";
 
@@ -27,7 +28,8 @@ export default async function AdminResenasPage() {
     <div>
       <h1 className="text-2xl font-bold text-ink">Reseñas</h1>
       <p className="mt-1 text-sm text-ink-soft">
-        Los clientes dejan su reseña desde la página de su pedido cuando está listo. Nada se publica hasta que lo apruebas.
+        Tú decides qué reseñas salen en el sitio. Agrega las que te dan tus clientes por WhatsApp o en persona; las que
+        dejan los clientes desde la página de su pedido llegan aquí y solo se publican si las apruebas.
       </p>
 
       {error && (
@@ -38,6 +40,9 @@ export default async function AdminResenasPage() {
 
       {!error && (
         <>
+          <div className="mt-6">
+            <AddReviewForm />
+          </div>
           <ReviewList title="Por revisar" empty="No hay reseñas nuevas." reviews={pending} />
           <ReviewList title="Publicadas" empty="Todavía no has publicado ninguna reseña." reviews={published} />
         </>
