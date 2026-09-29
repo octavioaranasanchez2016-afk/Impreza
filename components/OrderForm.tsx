@@ -5,21 +5,34 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { PRODUCTS, TECHNIQUE_LABEL, getProductById, sharedTechniques } from "@/lib/catalog";
 import { buildInvoiceLines, calculateOrderTotal } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
-import { DesignTransform, DesignZone, OrderItemInput, Technique } from "@/lib/types";
+import { DesignTransform, DesignZone, OrderItemInput, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent } from "@/lib/design";
+import {
+  LineDesign,
+  LineDesigns,
+  designKey,
+  hasAnyDesign,
+  hasDesign,
+  imageKey,
+  snapshotDesigns,
+} from "@/lib/cart-designs";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { ShippingInfo, missingAddressField } from "@/lib/shipping";
 import { BillingInfo, missingBillingField } from "@/lib/billing";
 import {
   DraftDesign,
+  DraftLine,
   clearDraft,
   draftHasProgress,
+  fromDraftDesign,
   loadDraft,
   loadDraftImages,
   saveDraft,
   saveDraftImages,
+  toDraftDesign,
+  toDraftLineDesigns,
 } from "@/lib/draft";
 import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
@@ -29,11 +42,13 @@ import { ShippingForm } from "./ShippingForm";
 import { OrderCodeBox } from "./OrderCodeBox";
 import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
-import { defaultTransform } from "./DesignMockup";
+import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
 interface CartLine extends OrderItemInput {
   key: string;
+  // El diseño que había en el diseñador al agregarla ({} = sin diseño propio).
+  designs: LineDesigns;
 }
 
 type ZoneContentMap = Partial<Record<DesignZone, DesignContent>>;
@@ -62,11 +77,6 @@ function defaultSize(sizes: string[]): string {
 // Con una sola talla (gorra, tote) no hay nada que elegir: arranca en 1.
 function initialSizeQty(sizes: string[]): Record<string, number> {
   return sizes.length === 1 ? { [sizes[0]]: 1 } : {};
-}
-
-// Un texto vacío no cuenta como diseño.
-function hasDesign(content: DesignContent | undefined): content is DesignContent {
-  return Boolean(content && (content.kind === "imagen" || content.texto.trim()));
 }
 
 export function OrderForm() {
@@ -119,7 +129,6 @@ export function OrderForm() {
   ];
   const sublimationOnDark = technique === "sublimado" && darkColorsInOrder.length > 0;
   const pricing = useMemo(() => calculateOrderTotal(items, technique), [items, technique]);
-  const invoiceLines = useMemo(() => buildInvoiceLines(items, technique), [items, technique]);
 
   const zones = selectedProduct ? getZonesForCategory(selectedProduct.category) : (["frente"] as DesignZone[]);
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
@@ -140,6 +149,27 @@ export function OrderForm() {
     };
   }
 
+  // El diseño de cada línea: el suyo, o si no tiene, el que está en el diseñador
+  // (siempre que ese no lo lleve ya otra línea). Así el carrito muestra lo que se imprimirá.
+  const currentKeyFor = (category: ProductCategory) => designKey(snapshotDesigns(zoneContent, zoneTransform, category));
+  const explicitKeys = new Set(items.filter((i) => hasAnyDesign(i.designs)).map((i) => designKey(i.designs)));
+  function effectiveDesigns(line: CartLine): LineDesigns {
+    if (hasAnyDesign(line.designs)) return line.designs;
+    const category = getProductById(line.productId)?.category;
+    if (!category) return {};
+    const floating = snapshotDesigns(zoneContent, zoneTransform, category);
+    return explicitKeys.has(designKey(floating)) ? {} : floating;
+  }
+  const lineDesigns = items.map(effectiveDesigns);
+  const lineKeys = lineDesigns.map(designKey);
+  const groupKeys = [...new Set(lineKeys.filter(Boolean))];
+  // Los diseños se numeran solo cuando hay que distinguirlos.
+  const labelDesigns = groupKeys.length > 1 || (groupKeys.length === 1 && lineKeys.some((k) => !k));
+  const designLabel = (i: number) => (lineKeys[i] ? `Diseño ${groupKeys.indexOf(lineKeys[i]) + 1}` : "Sin diseño");
+  const invoiceLines = buildInvoiceLines(items, technique).map((l, i) =>
+    labelDesigns ? { ...l, description: `${l.description} · ${designLabel(i)}` } : l
+  );
+
   // Se crea en el navegador (no en el servidor) para que no cambie al cargar la página.
   const [pendingOrderId, setPendingOrderId] = useState<string | null>(null);
   useEffect(() => {
@@ -159,7 +189,7 @@ export function OrderForm() {
   const [restored, setRestored] = useState<{ imagesLost: boolean } | null>(null);
   // Remonta las partes con estado propio (dirección escrita) al empezar de nuevo.
   const [formKey, setFormKey] = useState(0);
-  const savedFiles = useRef<Partial<Record<DesignZone, File>>>({});
+  const savedImageKeys = useRef("");
   const urlProduct = searchParams.get("producto");
 
   useEffect(() => {
@@ -174,21 +204,27 @@ export function OrderForm() {
       const files = await loadDraftImages();
       if (cancelled) return;
 
-      const content: ZoneContentMap = {};
       let imagesLost = false;
+      const content: ZoneContentMap = {};
       for (const [zone, d] of Object.entries(draft.designs) as [DesignZone, DraftDesign][]) {
-        if (d.kind === "texto") {
-          content[zone] = d;
-        } else if (files[zone]) {
-          const file = files[zone]!;
-          content[zone] = { ...d, file, previewUrl: URL.createObjectURL(file) };
-        } else {
-          imagesLost = true;
-        }
+        const restoredContent = fromDraftDesign(d, files);
+        if (restoredContent) content[zone] = restoredContent;
+        else imagesLost = true;
       }
-      savedFiles.current = files;
+      type DraftLineDesign = NonNullable<DraftLine["designs"][DesignZone]>;
+      const restoredItems: CartLine[] = draft.items.map((line) => {
+        const designs: LineDesigns = {};
+        for (const [zone, d] of Object.entries(line.designs ?? {}) as [DesignZone, DraftLineDesign][]) {
+          const c = fromDraftDesign(d.design, files);
+          if (c) designs[zone] = { content: c, transform: d.transform };
+          else imagesLost = true;
+        }
+        const { key, productId: id, color: lineColor, size: lineSize, quantity } = line;
+        return { key, productId: id, color: lineColor, size: lineSize, quantity, designs };
+      });
+      savedImageKeys.current = Object.keys(files).sort().join("|");
 
-      setItems(draft.items);
+      setItems(restoredItems);
       // Si llegó desde la página de otro producto, ese queda elegido para agregarlo.
       const keepProduct = (!urlProduct || urlProduct === draft.productId) && getProductById(draft.productId);
       if (keepProduct) {
@@ -224,12 +260,14 @@ export function OrderForm() {
     if (!draftReady) return;
     const designs: Partial<Record<DesignZone, DraftDesign>> = {};
     for (const [zone, c] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
-      designs[zone] =
-        c.kind === "texto" ? c : { kind: "imagen", width: c.width, height: c.height, fill: c.fill };
+      designs[zone] = toDraftDesign(c);
     }
     saveDraft({
-      v: 1,
-      items,
+      v: 2,
+      items: items.map(({ designs: lineDesignsToSave, ...rest }) => ({
+        ...rest,
+        designs: toDraftLineDesigns(lineDesignsToSave),
+      })),
       technique,
       productId,
       color,
@@ -264,24 +302,25 @@ export function OrderForm() {
     shipping,
   ]);
 
-  // Las imágenes solo se vuelven a guardar cuando cambia algún archivo, no al moverlas.
+  // Las imágenes (del diseñador y de cada línea) solo se vuelven a guardar cuando
+  // cambia algún archivo, no al moverlas.
   useEffect(() => {
     if (!draftReady) return;
-    const files: Partial<Record<DesignZone, File>> = {};
-    for (const [zone, c] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
-      if (c.kind === "imagen") files[zone] = c.file;
-    }
-    const prev = savedFiles.current;
-    const zonesNow = Object.keys(files) as DesignZone[];
-    const same = zonesNow.length === Object.keys(prev).length && zonesNow.every((z) => prev[z] === files[z]);
-    if (same) return;
-    savedFiles.current = files;
+    const files: Record<string, File> = {};
+    const collect = (c: DesignContent | undefined) => {
+      if (c?.kind === "imagen") files[imageKey(c.file)] = c.file;
+    };
+    Object.values(zoneContent).forEach(collect);
+    for (const line of items) Object.values(line.designs).forEach((d) => collect(d?.content));
+    const keys = Object.keys(files).sort().join("|");
+    if (keys === savedImageKeys.current) return;
+    savedImageKeys.current = keys;
     void saveDraftImages(files);
-  }, [draftReady, zoneContent]);
+  }, [draftReady, zoneContent, items]);
 
   function startOver() {
     clearDraft();
-    savedFiles.current = {};
+    savedImageKeys.current = "";
     const product = getProductById(urlProduct ?? "") ?? PRODUCTS[0];
     setItems([]);
     setTechnique(product.techniques[0]);
@@ -358,19 +397,58 @@ export function OrderForm() {
     .map((s) => ({ size: s, quantity: sizeQty[s] }));
   const pendingTotal = pendingLines.reduce((sum, l) => sum + l.quantity, 0);
 
+  // Cada línea guarda el diseño que hay en el diseñador en este momento. Solo se
+  // juntan líneas de la misma prenda, color, talla y diseño.
   function addItem() {
     if (!selectedProduct || !color || pendingTotal === 0 || !fitsOrder) return;
-    setItems((prev) => {
-      let next = prev;
-      for (const line of pendingLines) {
-        const existing = next.find((i) => i.productId === productId && i.color === color && i.size === line.size);
-        next = existing
-          ? next.map((i) => (i === existing ? { ...i, quantity: i.quantity + line.quantity } : i))
-          : [...next, { key: crypto.randomUUID(), productId, color, size: line.size, quantity: line.quantity }];
-      }
-      return next;
-    });
+    const designs = snapshotDesigns(zoneContent, zoneTransform, selectedProduct.category);
+    const key = designKey(designs);
+    // Las líneas sin diseño propio que ya mostraban este mismo diseño se quedan con él.
+    let next = items.map((i) =>
+      key && !hasAnyDesign(i.designs) && designKey(effectiveDesigns(i)) === key ? { ...i, designs } : i
+    );
+    for (const line of pendingLines) {
+      const existing = next.find(
+        (i) => i.productId === productId && i.color === color && i.size === line.size && designKey(i.designs) === key
+      );
+      next = existing
+        ? next.map((i) => (i === existing ? { ...i, quantity: i.quantity + line.quantity } : i))
+        : [...next, { key: crypto.randomUUID(), productId, color, size: line.size, quantity: line.quantity, designs }];
+    }
+    setItems(next);
     setSizeQty(initialSizeQty(availableSizes));
+  }
+
+  // Le pone a esta línea lo que hay ahora en el diseñador.
+  function applyCurrentDesign(lineKey: string) {
+    setItems((prev) =>
+      prev.map((i) => {
+        if (i.key !== lineKey) return i;
+        const category = getProductById(i.productId)?.category;
+        return category ? { ...i, designs: snapshotDesigns(zoneContent, zoneTransform, category) } : i;
+      })
+    );
+  }
+
+  // Abre el diseño de esta línea en el diseñador (con su prenda y color) para verlo,
+  // cambiarlo o pedir más tallas con el mismo diseño.
+  function showLineDesign(line: CartLine) {
+    const product = getProductById(line.productId);
+    if (!product) return;
+    const content: ZoneContentMap = {};
+    const transforms: ZoneTransformMap = {};
+    for (const [zone, d] of Object.entries(line.designs) as [DesignZone, LineDesign][]) {
+      content[zone] = d.content;
+      transforms[zone] = d.transform;
+    }
+    setProductId(product.id);
+    setColor(line.color);
+    setSize(line.size);
+    setSizeQty(initialSizeQty(product.variants.find((v) => v.color === line.color)?.sizes ?? []));
+    setZoneContent(content);
+    setZoneTransform(transforms);
+    setActiveZone((Object.keys(content)[0] as DesignZone | undefined) ?? "frente");
+    document.getElementById("diseno")?.scrollIntoView({ behavior: "smooth" });
   }
 
   function setQtyFor(s: string, value: number) {
@@ -434,36 +512,57 @@ export function OrderForm() {
     try {
       const supabase = createClient();
 
-      const disenos = [];
-      for (const [zone, content] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
-        if (!hasDesign(content)) continue;
-        const transform = zoneTransform[zone] ?? defaultTransform(selectedProduct!.category, zone);
-        const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
+      // Cada diseño distinto es un grupo (1, 2, 3...) y cada línea dice cuál lleva.
+      const groups: LineDesigns[] = [];
+      const itemsPayload = items.map((line, i) => {
+        const { productId: id, color: lineColor, size: lineSize, quantity } = line;
+        const key = lineKeys[i];
+        let diseno: number | null = null;
+        if (key) {
+          diseno = groupKeys.indexOf(key) + 1;
+          groups[diseno - 1] ??= lineDesigns[i];
+        }
+        return { productId: id, color: lineColor, size: lineSize, quantity, diseno };
+      });
 
-        if (content.kind === "imagen") {
-          const path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
-          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
-            contentType: "image/jpeg",
-          });
-          if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
-          disenos.push({
-            zona: zone,
-            tipo: "imagen" as const,
-            path,
-            ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
-            anchoPx: content.width,
-            altoPx: content.height,
-            ...placement,
-          });
-        } else {
-          disenos.push({
-            zona: zone,
-            tipo: "texto" as const,
-            texto: content.texto.trim(),
-            color: content.color,
-            fuente: content.fontFamily,
-            ...placement,
-          });
+      // La misma imagen se sube una sola vez aunque la lleven varios diseños.
+      const uploaded = new Map<string, string>();
+      const disenos = [];
+      for (const [index, designs] of groups.entries()) {
+        for (const [zone, { content, transform }] of Object.entries(designs) as [DesignZone, LineDesign][]) {
+          const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
+          const grupo = index + 1;
+          if (content.kind === "imagen") {
+            let path = uploaded.get(imageKey(content.file));
+            if (!path) {
+              path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
+              const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
+                contentType: "image/jpeg",
+              });
+              if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
+              uploaded.set(imageKey(content.file), path);
+            }
+            disenos.push({
+              zona: zone,
+              tipo: "imagen" as const,
+              path,
+              ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
+              anchoPx: content.width,
+              altoPx: content.height,
+              grupo,
+              ...placement,
+            });
+          } else {
+            disenos.push({
+              zona: zone,
+              tipo: "texto" as const,
+              texto: content.texto.trim(),
+              color: content.color,
+              fuente: content.fontFamily,
+              grupo,
+              ...placement,
+            });
+          }
         }
       }
 
@@ -486,7 +585,7 @@ export function OrderForm() {
           notas: notas.trim() || null,
           entrega: shipping,
           factura: wantsRuc ? billing : null,
-          items: items.map(({ key, ...rest }) => rest),
+          items: itemsPayload,
           paymentMethod: "transferencia",
           comprobantePath,
           orderId: pendingOrderId,
@@ -670,6 +769,10 @@ export function OrderForm() {
                   ? `+ Agregar ${pendingTotal} pieza${pendingTotal === 1 ? "" : "s"} al pedido`
                   : "+ Agregar al pedido"}
               </button>
+              <p className="text-[11px] text-ink-muted">
+                Cada producto se guarda con el diseño que ves en ese momento. Para otro diseño, cámbialo y vuelve a
+                agregar.
+              </p>
               {!fitsOrder && selectedProduct && (
                 <p className="rounded-brand bg-paper-soft p-3 text-xs text-ink-soft">
                   {selectedProduct.name} se hace con{" "}
@@ -680,20 +783,74 @@ export function OrderForm() {
 
               {items.length > 0 && (
                 <ul className="divide-y divide-black/5 rounded-brand border border-black/10">
-                  {items.map((item) => (
-                    <li key={item.key} className="flex items-center justify-between gap-2 px-3 py-2 text-xs">
-                      <span>
-                        {item.quantity}× {getProductById(item.productId)?.name} — {item.color} — {item.size}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.key)}
-                        className="font-semibold text-ink-soft hover:text-ink hover:underline"
-                      >
-                        Quitar
-                      </button>
-                    </li>
-                  ))}
+                  {items.map((item, i) => {
+                    const product = getProductById(item.productId);
+                    const designs = lineDesigns[i];
+                    const thumbZone = (Object.keys(designs) as DesignZone[])[0] ?? "frente";
+                    const thumb = designs[thumbZone];
+                    const colorHex = product?.variants.find((v) => v.color === item.color)?.colorHex ?? "#FFFFFF";
+                    const currentKey = product ? currentKeyFor(product.category) : "";
+                    const canApply = Boolean(currentKey) && currentKey !== lineKeys[i];
+                    const canShow = hasAnyDesign(item.designs) && currentKey !== designKey(item.designs);
+                    return (
+                      <li key={item.key} className="flex gap-2.5 px-3 py-2 text-xs">
+                        {product && (
+                          <div className="pointer-events-none w-12 shrink-0 overflow-hidden rounded border border-black/10">
+                            <DesignMockup
+                              category={product.category}
+                              zone={thumbZone}
+                              color={colorHex}
+                              size={item.size}
+                              content={thumb?.content ?? null}
+                              transform={thumb?.transform ?? defaultTransform(product.category, thumbZone)}
+                              interactive={false}
+                              compact
+                            />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <p className="text-ink">
+                            <span className="font-semibold">{item.quantity}×</span> {product?.name} — {item.color} —{" "}
+                            {item.size}
+                          </p>
+                          <p className={lineKeys[i] ? "text-ink-soft" : "font-medium text-yellow-700"}>
+                            {lineKeys[i]
+                              ? `${labelDesigns ? designLabel(i) : "Con diseño"}${
+                                  hasAnyDesign(item.designs) ? "" : " (el que estás diseñando)"
+                                }`
+                              : "Sin diseño"}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                            {canApply && (
+                              <button
+                                type="button"
+                                onClick={() => applyCurrentDesign(item.key)}
+                                className="font-semibold text-ink underline"
+                              >
+                                Ponerle el diseño actual
+                              </button>
+                            )}
+                            {canShow && (
+                              <button
+                                type="button"
+                                onClick={() => showLineDesign(item)}
+                                className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                              >
+                                Ver su diseño
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeItem(item.key)}
+                              className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </div>

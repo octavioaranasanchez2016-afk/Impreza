@@ -9,10 +9,9 @@ import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
 import { ArchiveButton } from "@/components/admin/ArchiveButton";
+import { OrderDesigns } from "@/components/admin/OrderDesigns";
 import { StatusBadge } from "@/components/StatusBadge";
-import { DesignMockup } from "@/components/DesignMockup";
 import { Invoice } from "@/components/Invoice";
-import { ZONE_LABEL } from "@/components/GarmentShape";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/delivery";
@@ -20,26 +19,10 @@ import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
 import { NotifyInfo, statusWhatsAppMessage, trackingPath } from "@/lib/notifications";
 import { parseShipping } from "@/lib/shipping";
 import { parseBilling } from "@/lib/billing";
-import { DesignZone, OrderStatus, PaymentStatus, Technique } from "@/lib/types";
-import { FontFamilyKey, MockupContent } from "@/lib/design";
+import { OrderStatus, PaymentStatus, Technique } from "@/lib/types";
+import { StoredDiseno } from "@/lib/design-groups";
 
 export const dynamic = "force-dynamic";
-
-interface StoredDiseno {
-  zona: DesignZone;
-  tipo: "imagen" | "texto";
-  path?: string;
-  ajuste?: "completa" | "llenar";
-  anchoPx?: number;
-  altoPx?: number;
-  texto?: string;
-  color?: string;
-  fuente?: FontFamilyKey;
-  posX: number;
-  posY: number;
-  escala: number;
-  rotacion?: number;
-}
 
 const SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "Único"];
 
@@ -97,9 +80,6 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   );
   const totalPieces = orderItems.reduce((sum, i) => sum + i.quantity, 0);
 
-  const firstItem = orderItems[0];
-  const firstProduct = firstItem ? getProductById(firstItem.productId) : undefined;
-  const firstColorHex = firstProduct?.variants.find((v) => v.color === firstItem?.color)?.colorHex ?? "#111111";
 
   const nombre = order.cliente_nombre as string;
   const telefono = order.cliente_telefono as string;
@@ -209,77 +189,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               </tbody>
             </table>
 
-            {disenosConUrl.length === 0 && (
-              <p className="mt-4 rounded-brand border-2 border-ink px-4 py-3 text-sm font-medium text-ink">
-                El cliente hizo el pedido sin diseño. Pídeselo por WhatsApp antes de producir.
-              </p>
-            )}
-            {firstProduct && disenosConUrl.length > 0 && (
-              <div className="mt-6 grid gap-8 sm:grid-cols-2">
-                {disenosConUrl.map((d) => {
-                  const content: MockupContent | null =
-                    d.tipo === "imagen"
-                      ? d.signedUrl
-                        ? {
-                            kind: "imagen",
-                            previewUrl: d.signedUrl,
-                            width: d.anchoPx ?? 0,
-                            height: d.altoPx ?? 0,
-                            fill: d.ajuste === "llenar",
-                          }
-                        : null
-                      : { kind: "texto", texto: d.texto ?? "", color: d.color ?? "#111111", fontFamily: d.fuente ?? "sans" };
-
-                  return (
-                    <div key={d.zona} className="print:break-inside-avoid">
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
-                        {ZONE_LABEL[d.zona]}
-                        {d.tipo === "imagen" && d.ajuste === "llenar" && " · llenar área"}
-                      </p>
-                      {content ? (
-                        <DesignMockup
-                          category={firstProduct.category}
-                          zone={d.zona}
-                          color={firstColorHex}
-                          size={firstItem?.size}
-                          content={content}
-                          transform={{ x: d.posX, y: d.posY, scale: d.escala || 1, rotation: d.rotacion ?? 0 }}
-                          interactive={false}
-                          showPlacement
-                        />
-                      ) : (
-                        <p className="text-sm text-ink-soft">No se pudo generar la vista previa.</p>
-                      )}
-                      {d.tipo === "texto" && (
-                        <p className="mt-2 text-center text-xs text-ink-soft">
-                          Texto: <span className="font-semibold text-ink">“{d.texto}”</span> · color{" "}
-                          <span className="inline-block h-3 w-3 rounded-full border border-black/20 align-middle" style={{ backgroundColor: d.color }} />{" "}
-                          {d.color}
-                        </p>
-                      )}
-                      {d.tipo === "imagen" && d.signedUrl && (
-                        <a
-                          href={d.signedUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          download
-                          className="mt-2 block rounded-brand border border-black/15 px-3 py-1.5 text-center text-xs font-semibold text-ink hover:border-ink print:hidden"
-                        >
-                          Descargar imagen original
-                          {d.anchoPx ? ` (${d.anchoPx} × ${d.altoPx} px)` : ""}
-                        </a>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {firstProduct && (
-              <p className="mt-4 text-xs text-ink-muted">
-                Vista previa sobre {firstProduct.name}, {firstItem?.color}, talla {firstItem?.size}. Las medidas en cm son las
-                mismas para todas las tallas.
-              </p>
-            )}
+            <OrderDesigns disenos={disenosConUrl} items={orderItems} />
           </section>
 
           <div className="print:hidden">
@@ -423,3 +333,4 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
     </div>
   );
 }
+

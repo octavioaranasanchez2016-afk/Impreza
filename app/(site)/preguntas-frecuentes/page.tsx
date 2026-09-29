@@ -100,7 +100,11 @@ const SECTIONS = [
       },
       {
         q: "¿Puedo poner diseños en la espalda o la manga?",
-        a: "Sí. Ninguna zona es obligatoria: puedes poner un diseño distinto en frente, espalda y manga, o hacer tu pedido sin diseño y enviárnoslo después por WhatsApp.",
+        a: "Sí. Ninguna zona es obligatoria: puedes poner un diseño distinto en frente, espalda y manga.",
+      },
+      {
+        q: "¿Puedo pedir productos con diseños distintos en un mismo pedido?",
+        a: "Sí. Cada producto se guarda con el diseño que tiene el diseñador cuando tocas «Agregar al pedido». Para otro diseño, cámbialo y vuelve a agregar: en tu pedido verás «Diseño 1», «Diseño 2», etc., con las piezas de cada uno.",
       },
     ],
   },

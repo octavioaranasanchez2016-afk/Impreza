@@ -21,7 +21,11 @@ interface DisenoInput {
   posY: number;
   escala: number;
   rotacion: number;
+  grupo?: number; // qué diseño del pedido es (1, 2, 3...), ver lib/design-groups.ts
 }
+
+// diseno: el grupo de diseño que lleva esta línea (null = sin diseño).
+type ItemInput = OrderItemInput & { diseno?: number | null };
 
 interface CreateOrderBody {
   clienteNombre: string;
@@ -32,13 +36,15 @@ interface CreateOrderBody {
   notas: string | null;
   entrega: unknown;
   factura?: unknown; // { razonSocial, ruc } si pide factura con RUC
-  items: OrderItemInput[];
+  items: ItemInput[];
   paymentMethod: PaymentMethod;
   comprobantePath: string;
   orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga"];
+const MAX_DESIGN_GROUPS = 50;
+const isGroup = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_GROUPS;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: NextRequest) {
@@ -77,7 +83,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "El pedido no tiene productos válidos." }, { status: 400 });
   }
 
+  // Cada zona de cada diseño guarda también las piezas que llevan ese diseño.
+  const piezasDelGrupo = (grupo: number) =>
+    body.items
+      .filter((i) => i.diseno === grupo)
+      .map((i) => ({ productId: i.productId, color: i.color, talla: i.size, cantidad: i.quantity }));
   const disenos = (body.disenos ?? []).map((d) => ({
+    ...(isGroup(d.grupo) ? { grupo: d.grupo, piezas: piezasDelGrupo(d.grupo) } : {}),
     zona: d.zona,
     tipo: d.tipo,
     path: d.tipo === "imagen" ? d.path : undefined,
@@ -186,6 +198,11 @@ export async function POST(req: NextRequest) {
         entrega,
         factura,
         sinDiseno: disenos.length === 0,
+        piezasSinDiseno:
+          disenos.length > 0 && disenos.some((d) => "grupo" in d)
+            ? body.items.filter((i) => !isGroup(i.diseno)).reduce((sum, i) => sum + i.quantity, 0)
+            : 0,
+        disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })
@@ -213,9 +230,14 @@ function validate(body: CreateOrderBody): string | null {
   if (body.disenos != null && !Array.isArray(body.disenos)) {
     return "Diseños inválidos.";
   }
+  const groups = new Set<number>();
   for (const d of body.disenos ?? []) {
     if (!VALID_ZONES.includes(d.zona)) {
       return `Zona de diseño inválida: ${d.zona}`;
+    }
+    if (d.grupo != null) {
+      if (!isGroup(d.grupo)) return "Número de diseño inválido.";
+      groups.add(d.grupo);
     }
     if (d.tipo === "imagen" && !d.path) {
       return `Falta el archivo de diseño para la zona ${d.zona}.`;
@@ -237,6 +259,9 @@ function validate(body: CreateOrderBody): string | null {
     }
     if (!item.quantity || item.quantity < 1) {
       return "Cada producto debe tener cantidad válida.";
+    }
+    if (item.diseno != null && !groups.has(item.diseno)) {
+      return "Un producto del pedido apunta a un diseño que no existe. Vuelve a agregarlo.";
     }
   }
   if (body.paymentMethod !== "transferencia") {

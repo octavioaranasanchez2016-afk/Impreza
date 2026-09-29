@@ -93,6 +93,8 @@ interface NewOrderParams {
   entrega: ShippingInfo | null;
   factura: BillingInfo | null;
   sinDiseno?: boolean;
+  piezasSinDiseno?: number;
+  disenosDistintos?: number;
 }
 
 export async function sendNewOrderEmail(params: NewOrderParams) {
@@ -114,6 +116,8 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? params.tecnica} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
       ${params.sinDiseno ? `<p style="margin:4px 0;"><strong>Diseño:</strong> el cliente no subió diseño; pídeselo por WhatsApp.</p>` : ""}
+      ${!params.sinDiseno && (params.disenosDistintos ?? 1) > 1 ? `<p style="margin:4px 0;"><strong>Diseños:</strong> ${params.disenosDistintos} diseños distintos (el panel dice qué piezas lleva cada uno).</p>` : ""}
+      ${params.piezasSinDiseno ? `<p style="margin:4px 0;"><strong>Sin diseño:</strong> ${params.piezasSinDiseno} pieza${params.piezasSinDiseno === 1 ? "" : "s"}; pregúntale al cliente por WhatsApp.</p>` : ""}
       ${shippingHtml(params.entrega)}
       ${params.factura ? `<p style="margin:4px 0;"><strong>Factura con RUC:</strong> ${escapeHtml(params.factura.razonSocial)} · RUC ${escapeHtml(params.factura.ruc)}</p>` : ""}
       <p style="margin:16px 0;">El cliente adjuntó su comprobante de transferencia. Verifica el pago en el panel.</p>
