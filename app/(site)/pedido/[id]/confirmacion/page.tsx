@@ -4,6 +4,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Invoice } from "@/components/Invoice";
 import { ReviewForm } from "@/components/ReviewForm";
+import { ReceiptReupload } from "@/components/ReceiptReupload";
 import { getOrderReviewState } from "@/lib/reviews";
 import { parseBilling } from "@/lib/billing";
 import { formatBoth } from "@/lib/currency";
@@ -28,7 +29,7 @@ function readyText(entrega: ShippingInfo | null) {
 }
 
 function headline(status: OrderStatus, payment: PaymentStatus, entrega: ShippingInfo | null) {
-  if (payment === "fallido") return { title: "Necesitamos revisar tu pago", text: "No pudimos verificar tu transferencia. Escríbenos por WhatsApp con tu comprobante y lo resolvemos." };
+  if (payment === "fallido") return { title: "Necesitamos revisar tu pago", text: "No pudimos verificar tu transferencia. Sube de nuevo tu comprobante aquí abajo y lo revisamos otra vez." };
   if (status === "listo_entregado") return { title: "¡Tu pedido está listo!", text: readyText(entrega) };
   if (status === "en_produccion") return { title: "Tu pedido está en producción", text: "Estamos imprimiendo tu pedido. Te avisamos cuando esté listo." };
   if (status === "diseno_aprobado") return { title: "Tu diseño fue aprobado", text: "Tu pedido pasa a producción en breve." };
@@ -107,6 +108,12 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
           </li>
         ))}
       </ol>
+
+      {payment === "fallido" && (
+        <div className="mt-4">
+          <ReceiptReupload orderId={order.id} orderCode={shortId} />
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-5 py-4">
         <div>

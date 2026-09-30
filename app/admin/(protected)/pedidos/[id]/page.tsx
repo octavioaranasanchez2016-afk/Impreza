@@ -14,7 +14,7 @@ import { StatusBadge } from "@/components/StatusBadge";
 import { Invoice } from "@/components/Invoice";
 import { buildInvoiceLines, techniquesText } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
-import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/delivery";
+import { estimateReadyDate, formatReadyDate, formatShortDate, isPastDue, toManagua } from "@/lib/delivery";
 import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
 import { NotifyInfo, statusWhatsAppMessage, trackingPath } from "@/lib/notifications";
 import { parseShipping } from "@/lib/shipping";
@@ -41,7 +41,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   // Los buckets son privados: URLs firmadas de corta duración, solo para el admin.
   const service = createServiceClient();
-  const [disenosConUrl, comprobanteSigned] = await Promise.all([
+  const [disenosConUrl, comprobanteSigned, previousReceipts] = await Promise.all([
     Promise.all(
       disenos.map(async (d) => {
         if (d.tipo !== "imagen" || !d.path) return { ...d, signedUrl: null as string | null };
@@ -52,6 +52,23 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
     order.comprobante_url
       ? service.storage.from("comprobantes").createSignedUrl(order.comprobante_url, 60 * 30)
       : Promise.resolve(null),
+    // Comprobantes rechazados que el cliente reemplazó desde la página de su pedido.
+    service
+      .from("payment_transactions")
+      .select("provider_reference, created_at")
+      .eq("order_id", id)
+      .eq("provider", "comprobante")
+      .order("created_at", { ascending: false })
+      .then(async ({ data }) =>
+        Promise.all(
+          (data ?? []).map(async (t) => {
+            const { data: signed } = await service.storage
+              .from("comprobantes")
+              .createSignedUrl(t.provider_reference ?? "", 60 * 30);
+            return { url: signed?.signedUrl ?? null, replacedAt: new Date(t.created_at) };
+          })
+        )
+      ),
   ]);
 
   const shortId = order.id.slice(0, 8).toUpperCase();
@@ -287,6 +304,12 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 <span className="block text-xs text-ink-muted">o {formatInDollars(total)}</span>
               </p>
             </div>
+            {previousReceipts.length > 0 && (
+              <p className="mt-3 rounded-brand bg-paper-soft px-3 py-2 text-xs font-semibold text-ink">
+                Comprobante reenviado por el cliente el {formatShortDate(toManagua(previousReceipts[0].replacedAt))}, después
+                de que el pago fue rechazado.
+              </p>
+            )}
             {comprobanteSigned?.data?.signedUrl ? (
               <a href={comprobanteSigned.data.signedUrl} target="_blank" rel="noopener noreferrer" className="mt-3 block">
                 <img
@@ -300,6 +323,18 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               </a>
             ) : (
               <p className="mt-2 text-sm text-ink-soft">Este pedido no tiene comprobante adjunto.</p>
+            )}
+            {previousReceipts.length > 0 && (
+              <p className="mt-2 text-xs text-ink-soft">
+                {previousReceipts.length === 1 ? "Comprobante anterior (rechazado):" : "Comprobantes anteriores (rechazados):"}{" "}
+                {previousReceipts.map((r, i) =>
+                  r.url ? (
+                    <a key={i} href={r.url} target="_blank" rel="noopener noreferrer" className="mr-2 font-semibold text-ink underline">
+                      Ver {previousReceipts.length > 1 ? previousReceipts.length - i : ""}
+                    </a>
+                  ) : null
+                )}
+              </p>
             )}
             <p className="mt-3 text-xs text-ink-muted">
               Revisa en tu banca en línea que el monto llegó a la cuenta en córdobas o en dólares antes de verificar. El

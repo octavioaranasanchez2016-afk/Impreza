@@ -104,6 +104,22 @@ export async function sendNewOrderEmail(params: NewOrderParams) {
   await send(to, subject, html);
 }
 
+// Aviso al admin: un cliente con el pago rechazado subió un comprobante nuevo.
+export async function sendReceiptResubmittedEmail(params: { orderId: string; clienteNombre: string; total: number }) {
+  const to = process.env.ADMIN_NOTIFICATION_EMAIL;
+  if (!to) return;
+  const id = shortId(params.orderId);
+  await send(
+    to,
+    `Comprobante nuevo — pedido #${id}`,
+    layout(`
+      <h2 style="margin:0 0 12px;">Comprobante nuevo para el pedido #${id}</h2>
+      <p>${escapeHtml(params.clienteNombre)} subió otra vez su comprobante de <strong>${formatBoth(params.total)}</strong>.
+      El pedido volvió a «Pago por verificar».</p>
+      <p style="margin:20px 0;">${button(`${siteUrl()}/admin/pedidos/${params.orderId}`, "Revisar el pago en el panel")}</p>`)
+  );
+}
+
 export function buildNewOrderEmail(params: NewOrderParams) {
   const id = shortId(params.orderId);
   return {
@@ -192,7 +208,8 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
       body: `<h2 style="margin:0 0 12px;">Necesitamos revisar tu pago</h2>
         <p>Hola ${nombre}, no pudimos verificar la transferencia de <strong>${formatBoth(params.total)}</strong> para tu
         pedido <strong>#${id}</strong>.</p>
-        <p>Escríbenos por WhatsApp con tu comprobante y lo resolvemos.</p>`,
+        <p>Sube de nuevo tu comprobante (una foto o captura de la transferencia) y lo revisamos otra vez. Si tienes
+        dudas, escríbenos por WhatsApp.</p>`,
     },
     diseno_aprobado: {
       subject: `Tu diseño fue aprobado — pedido #${id}`,
@@ -212,10 +229,15 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
     },
   };
   const { subject, body } = content[params.kind];
+  // Con el pago rechazado, el botón lleva directo a subir el comprobante otra vez.
+  const primary =
+    params.kind === "pago_rechazado"
+      ? button(`${siteUrl()}/pedido/${params.orderId}/confirmacion#comprobante`, "Subir mi comprobante de nuevo")
+      : orderLink(params.orderId);
   return {
     subject,
     html: layout(`${body}
-      <p style="margin:20px 0;">${orderLink(params.orderId)}</p>
+      <p style="margin:20px 0;">${primary}</p>
       <p>${whatsappButton(`Hola, soy ${params.clienteNombre}. Te escribo por mi pedido #${id}.`)}</p>`),
   };
 }

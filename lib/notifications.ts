@@ -36,7 +36,7 @@ export function statusWhatsAppMessage(
     case "pagado":
       return `Hola ${info.nombre}, ¡confirmamos tu pago del pedido #${info.code}! Estará listo aproximadamente el ${info.readyText}.${track}`;
     case "fallido":
-      return `Hola ${info.nombre}, no pudimos verificar la transferencia de tu pedido #${info.code} por ${info.totalText}. ¿Nos puedes enviar el comprobante de nuevo o confirmar a qué cuenta transferiste?`;
+      return `Hola ${info.nombre}, no pudimos verificar la transferencia de tu pedido #${info.code} por ${info.totalText}. Puedes subir el comprobante de nuevo aquí: ${trackUrl}\n\nO confírmanos a qué cuenta transferiste.`;
     case "diseno_aprobado":
       return `Hola ${info.nombre}, ¡aprobamos el diseño de tu pedido #${info.code}! Pronto pasa a producción.${track}`;
     case "en_produccion":
