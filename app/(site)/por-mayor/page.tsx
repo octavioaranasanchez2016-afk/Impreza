@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
+import { QuickQuote } from "@/components/QuickQuote";
 import { VOLUME_TIERS, calculateOrderTotal, getUnitPrice } from "@/lib/pricing";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
@@ -57,29 +57,33 @@ export default function PorMayorPage() {
 
   return (
     <>
-      <section className="mx-auto max-w-6xl px-4 pb-12 pt-14 md:px-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Por mayor</p>
-        <h1 className="mt-2 max-w-3xl font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">
-          Camisas para todo tu grupo
-        </h1>
-        <p className="mt-4 max-w-xl text-ink-soft">
-          Graduaciones, empresas, iglesias, equipos y marcas. Desde 12 piezas ahorras 15%, y hasta 40% desde 144. Pueden
-          ser tallas y colores distintos: el descuento cuenta el total de piezas.
-        </p>
-        <div className="mt-8 flex flex-wrap gap-3">
-          <WhatsAppLinkButton
-            message="Hola, quiero cotizar un pedido por mayor en Impreza."
-            className="rounded-brand bg-[#25D366] px-6 py-3 text-sm font-semibold text-white hover:opacity-90"
-          >
-            Cotizar por WhatsApp
-          </WhatsAppLinkButton>
-          <Link
-            href="/pedido"
-            className="rounded-brand border border-ink/20 px-6 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
-          >
-            Armarlo yo en el diseñador →
-          </Link>
+      <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-12 pt-14 md:px-6 lg:grid-cols-[1fr_1.05fr] lg:items-start">
+        <div className="lg:pt-6">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Por mayor</p>
+          <h1 className="mt-2 max-w-3xl font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">
+            Camisas para todo tu grupo
+          </h1>
+          <p className="mt-4 max-w-xl text-ink-soft">
+            Graduaciones, empresas, iglesias, equipos y marcas. Desde 12 piezas ahorras 15%, y hasta 40% desde 144. Pueden
+            ser tallas y colores distintos: el descuento cuenta el total de piezas.
+          </p>
+          <ul className="mt-6 space-y-2 text-sm text-ink">
+            {[
+              "Cada persona elige su talla",
+              "Factura con RUC y proforma para tu empresa",
+              `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles desde el pago`,
+              "Entrega en un solo lugar o a domicilio",
+            ].map((item) => (
+              <li key={item} className="flex gap-2.5">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] text-paper">
+                  ✓
+                </span>
+                {item}
+              </li>
+            ))}
+          </ul>
         </div>
+        <QuickQuote />
       </section>
 
       <section className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
