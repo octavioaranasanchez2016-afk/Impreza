@@ -123,10 +123,19 @@ export function QuickQuote() {
 
   const set = (n: number) => setQuantity(Math.max(1, Math.min(9999, Math.round(n) || 1)));
 
+  const dateText = date
+    ? new Date(`${date}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "long" })
+    : "";
+
+  // "Hacer este pedido" abre el diseñador con todo lo elegido aquí ya puesto.
+  const orderParams = new URLSearchParams({ producto: productId, tecnica: lineTechnique, cantidad: String(quantity) });
+  if (fabric) orderParams.set("tela", fabric.id);
+  orderParams.set("nota", [occasion.label !== "Otro" ? occasion.label : "", dateText ? `Lo necesito para el ${dateText}` : ""].filter(Boolean).join(" · "));
+
   const message = [
     `Hola, quiero hablar con un diseñador${occasion.phrase.startsWith("para") ? ` (es ${occasion.phrase})` : ""}:`,
     `• ${quantity} × ${product.name}${fabric ? ` (${fabric.name})` : ""} en ${techniqueText}`,
-    date ? `• Lo necesito para el ${new Date(`${date}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "long" })}` : null,
+    dateText ? `• Lo necesito para el ${dateText}` : null,
     `• Estimado en el sitio: ${formatCordobas(pricing.total)} (${formatCordobas(Math.round(perPiece * 100) / 100)} por pieza${
       pricing.discountPct ? `, ${Math.round(pricing.discountPct * 100)}% de descuento` : ""
     })`,
@@ -295,21 +304,24 @@ export function QuickQuote() {
         </div>
       </div>
 
-      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <Link
+          href={`/pedido?${orderParams.toString()}`}
+          className="rounded-brand bg-ink px-5 py-3 text-center text-sm font-semibold text-paper hover:opacity-80"
+        >
+          Hacer este pedido →
+        </Link>
         <WhatsAppLinkButton
           message={message}
-          className="flex-1 rounded-brand bg-[#25D366] px-5 py-3 text-center text-sm font-semibold text-white hover:opacity-90"
+          className="rounded-brand bg-[#25D366] px-5 py-3 text-center text-sm font-semibold text-white hover:opacity-90"
         >
           Contactar con diseñador
         </WhatsAppLinkButton>
-        <Link
-          href={`/pedido?producto=${productId}`}
-          className="rounded-brand border border-ink/20 px-5 py-3 text-center text-sm font-semibold text-ink hover:border-ink"
-        >
-          Armarlo en el diseñador →
-        </Link>
       </div>
-      <p className="mt-2 text-center text-[11px] text-ink-muted">Precio estimado, sin delivery.</p>
+      <p className="mt-2 text-center text-[11px] text-ink-muted">
+        «Hacer este pedido» abre el diseñador con todo esto ya elegido: solo subes tu diseño y repartes las tallas.
+        Precio estimado, sin delivery.
+      </p>
     </div>
   );
 }

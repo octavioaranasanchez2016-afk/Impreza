@@ -88,6 +88,31 @@ function defaultFabricFor(product: Product | undefined, technique: Technique): s
   return (product.fabrics.find((f) => f.techniques.includes(technique)) ?? product.fabrics[0]).id;
 }
 
+// Pedido que viene del cotizador: cuántas piezas lleva de las que cotizó.
+function QuoteProgress({ target, current, multiSize }: { target: number; current: number; multiSize: boolean }) {
+  const done = current >= target;
+  const pct = Math.min(100, Math.round((current / target) * 100));
+  return (
+    <div className={`rounded-brand border p-3 ${done ? "border-ink bg-ink text-paper" : "border-black/10 bg-paper-soft"}`}>
+      <p className="text-sm font-semibold">
+        {done ? `✓ Ya tienes las ${target} piezas de tu cotización` : `Tu cotización: ${target} piezas · llevas ${current}`}
+      </p>
+      {!done && (
+        <>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
+            <div className="h-full rounded-full bg-ink transition-all" style={{ width: `${pct}%` }} />
+          </div>
+          <p className="mt-1.5 text-[11px] text-ink-soft">
+            {multiSize
+              ? "Reparte las piezas por talla aquí abajo; puedes mezclar tallas y colores."
+              : "Revisa la cantidad y agrégala al pedido."}
+          </p>
+        </>
+      )}
+    </div>
+  );
+}
+
 // Con una sola talla (gorra, tote) no hay nada que elegir: arranca en 1.
 function initialSizeQty(sizes: string[]): Record<string, number> {
   return sizes.length === 1 ? { [sizes[0]]: 1 } : {};
@@ -97,14 +122,24 @@ export function OrderForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const preselected = searchParams.get("producto") ?? PRODUCTS[0].id;
+  // Desde el cotizador de "Por mayor" llegan también la técnica, la tela, cuántas
+  // piezas y una nota (?tecnica=&tela=&cantidad=&nota=), y el pedido arranca armado.
+  const preProduct = getProductById(preselected);
+  const urlTechniqueParam = searchParams.get("tecnica") as Technique | null;
+  const urlTechnique = urlTechniqueParam && preProduct?.techniques.includes(urlTechniqueParam) ? urlTechniqueParam : null;
+  const urlFabricOption = preProduct?.fabrics?.find(
+    (f) => f.id === searchParams.get("tela") && (!urlTechnique || f.techniques.includes(urlTechnique))
+  );
+  const quoteQuantity = Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0))) || null;
+  const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
+  const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
+  const startFabric = urlFabricOption?.id ?? defaultFabricFor(preProduct, startTechnique);
 
-  const [technique, setTechnique] = useState<Technique>(getProductById(preselected)?.techniques[0] ?? "serigrafia");
+  const [technique, setTechnique] = useState<Technique>(startTechnique);
   const [items, setItems] = useState<CartLine[]>([]);
 
   const [productId, setProductId] = useState(preselected);
-  const [fabric, setFabric] = useState<string | null>(() =>
-    defaultFabricFor(getProductById(preselected), getProductById(preselected)?.techniques[0] ?? "serigrafia")
-  );
+  const [fabric, setFabric] = useState<string | null>(startFabric);
   // Aviso cuando cambiar la técnica obligó a cambiar la tela (o al revés).
   const [fabricNote, setFabricNote] = useState<string | null>(null);
   // Ventana con la explicación y comparación de técnicas.
@@ -115,12 +150,15 @@ export function OrderForm() {
   const [color, setColor] = useState(preVariant?.color ?? "");
   const [size, setSize] = useState(defaultSize(preVariant?.sizes ?? []));
   // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
-  const [sizeQty, setSizeQty] = useState<Record<string, number>>(() => initialSizeQty(preVariant?.sizes ?? []));
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>(() => {
+    const sizes = preVariant?.sizes ?? [];
+    return quoteQuantity && sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : initialSizeQty(sizes);
+  });
 
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
-  const [notas, setNotas] = useState("");
+  const [notas, setNotas] = useState(urlNota);
   const [wantsRuc, setWantsRuc] = useState(false);
   const [billing, setBilling] = useState<BillingInfo>({ razonSocial: "", ruc: "" });
   const [shipping, setShipping] = useState<ShippingInfo | null>(null);
@@ -281,10 +319,15 @@ export function OrderForm() {
       setClienteNombre(draft.clienteNombre);
       setClienteTelefono(draft.clienteTelefono);
       setClienteEmail(draft.clienteEmail);
-      setNotas(draft.notas);
+      setNotas(draft.notas || urlNota);
       setWantsRuc(draft.wantsRuc);
       setBilling(draft.billing);
       setShipping(draft.shipping);
+      // Solo si el producto que queda elegido es el de la cotización.
+      if (urlTechnique && (keepProduct ? draft.productId : productId) === preselected) {
+        setTechnique(urlTechnique);
+        setFabric(startFabric);
+      }
       if (draftHasProgress(draft)) setRestored({ imagesLost });
       setDraftReady(true);
     })();
@@ -902,6 +945,14 @@ export function OrderForm() {
                   ))}
                 </div>
               </div>
+
+              {quoteQuantity && (
+                <QuoteProgress
+                  target={quoteQuantity}
+                  current={items.reduce((sum, i) => sum + i.quantity, 0) + pendingTotal}
+                  multiSize={availableSizes.length > 1}
+                />
+              )}
 
               {availableSizes.length > 1 ? (
                 <div>
