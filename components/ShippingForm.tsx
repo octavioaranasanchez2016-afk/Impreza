@@ -15,7 +15,7 @@ import {
 
 type GpsState = "idle" | "locating" | "error";
 
-// El costo del delivery según la distancia desde Arango Textil.
+// El costo del delivery según la distancia desde el Taller Impreza.
 function DeliveryBox({ quote, municipio }: { quote: ReturnType<typeof deliveryQuote>; municipio?: string }) {
   if (!quote) {
     return (
@@ -29,7 +29,7 @@ function DeliveryBox({ quote, municipio }: { quote: ReturnType<typeof deliveryQu
   return (
     <div className="flex items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-ink">Delivery · {quote.km} km desde Arango Textil</p>
+        <p className="text-sm font-semibold text-ink">Delivery · {quote.km} km desde el Taller Impreza</p>
         <p className="text-[11px] text-ink-soft">
           {quote.exacto
             ? "Calculado con tu ubicación."

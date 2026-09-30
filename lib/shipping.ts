@@ -15,21 +15,21 @@ export interface ShippingInfo {
 
 // De aquí sale el delivery. Coordenadas del Plus Code 4PCW+PM5, Managua.
 export const WORKSHOP = {
-  name: "Arango Textil, Managua",
+  name: "Taller Impreza, Managua",
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=4PCW%2BPM5+Managua",
   hours: "Lun – Vie 8am – 5pm · Sáb 8am – 12pm",
   lat: 12.121762,
   lng: -86.253266,
 };
 
-// Tarifa del delivery en córdobas: base + cada kilómetro desde Arango Textil,
+// Tarifa del delivery en córdobas: base + cada kilómetro desde el Taller Impreza,
 // redondeado a C$5, con un mínimo. Cambia estos números para ajustar el precio.
 export const DELIVERY_RATE = { base: 40, perKm: 15, minimum: 80 };
 
 // Las calles no van en línea recta: la distancia en carretera es ~35% mayor.
 const ROAD_FACTOR = 1.35;
 
-// Kilómetros típicos por carretera desde Arango Textil cuando el cliente no comparte
+// Kilómetros típicos por carretera desde el Taller Impreza cuando el cliente no comparte
 // su ubicación. Con la ubicación GPS se calcula la distancia exacta.
 const MUNICIPIO_KM: Record<string, number> = {
   Managua: 7,
@@ -91,7 +91,7 @@ export const MUNICIPIOS = [
   OTHER_MUNICIPIO,
 ];
 
-export const SHIPPING_COST_NOTE = `El delivery sale de Arango Textil: C$${DELIVERY_RATE.base} + C$${DELIVERY_RATE.perKm} por kilómetro (mínimo C$${DELIVERY_RATE.minimum}).`;
+export const SHIPPING_COST_NOTE = `El delivery sale del Taller Impreza: C$${DELIVERY_RATE.base} + C$${DELIVERY_RATE.perKm} por kilómetro (mínimo C$${DELIVERY_RATE.minimum}).`;
 
 const MIN_DIRECCION_LENGTH = 10;
 

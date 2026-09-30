@@ -51,7 +51,7 @@ export function ShippingCard({
           {entrega.envio && (
             <p className="mt-2 rounded-brand bg-paper-soft px-3 py-2 text-sm text-ink">
               Delivery cobrado: <span className="font-semibold">C${entrega.envio.costo}</span> · {entrega.envio.km} km
-              desde Arango Textil{entrega.envio.exacto ? " (con GPS)" : " (estimado por municipio)"}
+              desde el Taller Impreza{entrega.envio.exacto ? " (con GPS)" : " (estimado por municipio)"}
             </p>
           )}
           <p className="mt-2 text-xs text-ink-muted">

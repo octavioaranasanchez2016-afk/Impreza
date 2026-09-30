@@ -35,11 +35,11 @@ const SECTIONS = [
       },
       {
         q: "¿Hacen entrega a domicilio?",
-        a: "Sí, puerta a puerta. Al hacer tu pedido elige «Entrega a domicilio» y escribe tu dirección con señas; si estás en el lugar de entrega, también puedes compartir tu ubicación GPS para que el repartidor llegue directo. El delivery sale de Arango Textil y se cobra por kilómetro: lo ves calculado en tu factura antes de pagar (con tu ubicación GPS, el cálculo es exacto).",
+        a: "Sí, puerta a puerta. Al hacer tu pedido elige «Entrega a domicilio» y escribe tu dirección con señas; si estás en el lugar de entrega, también puedes compartir tu ubicación GPS para que el repartidor llegue directo. El delivery sale del Taller Impreza y se cobra por kilómetro: lo ves calculado en tu factura antes de pagar (con tu ubicación GPS, el cálculo es exacto).",
       },
       {
         q: "¿Puedo recoger mi pedido?",
-        a: "Sí, y es gratis. Elige «Recoger en el taller» al hacer tu pedido. Estamos en Arango Textil, Managua: lunes a viernes de 8am a 5pm y sábados de 8am a 12pm. Te avisamos por WhatsApp cuando esté listo.",
+        a: "Sí, y es gratis. Elige «Recoger en el taller» al hacer tu pedido. Estamos en el Taller Impreza, en Managua: lunes a viernes de 8am a 5pm y sábados de 8am a 12pm. Te avisamos por WhatsApp cuando esté listo.",
       },
       {
         q: "¿Cómo sé en qué va mi pedido?",

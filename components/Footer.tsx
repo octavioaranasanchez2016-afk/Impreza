@@ -51,7 +51,7 @@ export function Footer() {
               rel="noopener noreferrer"
               className="block hover:text-paper"
             >
-              Arango Textil, Managua ↗
+              Taller Impreza, Managua ↗
             </a>
             <a
               href={`https://www.google.com/maps/dir/?api=1&destination=${WORKSHOP.lat},${WORKSHOP.lng}`}

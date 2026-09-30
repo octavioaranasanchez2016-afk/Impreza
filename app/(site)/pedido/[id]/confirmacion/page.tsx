@@ -22,7 +22,7 @@ export const metadata = {
 const STATUS_ORDER: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
 
 function readyText(entrega: ShippingInfo | null) {
-  if (entrega?.metodo === "domicilio") return "Sale de Arango Textil hacia tu dirección. Te avisamos cuando vaya en camino.";
+  if (entrega?.metodo === "domicilio") return "Sale del Taller Impreza hacia tu dirección. Te avisamos cuando vaya en camino.";
   if (entrega?.metodo === "retiro") return `Ya puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}).`;
   return "Escríbenos por WhatsApp para coordinar la entrega o recogida.";
 }
@@ -130,7 +130,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
               <span className="font-semibold">A domicilio</span> en {areaLabel(entrega)}
               {entrega.envio && (
                 <span className="block text-xs text-ink-soft">
-                  Delivery: C${entrega.envio.costo} · {entrega.envio.km} km desde Arango Textil
+                  Delivery: C${entrega.envio.costo} · {entrega.envio.km} km desde el Taller Impreza
                 </span>
               )}
             </p>

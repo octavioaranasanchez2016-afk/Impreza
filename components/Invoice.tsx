@@ -105,7 +105,7 @@ export function Invoice({
         {shipping?.metodo === "domicilio" &&
           ((pricing.shipping ?? 0) > 0 ? (
             <Row
-              label={`Delivery desde Arango Textil${pricing.shippingKm ? ` (${pricing.shippingKm} km)` : ""}`}
+              label={`Delivery desde el Taller Impreza${pricing.shippingKm ? ` (${pricing.shippingKm} km)` : ""}`}
               value={formatCordobas(pricing.shipping ?? 0)}
             />
           ) : (

@@ -12,7 +12,7 @@ export function WorkshopMap({ className = "" }: { className?: string }) {
   if (show) {
     return (
       <iframe
-        title="Mapa de Arango Textil"
+        title="Mapa del Taller Impreza"
         src={`https://www.google.com/maps/embed?origin=mfe&pb=!1m3!2m1!1s${WORKSHOP.lat},${WORKSHOP.lng}!6i16!3m1!1ses!5m1!1ses`}
         className={`h-full w-full border-0 ${className}`}
         loading="lazy"
