@@ -35,10 +35,28 @@ export default function PedidoPage() {
         ))}
       </ol>
       <div className="mt-8">
-        <Suspense fallback={null}>
+        <Suspense fallback={<DesignerLoading />}>
           <OrderForm />
         </Suspense>
       </div>
     </section>
+  );
+}
+
+// Mientras carga el diseñador (en datos móviles puede tardar unos segundos).
+function DesignerLoading() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_20rem]" aria-busy="true" aria-live="polite">
+      <div className="animate-pulse space-y-4">
+        <div className="h-8 w-56 rounded-brand bg-paper-soft" />
+        <div className="grid gap-4 md:grid-cols-[14rem_1fr]">
+          <div className="hidden h-96 rounded-brand bg-paper-soft md:block" />
+          <div className="flex aspect-square items-center justify-center rounded-brand bg-paper-soft md:aspect-auto md:h-96">
+            <p className="text-sm font-medium text-ink-muted">Cargando el diseñador…</p>
+          </div>
+        </div>
+      </div>
+      <div className="hidden h-72 animate-pulse rounded-brand bg-paper-soft lg:block" />
+    </div>
   );
 }

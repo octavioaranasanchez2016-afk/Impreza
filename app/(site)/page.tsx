@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PRODUCTS } from "@/lib/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { Marquee } from "@/components/Marquee";
-import { DesignMockup } from "@/components/DesignMockup";
+import { HomeDesignDemo } from "@/components/HomeDesignDemo";
 import { DiscountCalculator } from "@/components/DiscountCalculator";
 import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
@@ -179,20 +179,7 @@ export default async function HomePage() {
       <section className="bg-paper-soft py-20">
         <div className="reveal mx-auto grid max-w-6xl items-center gap-12 px-4 md:grid-cols-2 md:px-6">
           <div className="order-2 md:order-1">
-            <div className="relative mx-auto max-w-md rounded-brand bg-white p-4 shadow-xl ring-1 ring-black/5">
-              <DesignMockup
-                category="camisa"
-                zone="frente"
-                color="#111111"
-                size="M"
-                content={{ kind: "texto", texto: "IMPREZA", color: "#FFFFFF", fontFamily: "display" }}
-                transform={{ x: 50, y: 34, scale: 0.8, rotation: 0 }}
-                interactive={false}
-              />
-              <span className="absolute -right-3 -top-3 rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-paper shadow">
-                Vista previa real
-              </span>
-            </div>
+            <HomeDesignDemo />
           </div>
           <div className="order-1 md:order-2">
             <SectionTitle eyebrow="Diseñador en línea" title="Lo que ves es lo que se imprime" />
