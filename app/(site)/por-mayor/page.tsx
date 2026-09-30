@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { QuickQuote } from "@/components/QuickQuote";
 import { VOLUME_TIERS, calculateOrderTotal, getUnitPrice } from "@/lib/pricing";
@@ -17,6 +18,7 @@ const GROUPS = [
     text: "La camisa de tu promoción con el nombre del colegio y el año. Cada quien elige su talla.",
     pieces: "30 – 60 piezas",
     cta: "Cotizar mi graduación",
+    href: "/camisas-de-graduacion",
     message: "Hola, quiero cotizar camisas de graduación para mi promoción (colegio: ___, somos ___ personas).",
   },
   {
@@ -24,6 +26,7 @@ const GROUPS = [
     text: "Tu logo bordado en polos y gorras, o impreso en camisas y hoodies, para tu equipo o tus clientes. Con factura con RUC.",
     pieces: "12 – 100 piezas",
     cta: "Cotizar para mi empresa",
+    href: "/uniformes-para-empresas",
     message: "Hola, quiero cotizar camisas con el logo de mi empresa (___ piezas).",
   },
   {
@@ -31,6 +34,7 @@ const GROUPS = [
     text: "Retiros, ligas, carreras, excursiones, cumpleaños y actividades de todo tipo.",
     pieces: "20 – 100 piezas",
     cta: "Cotizar para mi grupo",
+    href: "/camisas-para-equipos",
     message: "Hola, quiero cotizar camisas para un grupo/evento (___ personas, fecha: ___).",
   },
   {
@@ -95,12 +99,19 @@ export default function PorMayorPage() {
                 <span className="shrink-0 text-xs font-semibold text-ink-soft">{g.pieces}</span>
               </div>
               <p className="mt-2 flex-1 text-sm text-ink-soft">{g.text}</p>
-              <WhatsAppLinkButton
-                message={g.message}
-                className="mt-5 self-start rounded-brand bg-ink px-4 py-2 text-sm font-semibold text-paper hover:opacity-80"
-              >
-                {g.cta}
-              </WhatsAppLinkButton>
+              <div className="mt-5 flex flex-wrap items-center gap-4">
+                <WhatsAppLinkButton
+                  message={g.message}
+                  className="rounded-brand bg-ink px-4 py-2 text-sm font-semibold text-paper hover:opacity-80"
+                >
+                  {g.cta}
+                </WhatsAppLinkButton>
+                {g.href && (
+                  <Link href={g.href} className="text-sm font-semibold text-ink underline">
+                    Ver más
+                  </Link>
+                )}
+              </div>
             </div>
           ))}
         </div>

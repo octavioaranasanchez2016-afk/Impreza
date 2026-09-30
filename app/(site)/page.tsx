@@ -28,10 +28,10 @@ const STATS = [
 ];
 
 const OCCASIONS = [
-  { title: "Graduaciones", text: "La camisa de tu promoción, con el nombre y el año.", cta: "Cotizar", href: "/por-mayor" },
-  { title: "Empresas", text: "Uniformes con tu logo y factura con RUC.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Graduaciones", text: "La camisa de tu promoción, con el nombre y el año.", cta: "Cotizar", href: "/camisas-de-graduacion" },
+  { title: "Empresas", text: "Uniformes con tu logo y factura con RUC.", cta: "Cotizar", href: "/uniformes-para-empresas" },
   { title: "Iglesias y grupos", text: "Retiros, campamentos y actividades.", cta: "Cotizar", href: "/por-mayor" },
-  { title: "Equipos", text: "Ligas, carreras y torneos, con número y nombre.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Equipos", text: "Ligas, carreras y torneos, con número y nombre.", cta: "Cotizar", href: "/camisas-para-equipos" },
   { title: "Marcas de ropa", text: "Tus diseños, iguales en cada reposición.", cta: "Cotizar", href: "/por-mayor" },
   { title: "Regalos", text: "Una sola pieza con tu foto o tu frase.", cta: "Diseñar", href: "/pedido" },
 ];

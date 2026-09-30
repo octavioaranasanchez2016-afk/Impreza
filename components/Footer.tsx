@@ -30,6 +30,15 @@ export function Footer() {
             <Link href="/por-mayor" className="block hover:text-paper">
               Pedidos por mayor
             </Link>
+            <Link href="/camisas-de-graduacion" className="block hover:text-paper">
+              Camisas de graduación
+            </Link>
+            <Link href="/uniformes-para-empresas" className="block hover:text-paper">
+              Uniformes para empresas
+            </Link>
+            <Link href="/camisas-para-equipos" className="block hover:text-paper">
+              Camisas para equipos
+            </Link>
             <Link href="/seguimiento" className="block hover:text-paper">
               Rastrear pedido
             </Link>

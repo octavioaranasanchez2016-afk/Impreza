@@ -11,8 +11,10 @@ import { WhatsAppLinkButton } from "./WhatsAppButton";
 
 // Al tocar "¿Para qué es?", el cotizador se arma con lo más común para ese tipo de
 // pedido (cantidad, prenda, técnica y tela); el cliente lo cambia si quiere.
+export type OccasionLabel = "Graduación" | "Empresa" | "Iglesia o grupo" | "Equipo" | "Marca de ropa" | "Otro";
+
 interface Occasion {
-  label: string;
+  label: OccasionLabel;
   phrase: string; // para el mensaje: "Hola, quiero hablar con un diseñador (es para una graduación)"
   quantity: number;
   productId: string;
@@ -80,13 +82,15 @@ const QUICK = [12, 24, 48, 96, 144];
 
 // Cotizador de la página por mayor: el cliente ve el total estimado al instante
 // y manda la cotización ya escrita por WhatsApp.
-export function QuickQuote() {
-  const [occasion, setOccasion] = useState(OCCASIONS[0]);
-  const [productId, setProductId] = useState(OCCASIONS[0].productId);
+// start: con qué opción arranca ("Empresa" en la página de uniformes, etc.).
+export function QuickQuote({ start = "Graduación" }: { start?: OccasionLabel }) {
+  const first = OCCASIONS.find((o) => o.label === start) ?? OCCASIONS[0];
+  const [occasion, setOccasion] = useState(first);
+  const [productId, setProductId] = useState(first.productId);
   const product = getProductById(productId) ?? PRODUCTS[0];
-  const [technique, setTechnique] = useState<Technique>(OCCASIONS[0].technique);
-  const [fabricId, setFabricId] = useState<string | null>(OCCASIONS[0].fabricId ?? null);
-  const [quantity, setQuantity] = useState(OCCASIONS[0].quantity);
+  const [technique, setTechnique] = useState<Technique>(first.technique);
+  const [fabricId, setFabricId] = useState<string | null>(first.fabricId ?? null);
+  const [quantity, setQuantity] = useState(first.quantity);
 
   function chooseOccasion(o: Occasion) {
     setOccasion(o);
