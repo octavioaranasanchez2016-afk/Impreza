@@ -1,4 +1,5 @@
 import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
+import { FaqList } from "@/components/FaqList";
 import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
@@ -27,6 +28,10 @@ const SECTIONS = [
       {
         q: "¿Hay una cantidad mínima de pedido?",
         a: "No. Aceptamos desde 1 sola pieza. Entre más pidas, menos pagas por unidad (ver la tabla de descuentos más abajo). Para graduaciones, empresas y equipos mira «Pedidos por mayor» en el pie de página.",
+      },
+      {
+        q: "¿Cómo sé qué talla pedir?",
+        a: "Cada producto tiene su guía de tallas con el ancho de pecho y el largo en centímetros. El truco: extiende una camisa que te quede bien, mídela y compárala con la guía. En pedidos de grupo cada persona elige su talla, y puedes mezclar tallas en un mismo pedido sin perder el descuento.",
       },
       {
         q: "¿Hacen entrega a domicilio?",
@@ -173,52 +178,25 @@ export default function PreguntasFrecuentesPage() {
         ))}
       </div>
 
-      <nav className="mt-8 flex flex-wrap gap-2" aria-label="Temas">
-        {SECTIONS.map((s) => (
-          <a
-            key={s.id}
-            href={`#${s.id}`}
-            className="rounded-full border border-black/15 px-3 py-1.5 text-sm font-medium text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
-          >
-            {s.title}
-          </a>
-        ))}
-      </nav>
-
-      <div className="mt-10 space-y-10">
-        {SECTIONS.map((s) => (
-          <div key={s.id} id={s.id} className="scroll-mt-24">
-            <h2 className="font-display text-3xl uppercase tracking-wide text-ink">{s.title}</h2>
-            <div className="mt-3 divide-y divide-black/5 rounded-brand border border-black/10 bg-white">
-              {s.faqs.map((f) => (
-                <details key={f.q} className="group p-5">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium text-ink">
-                    {f.q}
-                    <span className="shrink-0 text-xl leading-none text-ink-soft transition-transform group-open:rotate-45">+</span>
-                  </summary>
-                  <p className="mt-3 text-sm leading-relaxed text-ink-soft">{f.a}</p>
-                </details>
-              ))}
+      <FaqList
+        sections={SECTIONS}
+        extras={{
+          tecnicas: (
+            <div className="mt-4">
+              <TechniqueGuide comparison compact />
             </div>
-
-            {s.id === "tecnicas" && (
+          ),
+          pagos: (
+            <div className="mt-4 rounded-brand border border-black/10 bg-white p-5">
+              <p className="text-sm font-semibold text-ink">Descuento por cantidad</p>
+              <p className="mt-1 text-xs text-ink-soft">Aplica automáticamente sobre el total de piezas de tu pedido.</p>
               <div className="mt-4">
-                <TechniqueGuide comparison compact />
+                <VolumeDiscountBar />
               </div>
-            )}
-
-            {s.id === "pagos" && (
-              <div className="mt-4 rounded-brand border border-black/10 bg-white p-5">
-                <p className="text-sm font-semibold text-ink">Descuento por cantidad</p>
-                <p className="mt-1 text-xs text-ink-soft">Aplica automáticamente sobre el total de piezas de tu pedido.</p>
-                <div className="mt-4">
-                  <VolumeDiscountBar />
-                </div>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
+            </div>
+          ),
+        }}
+      />
 
       <div className="mt-12 rounded-brand bg-ink p-6 text-center text-paper">
         <p className="font-semibold">¿No encontraste tu respuesta?</p>

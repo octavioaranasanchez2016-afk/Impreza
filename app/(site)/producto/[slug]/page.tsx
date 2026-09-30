@@ -5,6 +5,7 @@ import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { VOLUME_TIERS, getUnitPrice } from "@/lib/pricing";
 import { SITE_NAME, siteUrl } from "@/lib/site";
+import { shareWhatsAppUrl } from "@/lib/whatsapp";
 import { SIZE_MEASUREMENTS, ZONE_LABEL, getPrintAreaCm, getZonesForCategory } from "@/components/GarmentShape";
 import {
   ProductColorOptions,
@@ -251,6 +252,20 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             <p className="mt-3 text-center text-xs text-ink-soft">
               Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Pago en C$ o US$
             </p>
+            {/* Para quien organiza un pedido de grupo (graduación, equipo): manda el enlace al chat. */}
+            <a
+              href={shareWhatsAppUrl(
+                `Mira: ${product.name} personalizable en Impreza, desde ${formatCordobas(pricing.from)} por pieza y más barato entre más pidamos. ${url}`
+              )}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 flex items-center justify-center gap-2 text-xs font-semibold text-ink hover:underline"
+            >
+              <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7 M16 6l-4-4-4 4 M12 2v13" />
+              </svg>
+              Compartir con tu grupo por WhatsApp
+            </a>
           </div>
         </div>
       </ProductColorProvider>
