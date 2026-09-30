@@ -1311,7 +1311,32 @@ export function OrderForm() {
             {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
           </button>
           {missing.length > 0 && !submitting && (
-            <p className="text-center text-xs text-ink-soft">Para confirmar falta: {missing.join(", ")}.</p>
+            <div className="text-center text-xs text-ink-soft">
+              <p>Para confirmar falta:</p>
+              {/* Cada cosa lleva a su sección; las piezas sin agregar se agregan desde aquí mismo. */}
+              <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                {missingSteps.map((m) =>
+                  m.section === "diseno" && items.length === 0 && pendingTotal > 0 ? (
+                    <button
+                      key={m.label}
+                      type="button"
+                      onClick={addItem}
+                      className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
+                    >
+                      + {addLabel(pendingTotal)}
+                    </button>
+                  ) : (
+                    <a
+                      key={m.label}
+                      href={`#${m.section}`}
+                      className="rounded-full border border-black/15 bg-white px-3 py-1.5 font-medium text-ink hover:border-ink"
+                    >
+                      {m.label}
+                    </a>
+                  )
+                )}
+              </div>
+            </div>
           )}
           <p className="text-center text-[11px] text-ink-muted">
             Tus datos solo se usan para hacer y entregar tu pedido.{" "}
