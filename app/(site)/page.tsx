@@ -9,6 +9,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { FONT_OPTIONS } from "@/lib/design";
 import { businessJsonLd } from "@/lib/site";
 import { getApprovedReviews } from "@/lib/reviews";
+import { listTrabajos } from "@/lib/trabajos";
 import { ReviewGrid, ReviewSummary, Stars } from "@/components/ReviewCards";
 
 // Las reseñas aprobadas se actualizan cada 5 minutos sin volver a publicar el sitio.
@@ -68,7 +69,7 @@ const STEPS = [
 
 export default async function HomePage() {
   const [tee, hoodie] = PRODUCTS;
-  const { reviews, stats } = await getApprovedReviews(6);
+  const [{ reviews, stats }, { trabajos }] = await Promise.all([getApprovedReviews(6), listTrabajos(8)]);
 
   return (
     <>
@@ -175,6 +176,27 @@ export default async function HomePage() {
           ))}
         </ul>
       </section>
+
+      {trabajos.length > 0 && (
+        <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6">
+          <SectionTitle eyebrow="Hecho en nuestro taller" title="Trabajos recientes" />
+          <ul className="reveal swipe-row mt-10 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {trabajos.map((t) => (
+              <li key={t.path} className="swipe-item">
+                <figure className="overflow-hidden rounded-brand bg-paper-soft">
+                  <img
+                    src={t.url}
+                    alt={t.titulo || "Pedido hecho por Impreza"}
+                    loading="lazy"
+                    className="aspect-square w-full object-cover"
+                  />
+                  {t.titulo && <figcaption className="px-3 py-2.5 text-xs text-ink-soft">{t.titulo}</figcaption>}
+                </figure>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <section className="bg-paper-soft py-20">
         <div className="reveal mx-auto grid max-w-6xl items-center gap-12 px-4 md:grid-cols-2 md:px-6">

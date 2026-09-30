@@ -41,6 +41,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
                   <span className="ml-1 rounded-full bg-paper px-1.5 text-[11px] font-bold text-ink">{pendingReviews}</span>
                 )}
               </Link>
+              <Link href="/admin/trabajos" className="text-paper/80 hover:text-paper">
+                Trabajos
+              </Link>
               <a href="/" target="_blank" rel="noopener noreferrer" className="text-paper/80 hover:text-paper">
                 Ver sitio ↗
               </a>
