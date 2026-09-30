@@ -81,31 +81,47 @@ export function ProductGallery({ product }: { product: Product }) {
 // Colores con su nombre; al tocar uno, la galería muestra la prenda en ese color.
 export function ProductColorOptions({ product }: { product: Product }) {
   const { color, setColor, view, setView } = useProductColor();
+  const hex = product.variants.find((v) => v.color === color)?.colorHex ?? "#FFFFFF";
+  const [touched, setTouched] = useState(false);
   return (
-    <div className="flex flex-wrap gap-2">
-      {product.variants.map((v) => {
-        const active = v.color === color;
-        return (
-          <button
-            key={v.color}
-            type="button"
-            onClick={() => {
-              setColor(v.color);
-              if (view === "foto") setView("frente");
-            }}
-            aria-pressed={active}
-            className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
-              active ? "border-ink bg-ink text-paper" : "border-black/10 text-ink hover:border-ink"
-            }`}
-          >
-            <span
-              className={`h-4 w-4 rounded-full border ${active ? "border-paper/40" : "border-black/15"}`}
-              style={{ backgroundColor: v.colorHex }}
-            />
-            {v.color}
-          </button>
-        );
-      })}
+    <div>
+      {/* En el celular la galería queda arriba, fuera de la pantalla: una vista chica aquí mismo. */}
+      {touched && (
+        <div className="mb-3 flex items-center gap-3 rounded-brand bg-paper-soft p-2 md:hidden">
+          <div className="h-20 w-20 shrink-0">
+            <GarmentShape category={product.category} zone="frente" color={hex} />
+          </div>
+          <p className="text-sm text-ink-soft">
+            Así se ve en <span className="font-semibold text-ink">{color.toLowerCase()}</span>
+          </p>
+        </div>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {product.variants.map((v) => {
+          const active = v.color === color;
+          return (
+            <button
+              key={v.color}
+              type="button"
+              onClick={() => {
+                setColor(v.color);
+                setTouched(true);
+                if (view === "foto") setView("frente");
+              }}
+              aria-pressed={active}
+              className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                active ? "border-ink bg-ink text-paper" : "border-black/10 text-ink hover:border-ink"
+              }`}
+            >
+              <span
+                className={`h-4 w-4 rounded-full border ${active ? "border-paper/40" : "border-black/15"}`}
+                style={{ backgroundColor: v.colorHex }}
+              />
+              {v.color}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
