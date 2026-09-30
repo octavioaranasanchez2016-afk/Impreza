@@ -147,6 +147,9 @@ interface CustomerParams {
   clienteNombre: string;
   clienteEmail: string;
   total: number;
+  // Lo que pidió, como en su factura ("Camisa básica — Blanco, talla M · Serigrafía").
+  lines?: { description: string; quantity: number }[];
+  entrega?: ShippingInfo | null;
 }
 
 // Los correos a clientes solo salen con un dominio verificado (EMAIL_FROM);
@@ -169,6 +172,9 @@ export function buildCustomerConfirmationEmail(params: Omit<CustomerParams, "cli
       Recibimos tu comprobante de transferencia y lo estamos verificando.</p>
       <p>Cuando confirmemos el pago te avisamos por este medio. Tu pedido estará listo en
       ${PRODUCTION_BUSINESS_DAYS} días hábiles a partir de ese momento.</p>
+      ${orderSummaryHtml(params.lines ?? [], params.total)}
+      ${params.entrega?.metodo === "retiro" ? `<p style="margin:4px 0;"><strong>Entrega:</strong> lo recoges en el taller; te avisamos cuando esté listo.</p>` : shippingHtml(params.entrega ?? null)}
+      ${thanksHtml()}
       <p style="margin:20px 0;">${orderLink(params.orderId)}</p>
       <p>${whatsappButton(`Hola, soy ${params.clienteNombre}. Tengo una consulta sobre mi pedido #${id}.`)}</p>
     `),
@@ -225,7 +231,9 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
       subject: `¡Tu pedido está listo! — #${id}`,
       body: `<h2 style="margin:0 0 12px;">¡Tu pedido está listo!</h2>
         <p>Hola ${nombre}, tu pedido <strong>#${id}</strong> está terminado. Escríbenos por WhatsApp para coordinar la
-        entrega o recogida.</p>`,
+        entrega o recogida.</p>
+        <p>Gracias por confiar en Impreza. Esperamos que lo disfrutes tanto como nosotros disfrutamos hacerlo, y nos
+        encantaría verlo puesto: si nos mandas una foto, nos alegras el día.</p>`,
     },
   };
   const { subject, body } = content[params.kind];
@@ -240,6 +248,32 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
       <p style="margin:20px 0;">${primary}</p>
       <p>${whatsappButton(`Hola, soy ${params.clienteNombre}. Te escribo por mi pedido #${id}.`)}</p>`),
   };
+}
+
+// Agradecimiento al final del correo de "Recibimos tu pedido".
+function thanksHtml() {
+  return `
+    <div style="margin:20px 0;padding:16px;background:#f4f4f4;border-radius:8px;">
+      <p style="margin:0;font-weight:bold;">Gracias por confiar en nosotros</p>
+      <p style="margin:6px 0 0;">Detrás de cada pedido hay personas que lo revisan y lo hacen con cuidado, pieza por pieza.
+      Gracias por elegir Impreza para darle vida a tu idea: nos emociona verla puesta.</p>
+      <p style="margin:10px 0 0;">— El equipo de Impreza</p>
+    </div>`;
+}
+
+// Resumen del pedido para el cliente: cada línea y el total.
+function orderSummaryHtml(lines: { description: string; quantity: number }[], total: number) {
+  if (!lines.length) return "";
+  const rows = lines
+    .map(
+      (l) => `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${l.quantity} × ${escapeHtml(l.description)}</td></tr>`
+    )
+    .join("");
+  return `
+    <p style="margin:16px 0 4px;font-weight:bold;">Tu pedido</p>
+    <table style="width:100%;border-collapse:collapse;font-size:14px;">${rows}
+      <tr><td style="padding:8px 0;font-weight:bold;">Total: ${formatBoth(total)}</td></tr>
+    </table>`;
 }
 
 function shippingHtml(entrega: ShippingInfo | null) {

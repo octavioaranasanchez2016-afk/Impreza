@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { calculateOrderTotal, techniquesText } from "@/lib/pricing";
+import { buildInvoiceLines, calculateOrderTotal, techniquesText } from "@/lib/pricing";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
@@ -250,7 +250,14 @@ export async function POST(req: NextRequest) {
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
       }),
       clienteEmail
-        ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total })
+        ? sendCustomerConfirmationEmail({
+            orderId: order.id,
+            clienteNombre,
+            clienteEmail,
+            total,
+            lines: buildInvoiceLines(body.items, body.tecnica),
+            entrega,
+          })
         : Promise.resolve(),
     ]);
   });
