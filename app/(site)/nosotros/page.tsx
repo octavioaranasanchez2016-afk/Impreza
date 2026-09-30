@@ -4,7 +4,8 @@ import { WORKSHOP } from "@/lib/shipping";
 
 export const metadata = {
   title: "Quiénes somos",
-  description: "La historia y los valores detrás de Impreza.",
+  alternates: { canonical: "/nosotros" },
+  description: "La historia y los valores detrás de Impreza, ropa personalizada hecha en Arango Textil, Managua. Horario y cómo llegar.",
 };
 
 const VALUES = [

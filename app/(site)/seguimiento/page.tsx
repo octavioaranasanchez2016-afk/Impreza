@@ -4,6 +4,7 @@ import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 
 export const metadata = {
   title: "Rastrear pedido",
+  alternates: { canonical: "/seguimiento" },
   description: "Escribe el código de tu pedido y mira en qué paso va.",
 };
 

@@ -4,6 +4,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
   title: "Catálogo",
+  alternates: { canonical: "/catalogo" },
   description: "Camisas, polos, hoodies, gorras y tote bags para personalizar con serigrafía, DTF, sublimado o bordado en Managua. Precios en córdobas y dólares.",
 };
 

@@ -4,6 +4,7 @@ import { ReviewGrid, ReviewSummary } from "@/components/ReviewCards";
 
 export const metadata = {
   title: "Reseñas",
+  alternates: { canonical: "/resenas" },
   description: "Lo que dicen los clientes de Impreza sobre sus camisas, polos, hoodies y gorras personalizadas.",
 };
 

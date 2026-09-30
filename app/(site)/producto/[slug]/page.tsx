@@ -25,7 +25,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const title = `${product.name} personalizable`;
   const techniques = product.techniques.map((t) => TECHNIQUE_LABEL[t]).join(" o ");
   const description = `${product.description} Desde ${formatCordobas(product.basePrice)} (${formatInDollars(product.basePrice)}). ${techniques} en Managua.`;
-  return { title, description, openGraph: { title, description, images: [product.image] } };
+  return {
+    title,
+    description,
+    alternates: { canonical: `/producto/${product.slug}` },
+    openGraph: { title, description, images: [product.image] },
+  };
 }
 
 // "Serigrafía, Sublimado o DTF"

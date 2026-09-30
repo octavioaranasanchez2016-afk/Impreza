@@ -6,6 +6,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
   title: "Pedidos por mayor",
+  alternates: { canonical: "/por-mayor" },
   description:
     "Camisas y hoodies para graduaciones, empresas, iglesias, equipos y marcas en Managua. Desde 12 piezas ahorras 15% y hasta 40% desde 144.",
 };

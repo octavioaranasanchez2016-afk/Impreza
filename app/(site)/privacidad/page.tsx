@@ -3,6 +3,7 @@ import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 
 export const metadata = {
   title: "Privacidad",
+  alternates: { canonical: "/privacidad" },
   description: "Qué datos pedimos al hacer un pedido en Impreza, para qué los usamos y cómo los cuidamos.",
 };
 

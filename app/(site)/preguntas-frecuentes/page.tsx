@@ -5,6 +5,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
   title: "Preguntas frecuentes",
+  alternates: { canonical: "/preguntas-frecuentes" },
   description: "Tiempos de entrega, formas de pago, envío a domicilio, archivos de diseño y más sobre tus pedidos en Impreza.",
 };
 

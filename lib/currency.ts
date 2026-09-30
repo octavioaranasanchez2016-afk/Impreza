@@ -4,9 +4,11 @@
 // Si cambia, basta con actualizar este número.
 export const CORDOBAS_PER_DOLLAR = 36.6243;
 
+// Sin centavos cuando es exacto (C$220); con centavos, siempre dos (C$212.50, no C$212.5).
 export function formatCordobas(amount: number): string {
+  const hasCents = Math.round(amount * 100) % 100 !== 0;
   return `C$${amount.toLocaleString("es-NI", {
-    minimumFractionDigits: 0,
+    minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: 2,
   })}`;
 }

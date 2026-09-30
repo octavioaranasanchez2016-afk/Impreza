@@ -14,6 +14,9 @@ import { ReviewGrid, ReviewSummary, Stars } from "@/components/ReviewCards";
 // Las reseñas aprobadas se actualizan cada 5 minutos sin volver a publicar el sitio.
 export const revalidate = 300;
 
+// Dirección oficial: aunque el sitio también abra desde otro dominio, Google cuenta esta.
+export const metadata = { alternates: { canonical: "/" } };
+
 const PROCESS_PHOTO = "https://images.unsplash.com/photo-1643216674491-33878507b402?w=900&q=80&auto=format&fit=crop";
 const STUDIO_PHOTO = "https://images.unsplash.com/photo-1456456496250-d5e7c0a9b44d?w=900&q=80&auto=format&fit=crop";
 
@@ -278,7 +281,7 @@ export default async function HomePage() {
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">
         <div className="reveal grid items-center gap-10 md:grid-cols-2">
           <div className="aspect-[4/3] overflow-hidden rounded-brand">
-            <img src={STUDIO_PHOTO} alt="Taller de impresión" className="h-full w-full object-cover" />
+            <img src={STUDIO_PHOTO} alt="Taller de impresión" loading="lazy" className="h-full w-full object-cover" />
           </div>
           <div>
             <SectionTitle eyebrow="Quiénes somos" title="Una marca nicaragüense fundada en 2026" />
