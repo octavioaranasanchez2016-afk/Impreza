@@ -9,7 +9,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { FONT_OPTIONS } from "@/lib/design";
 import { businessJsonLd } from "@/lib/site";
 import { getApprovedReviews } from "@/lib/reviews";
-import { ReviewGrid, ReviewSummary } from "@/components/ReviewCards";
+import { ReviewGrid, ReviewSummary, Stars } from "@/components/ReviewCards";
 
 // Las reseñas aprobadas se actualizan cada 5 minutos sin volver a publicar el sitio.
 export const revalidate = 300;
@@ -30,6 +30,30 @@ const OCCASIONS = [
   { title: "Equipos", text: "Ligas, carreras y torneos, con número y nombre.", cta: "Cotizar", href: "/por-mayor" },
   { title: "Marcas de ropa", text: "Tus diseños, iguales en cada reposición.", cta: "Cotizar", href: "/por-mayor" },
   { title: "Regalos", text: "Una sola pieza con tu foto o tu frase.", cta: "Diseñar", href: "/pedido" },
+];
+
+// Lo que el cliente puede esperar de cada pedido (íconos de línea, 24 × 24).
+const PROMISES = [
+  {
+    title: "Revisamos tu diseño",
+    text: "Una persona lo revisa antes de imprimir y te escribe si algo no está claro.",
+    icon: "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z",
+  },
+  {
+    title: "Garantía de impresión",
+    text: "Si hay un defecto de impresión o producción, lo reponemos.",
+    icon: "M12 3 4 6v6c0 4.5 3.4 8.3 8 9 4.6-.7 8-4.5 8-9V6l-8-3Z M9 12l2 2 4-4",
+  },
+  {
+    title: "Factura con RUC",
+    text: "Y proforma en PDF para que tu empresa la apruebe.",
+    icon: "M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z M14 3v5h5 M9 13h6 M9 17h4",
+  },
+  {
+    title: "Sigue tu pedido",
+    text: "Con tu código ves en qué paso va, y te avisamos por WhatsApp.",
+    icon: "M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21Z M12 12a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z",
+  },
 ];
 
 const STEPS = [
@@ -77,6 +101,15 @@ export default async function HomePage() {
                 Ver productos
               </Link>
             </div>
+            {stats.count > 0 && (
+              <Link href="/resenas" className="mt-5 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
+                <Stars value={stats.average} className="text-base" />
+                <span>
+                  <span className="font-semibold text-ink">{stats.average.toFixed(1)}</span> · {stats.count} reseña
+                  {stats.count === 1 ? "" : "s"} de clientes
+                </span>
+              </Link>
+            )}
             <dl className="mt-10 grid max-w-md grid-cols-3 gap-4 border-t border-black/10 pt-6">
               {STATS.map((s) => (
                 <div key={s.label}>
@@ -199,6 +232,22 @@ export default async function HomePage() {
             </li>
           ))}
         </ol>
+
+        <ul className="reveal mt-6 grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-4">
+          {PROMISES.map((p) => (
+            <li key={p.title} className="flex gap-3">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-black/10 text-ink">
+                <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d={p.icon} />
+                </svg>
+              </span>
+              <span>
+                <span className="block text-sm font-semibold text-ink">{p.title}</span>
+                <span className="block text-xs text-ink-soft">{p.text}</span>
+              </span>
+            </li>
+          ))}
+        </ul>
       </section>
 
       <section id="tecnicas" className="mx-auto max-w-6xl px-4 pb-20 md:px-6">

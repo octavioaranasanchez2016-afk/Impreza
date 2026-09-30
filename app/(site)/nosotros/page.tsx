@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { WorkshopMap } from "@/components/WorkshopMap";
+import { WORKSHOP } from "@/lib/shipping";
 
 export const metadata = {
   title: "Quiénes somos",
@@ -89,29 +91,29 @@ export default function NosotrosPage() {
       </section>
 
       <section className="mx-auto max-w-5xl px-4 py-16 md:px-6">
-        <div className="grid gap-8 overflow-hidden rounded-brand border border-black/5 md:grid-cols-2">
-          <img
-            src="https://images.unsplash.com/photo-1643216674491-33878507b402?w=900&q=80&auto=format&fit=crop"
-            alt="Proceso de serigrafía"
-            className="h-64 w-full object-cover md:h-full"
-          />
+        <div className="grid overflow-hidden rounded-brand border border-black/10 md:grid-cols-2">
+          <div className="h-72 md:h-auto md:min-h-[22rem]">
+            <WorkshopMap />
+          </div>
           <div className="flex flex-col justify-center p-8">
             <h2 className="font-display text-3xl uppercase tracking-wide text-ink">Dónde estamos</h2>
-            <p className="mt-2 text-sm text-ink-soft">Arango Textil, Managua</p>
-            <a
-              href="https://www.google.com/maps/search/?api=1&query=4PCW%2BPM5+Managua"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-1 inline-block text-sm font-medium text-ink hover:underline"
-            >
-              Ver ubicación en el mapa
-            </a>
+            <p className="mt-2 text-sm text-ink-soft">
+              Arango Textil, Managua. Aquí se produce cada pedido, y aquí lo recoges gratis si no quieres delivery.
+            </p>
 
             <div className="mt-6 space-y-1 text-sm text-ink-soft">
               <HorarioRow dia="Lunes – Viernes" horario="8:00 a.m. – 5:00 p.m." />
               <HorarioRow dia="Sábado" horario="8:00 a.m. – 12:00 p.m." />
               <HorarioRow dia="Domingo" horario="Cerrado" />
             </div>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${WORKSHOP.lat},${WORKSHOP.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-6 inline-block self-start text-sm font-semibold text-ink underline"
+            >
+              Cómo llegar ↗
+            </a>
           </div>
         </div>
       </section>

@@ -30,6 +30,7 @@ const SECTIONS = [
       "La página de estado de tu pedido muestra solo tu zona de entrega, nunca tu dirección completa.",
       "Usamos tus diseños únicamente para imprimir tu pedido; nunca los publicamos sin tu autorización.",
       "Mientras armas tu pedido, tu navegador lo guarda en tu propio dispositivo para que no se pierda si la página se recarga. Nadie más lo ve, y se borra cuando envías el pedido.",
+      "El mapa de Google en «Quiénes somos» solo se carga si tocas «Ver mapa»; antes de eso, la página no se conecta con Google.",
     ],
   },
   {
