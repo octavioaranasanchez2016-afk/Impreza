@@ -34,8 +34,8 @@ export default function CatalogoPage() {
         Elige tu prenda
       </h1>
       <p className="mt-4 max-w-xl text-ink-soft">
-        Todas se personalizan al frente; camisas, polos y hoodies también en la espalda, y camisas y polos en cada manga y en la
-        etiqueta de adentro. Elige una para ver colores, precios y guía de tallas.
+        Todas se personalizan al frente; camisas, polos y hoodies también en la espalda y en la etiqueta de adentro, y camisas y
+        polos en cada manga. Elige una para ver colores, precios y guía de tallas.
       </p>
       <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-ink">
         {["Serigrafía, DTF, sublimado y bordado", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Hasta 40% por volumen"].map((c) => (

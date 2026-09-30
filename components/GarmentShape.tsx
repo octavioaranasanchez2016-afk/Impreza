@@ -2,7 +2,7 @@ import { DesignZone, ProductCategory } from "@/lib/types";
 
 export const ZONES_BY_CATEGORY: Record<ProductCategory, DesignZone[]> = {
   camisa: ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"],
-  hoodie: ["frente", "espalda"],
+  hoodie: ["frente", "espalda", "etiqueta"],
   tote: ["frente"],
   polo: ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"],
   gorra: ["frente"],
@@ -104,6 +104,8 @@ const VIEWS: Record<string, ViewSpec> = {
   "camisa:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "hoodie:frente": { span: 115, top: 24, print: { w: 30, h: 22, top: 12 } },
   "hoodie:espalda": { span: 115, top: 24, print: { w: 34, h: 28, top: 32 } },
+  // Etiqueta del hoodie: por dentro, debajo de la costura donde se une la capucha.
+  "hoodie:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "tote:frente": { span: 70, top: 26, print: { w: 30, h: 30, top: 5 } },
   "polo:frente": { span: 110, top: 14, print: { w: 10, h: 10, top: 12, dx: 10 } },
   "polo:espalda": { span: 110, top: 14, print: { w: 25, h: 20, top: 10 } },
@@ -283,6 +285,7 @@ function renderGarment(category: ProductCategory, zone: DesignZone, m: GarmentMe
   if ((category === "camisa" || category === "polo") && zone === "etiqueta") return neckLabel(at, s, category === "polo");
   if (category === "camisa") return tshirt(m, at, s, zone === "espalda");
   if (category === "polo") return polo(m, at, s, zone === "espalda");
+  if (category === "hoodie" && zone === "etiqueta") return hoodieNeckLabel(at, s);
   if (category === "hoodie") return hoodie(m, at, s, zone === "espalda");
   if (category === "gorra") return cap(at, s);
   return tote(at, s);
@@ -370,6 +373,27 @@ function neckLabel(at: At, s: Style, polo: boolean) {
       <path d={band} fill={s.shade} />
       <path d={`M ${at([-8.3, -0.9])} C ${at([-6, 1.2])} ${at([6, 1.2])} ${at([8.3, -0.9])}`} {...detailProps(s)} strokeDasharray="2 2" />
       {bothSidesShoulder(at, s)}
+    </>
+  );
+}
+
+// Hoodie por dentro: la espalda debajo de la costura del cuello y, arriba, el forro
+// de la capucha que sale de esa costura. (0, 0) es la costura al centro de la espalda.
+function hoodieNeckLabel(at: At, s: Style) {
+  const n = HOODIE_NECK;
+  const seam = `C ${at([-6, 1])} ${at([6, 1])} ${at([n, -1.5])}`;
+  const back = `M ${at([-16, 3.5])} L ${at([-n, -1.5])} ${seam} L ${at([16, 3.5])} L ${at([16, 24])} L ${at([-16, 24])} Z`;
+  const hood = `M ${at([-n, -1.5])} ${seam} L ${at([n + 1.5, -8])} L ${at([-n - 1.5, -8])} Z`;
+  return (
+    <>
+      <path d={back} fill={s.fill} {...outlineProps(s)} />
+      <path d={hood} fill={s.fill} {...outlineProps(s)} />
+      {/* Doble sombra: el forro de la capucha se ve más oscuro que la espalda. */}
+      <path d={hood} fill={s.shade} />
+      <path d={hood} fill={s.shade} />
+      <path d={line(at, [0, 0.3], [0, -8])} {...detailProps(s)} />
+      <path d={`M ${at([-n + 0.2, -0.8])} C ${at([-6, 1.7])} ${at([6, 1.7])} ${at([n - 0.2, -0.8])}`} {...detailProps(s)} strokeDasharray="2 2" />
+      <path d={bothSides(at, [n, -1.5], [16, 3.5])} {...detailProps(s)} />
     </>
   );
 }

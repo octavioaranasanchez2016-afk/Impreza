@@ -124,8 +124,8 @@ const SECTIONS = [
         a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en cada manga, 8 × 8 cm en la etiqueta y 30 × 30 cm en la tote bag. En bordado: 10 × 10 cm al pecho de la polo, 25 × 20 cm en su espalda y 11 × 5.5 cm al frente de la gorra.",
       },
       {
-        q: "¿Puedo poner mi propia etiqueta en la camisa?",
-        a: "Sí. En camisas y polos elige la zona «Etiqueta» en el diseñador: va por dentro, debajo del cuello. Ideal para el logo de tu marca, la talla o las instrucciones de lavado.",
+        q: "¿Puedo poner mi propia etiqueta en la camisa o el hoodie?",
+        a: "Sí. En camisas, polos y hoodies elige la zona «Etiqueta» en el diseñador: va por dentro, debajo del cuello. Ideal para el logo de tu marca, la talla o las instrucciones de lavado.",
       },
       {
         q: "¿Puedo hacer que mi imagen ocupe todo el espacio?",

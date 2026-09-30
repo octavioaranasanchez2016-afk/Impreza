@@ -141,7 +141,7 @@ export const PRODUCTS: Product[] = [
     slug: "hoodie-basico",
     category: "hoodie",
     name: "Hoodie con capucha",
-    description: "Hoodie fleece con bolsillo canguro, ideal para diseños grandes.",
+    description: "Hoodie fleece con bolsillo canguro, ideal para diseños grandes, y tu propia etiqueta por dentro.",
     basePrice: 510,
     image: "https://images.unsplash.com/photo-1581655353466-d5ad6765dd37?w=900&q=80&auto=format&fit=crop",
     techniques: ["serigrafia", "sublimado", "dtf"],

@@ -55,7 +55,7 @@ export function QuickQuote() {
   const forcedFabric = lineTechnique === "sublimado" && product.fabrics && product.fabrics.length > 1 ? fabric : undefined;
 
   const message = [
-    `Hola, quiero cotizar ${occasion.phrase}:`,
+    `Hola, quiero consultar mi diseño con un experto${occasion.phrase.startsWith("para") ? ` (es ${occasion.phrase})` : ""}:`,
     `• ${quantity} × ${product.name}${forcedFabric ? ` (${forcedFabric.name})` : ""} en ${TECHNIQUE_LABEL[lineTechnique].toLowerCase()}`,
     date ? `• Lo necesito para el ${new Date(`${date}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "long" })}` : null,
     `• Estimado en el sitio: ${formatCordobas(pricing.total)} (${formatCordobas(Math.round(perPiece * 100) / 100)} por pieza${
@@ -213,7 +213,7 @@ export function QuickQuote() {
           message={message}
           className="flex-1 rounded-brand bg-[#25D366] px-5 py-3 text-center text-sm font-semibold text-white hover:opacity-90"
         >
-          Enviar cotización por WhatsApp
+          Consultar diseño con experto
         </WhatsAppLinkButton>
         <Link
           href={`/pedido?producto=${productId}`}
