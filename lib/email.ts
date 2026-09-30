@@ -254,10 +254,11 @@ export function buildStatusUpdateEmail(params: Omit<StatusParams, "clienteEmail"
 function thanksHtml() {
   return `
     <div style="margin:20px 0;padding:16px;background:#f4f4f4;border-radius:8px;">
-      <p style="margin:0;font-weight:bold;">Gracias por confiar en nosotros</p>
-      <p style="margin:6px 0 0;">Detrás de cada pedido hay personas que lo revisan y lo hacen con cuidado, pieza por pieza.
-      Gracias por elegir Impreza para darle vida a tu idea: nos emociona verla puesta.</p>
-      <p style="margin:10px 0 0;">— El equipo de Impreza</p>
+      <p style="margin:0;font-weight:bold;">¡Gracias por elegirnos!</p>
+      <p style="margin:6px 0 0;">Tu idea ya está en buenas manos. La vamos a revisar con cuidado y a hacerla realidad pieza
+      por pieza, como si fuera nuestra. Gracias por confiar en una marca hecha en Nicaragua: cada pedido como el tuyo
+      nos impulsa a seguir creciendo.</p>
+      <p style="margin:10px 0 0;font-weight:bold;">— Impreza</p>
     </div>`;
 }
 

@@ -105,6 +105,10 @@ export default async function HomePage() {
                 Ver productos
               </Link>
             </div>
+            <Link href="/por-mayor" className="mt-4 inline-block text-sm font-semibold text-ink underline underline-offset-4 hover:no-underline">
+              ¿Es para un grupo? Cotiza en 30 segundos →
+            </Link>
+            <br />
             {stats.count > 0 && (
               <Link href="/resenas" className="mt-5 inline-flex items-center gap-2 text-sm text-ink-soft hover:text-ink">
                 <Stars value={stats.average} className="text-base" />
