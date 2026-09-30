@@ -65,16 +65,13 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
           </p>
 
           <dl className="mt-8 divide-y divide-black/10 border-y border-black/10">
-            <Spec label={`Colores (${product.variants.length})`}>
-              <div className="flex flex-wrap gap-1.5">
+            <Spec label="Colores">
+              <div className="flex flex-wrap gap-2">
                 {product.variants.map((v) => (
-                  <span
-                    key={v.color}
-                    title={v.color}
-                    aria-label={v.color}
-                    className="h-6 w-6 rounded-full border border-black/15"
-                    style={{ backgroundColor: v.colorHex }}
-                  />
+                  <span key={v.color} className="flex items-center gap-2 rounded-full border border-black/10 px-3 py-1.5 text-sm">
+                    <span className="h-4 w-4 rounded-full border border-black/15" style={{ backgroundColor: v.colorHex }} />
+                    {v.color}
+                  </span>
                 ))}
               </div>
             </Spec>
@@ -86,27 +83,25 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             </Spec>
             {product.fabrics && (
               <Spec label="Telas">
-                <p className="text-sm text-ink">{product.fabrics.map((f) => f.name).join(" · ")}</p>
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {product.fabrics.map((f) => (
+                    <li key={f.id} className="rounded-brand border border-black/10 px-3 py-2.5">
+                      <p className="text-sm font-semibold text-ink">{f.name}</p>
+                      <p className="text-xs text-ink-soft">{f.description}</p>
+                      <p className="mt-1 text-[11px] font-medium text-ink-muted">
+                        {f.techniques
+                          .map((t) => TECHNIQUE_LABEL[t])
+                          .join(", ")
+                          .replace(/, ([^,]+)$/, " o $1")}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
               </Spec>
             )}
           </dl>
 
           <div className="mt-6 divide-y divide-black/10 border-b border-black/10">
-            {product.fabrics && (
-              <Detail title="Sobre las telas">
-                <ul className="space-y-2.5">
-                  {product.fabrics.map((f) => (
-                    <li key={f.id}>
-                      <p className="text-sm font-semibold text-ink">{f.name}</p>
-                      <p className="text-xs text-ink-soft">
-                        {f.description} · {f.techniques.map((t) => TECHNIQUE_LABEL[t]).join(", ")}
-                      </p>
-                    </li>
-                  ))}
-                </ul>
-              </Detail>
-            )}
-
             <Detail title={product.category === "gorra" ? "Talla" : "Guía de tallas"}>
               {product.category === "gorra" ? (
                 <p className="text-sm text-ink-soft">
@@ -162,9 +157,9 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
 function Spec({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="grid grid-cols-[7.5rem_1fr] gap-3 py-3.5">
-      <dt className="pt-0.5 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</dt>
-      <dd>{children}</dd>
+    <div className="py-4">
+      <dt className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-muted">{label}</dt>
+      <dd className="mt-2.5">{children}</dd>
     </div>
   );
 }
