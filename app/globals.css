@@ -23,6 +23,29 @@ body {
   background: #111111;
 }
 
+/* Las secciones del inicio aparecen suavemente al bajar. Solo en navegadores
+   que lo soportan; en los demás se ven normal, sin animación. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}
+
+@keyframes reveal {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* Espacio para la barra fija del total en /pedido (solo celular y tablet). */
 @media (max-width: 1023px) {
   body.has-order-bar {

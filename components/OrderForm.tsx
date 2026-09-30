@@ -109,12 +109,13 @@ export function OrderForm() {
   const [fabricNote, setFabricNote] = useState<string | null>(null);
   // Ventana con la explicación y comparación de técnicas.
   const [showTechniques, setShowTechniques] = useState(false);
-  const [color, setColor] = useState(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.color ?? "");
-  const [size, setSize] = useState(defaultSize(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? []));
+  // El color elegido en la página del producto (?color=) llega ya seleccionado.
+  const urlVariant = getProductById(preselected)?.variants.find((v) => v.color === searchParams.get("color"));
+  const preVariant = urlVariant ?? getProductById(preselected)?.variants[0];
+  const [color, setColor] = useState(preVariant?.color ?? "");
+  const [size, setSize] = useState(defaultSize(preVariant?.sizes ?? []));
   // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
-  const [sizeQty, setSizeQty] = useState<Record<string, number>>(() =>
-    initialSizeQty(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? [])
-  );
+  const [sizeQty, setSizeQty] = useState<Record<string, number>>(() => initialSizeQty(preVariant?.sizes ?? []));
 
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
@@ -259,8 +260,13 @@ export function OrderForm() {
       if (keepProduct) {
         setProductId(draft.productId);
         setFabric(draft.fabric ?? defaultFabricFor(getProductById(draft.productId), draft.technique));
-        setColor(draft.color);
-        setSize(draft.size);
+        if (urlVariant) {
+          setColor(urlVariant.color);
+          setSize(urlVariant.sizes.includes(draft.size) ? draft.size : defaultSize(urlVariant.sizes));
+        } else {
+          setColor(draft.color);
+          setSize(draft.size);
+        }
         setTechnique(draft.technique);
       } else {
         const product = getProductById(productId);

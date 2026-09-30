@@ -3,6 +3,9 @@ import Link from "next/link";
 import { Product } from "@/lib/types";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 
+// Con muchos colores, las bolitas no caben junto al nombre: se muestran unas y "+N".
+const MAX_DOTS = 5;
+
 export function ProductCard({ product }: { product: Product }) {
   return (
     <Link
@@ -18,18 +21,16 @@ export function ProductCard({ product }: { product: Product }) {
         />
         <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[11px] font-semibold text-ink backdrop-blur">
           {product.techniques
-            .map((t, i) => {
-              const label = TECHNIQUE_LABEL[t];
-              return i === 0 ? label : label.toLowerCase();
-            })
-            .join(" o ")}
+            .map((t) => TECHNIQUE_LABEL[t])
+            .join(", ")
+            .replace(/, ([^,]+)$/, " o $1")}
         </span>
       </div>
       <div className="flex flex-1 flex-col p-5">
         <div className="flex items-start justify-between gap-3">
           <p className="font-display text-2xl uppercase leading-none tracking-wide text-ink">{product.name}</p>
-          <div className="flex shrink-0 -space-x-1 pt-0.5">
-            {product.variants.map((v) => (
+          <div className="flex shrink-0 items-center -space-x-1 pt-0.5">
+            {product.variants.slice(0, MAX_DOTS).map((v) => (
               <span
                 key={v.color}
                 title={v.color}
@@ -37,6 +38,9 @@ export function ProductCard({ product }: { product: Product }) {
                 style={{ backgroundColor: v.colorHex }}
               />
             ))}
+            {product.variants.length > MAX_DOTS && (
+              <span className="pl-2 text-[11px] font-semibold text-ink-soft">+{product.variants.length - MAX_DOTS}</span>
+            )}
           </div>
         </div>
         <p className="mt-2 text-sm text-ink-soft">{product.description}</p>

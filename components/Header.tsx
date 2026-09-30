@@ -23,12 +23,12 @@ export function Header() {
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-6">
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/logo/impreza.png"
+            src="/logo/impreza-wordmark.png"
             alt="Impreza"
-            width={140}
-            height={40}
+            width={613}
+            height={160}
             priority
-            className="h-8 w-auto md:h-9"
+            className="h-6 w-auto md:h-7"
           />
         </Link>
 

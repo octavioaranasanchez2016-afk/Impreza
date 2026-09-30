@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { LOGO_Z_DATA_URL } from "@/lib/og-logo";
 
 // Imagen que aparece al compartir el enlace del sitio en WhatsApp, Facebook, etc.
 export const alt = "Impreza — Serigrafía, DTF, sublimado y bordado en Managua";
@@ -38,8 +39,11 @@ export default async function OpengraphImage() {
           fontFamily: inter ? "Inter" : undefined,
         }}
       >
-        <div style={{ display: "flex", fontSize: 28, letterSpacing: 8, color: "#8A8A8D" }}>
-          SERIGRAFÍA · SUBLIMADO · BORDADO · MANAGUA
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", fontSize: 22, letterSpacing: 6, color: "#8A8A8D" }}>
+            SERIGRAFÍA · DTF · SUBLIMADO · BORDADO · MANAGUA
+          </div>
+          <img src={LOGO_Z_DATA_URL} width={84} height={84} alt="" />
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
           <div style={{ fontSize: bebas ? 230 : 150, fontFamily: bebas ? "Bebas" : undefined, letterSpacing: 6, lineHeight: 0.9 }}>

@@ -6,6 +6,7 @@ import { DesignMockup } from "@/components/DesignMockup";
 import { DiscountCalculator } from "@/components/DiscountCalculator";
 import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
+import { FONT_OPTIONS } from "@/lib/design";
 import { businessJsonLd } from "@/lib/site";
 import { getApprovedReviews } from "@/lib/reviews";
 import { ReviewGrid, ReviewSummary } from "@/components/ReviewCards";
@@ -20,6 +21,15 @@ const STATS = [
   { value: `${PRODUCTION_BUSINESS_DAYS} días`, label: "hábiles de entrega" },
   { value: "1 pieza", label: "pedido mínimo" },
   { value: "40%", label: "descuento máximo por volumen" },
+];
+
+const OCCASIONS = [
+  { title: "Graduaciones", text: "La camisa de tu promoción, con el nombre y el año.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Empresas", text: "Uniformes con tu logo y factura con RUC.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Iglesias y grupos", text: "Retiros, campamentos y actividades.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Equipos", text: "Ligas, carreras y torneos, con número y nombre.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Marcas de ropa", text: "Tus diseños, iguales en cada reposición.", cta: "Cotizar", href: "/por-mayor" },
+  { title: "Regalos", text: "Una sola pieza con tu foto o tu frase.", cta: "Diseñar", href: "/pedido" },
 ];
 
 const STEPS = [
@@ -96,20 +106,40 @@ export default async function HomePage() {
       </section>
 
       <Marquee
-        items={["Serigrafía", "Sublimado", "Bordado", "Camisas", "Polos", "Hoodies", "Gorras", "Tote bags", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Entrega a domicilio"]}
+        items={["Serigrafía", "DTF", "Sublimado", "Bordado", "Camisas", "Polos", "Hoodies", "Gorras", "Tote bags", "Tu propia etiqueta", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Entrega a domicilio"]}
       />
 
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">
         <SectionTitle eyebrow="Catálogo" title="Elige tu prenda" link={{ href: "/catalogo", label: "Ver todo" }} />
-        <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+        <div className="reveal mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
           {PRODUCTS.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </section>
 
+      <section className="mx-auto max-w-6xl px-4 pb-20 md:px-6">
+        <SectionTitle eyebrow="Para cada ocasión" title="¿Para qué lo necesitas?" />
+        <ul className="reveal mt-10 grid grid-cols-2 gap-3 md:grid-cols-3">
+          {OCCASIONS.map((o) => (
+            <li key={o.title}>
+              <Link
+                href={o.href}
+                className="group flex h-full flex-col rounded-brand border border-black/10 bg-white p-4 transition-colors hover:border-ink hover:bg-ink md:p-6"
+              >
+                <p className="font-display text-2xl uppercase leading-none tracking-wide text-ink group-hover:text-paper md:text-3xl">
+                  {o.title}
+                </p>
+                <p className="mt-2 text-xs text-ink-soft group-hover:text-paper/70 md:text-sm">{o.text}</p>
+                <span className="mt-auto pt-4 text-xs font-semibold text-ink group-hover:text-paper md:text-sm">{o.cta} →</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section className="bg-paper-soft py-20">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 md:grid-cols-2 md:px-6">
+        <div className="reveal mx-auto grid max-w-6xl items-center gap-12 px-4 md:grid-cols-2 md:px-6">
           <div className="order-2 md:order-1">
             <div className="relative mx-auto max-w-md rounded-brand bg-white p-4 shadow-xl ring-1 ring-black/5">
               <DesignMockup
@@ -135,9 +165,10 @@ export default async function HomePage() {
             <ul className="mt-6 space-y-3 text-sm text-ink">
               {[
                 "Tamaño real en cm y área máxima de impresión de cada prenda",
-                "Frente, espalda y manga, cada uno con su propio diseño",
-                "Textos con 5 tipos de letra, 14 colores y emojis",
-                "Aviso automático si tu imagen se va a ver borrosa",
+                "Frente, espalda, cada manga y tu propia etiqueta por dentro",
+                "Recorta tu imagen y elige qué parte se imprime",
+                `Textos con ${FONT_OPTIONS.length} tipos de letra, colores y contorno`,
+                "Varios diseños y técnicas en un mismo pedido",
               ].map((item) => (
                 <li key={item} className="flex gap-3">
                   <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-ink text-[10px] text-paper">
@@ -159,7 +190,7 @@ export default async function HomePage() {
 
       <section id="como-funciona" className="mx-auto max-w-6xl px-4 py-20 md:px-6">
         <SectionTitle eyebrow="Así de fácil" title="Cómo funciona" />
-        <ol className="mt-10 grid gap-px overflow-hidden rounded-brand border border-black/10 bg-black/10 md:grid-cols-4">
+        <ol className="reveal mt-10 grid gap-px overflow-hidden rounded-brand border border-black/10 bg-black/10 md:grid-cols-4">
           {STEPS.map(([n, title, text]) => (
             <li key={n} className="bg-white p-6">
               <span className="font-display text-5xl leading-none text-ink/15">{n}</span>
@@ -172,13 +203,13 @@ export default async function HomePage() {
 
       <section id="tecnicas" className="mx-auto max-w-6xl px-4 pb-20 md:px-6">
         <SectionTitle eyebrow="Calidad" title="Nuestras técnicas" />
-        <div className="mt-10">
+        <div className="reveal mt-10">
           <TechniqueGuide comparison />
         </div>
       </section>
 
       <section className="border-y border-black/10 bg-white py-20">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-[1fr_1.3fr] md:px-6">
+        <div className="reveal mx-auto grid max-w-6xl items-center gap-10 px-4 md:grid-cols-[1fr_1.3fr] md:px-6">
           <div>
             <SectionTitle eyebrow="Por mayor" title="Entre más pides, menos pagas" />
             <p className="mt-4 text-ink-soft">
@@ -194,7 +225,7 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">
-        <div className="grid items-center gap-10 md:grid-cols-2">
+        <div className="reveal grid items-center gap-10 md:grid-cols-2">
           <div className="aspect-[4/3] overflow-hidden rounded-brand">
             <img src={STUDIO_PHOTO} alt="Taller de impresión" className="h-full w-full object-cover" />
           </div>
@@ -218,7 +249,7 @@ export default async function HomePage() {
               <SectionTitle eyebrow="Reseñas" title="Lo que dicen nuestros clientes" />
               <ReviewSummary stats={stats} />
             </div>
-            <div className="mt-10">
+            <div className="reveal mt-10">
               <ReviewGrid reviews={reviews} />
             </div>
             <Link href="/resenas" className="mt-8 inline-block text-sm font-semibold text-ink hover:underline">

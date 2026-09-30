@@ -147,9 +147,19 @@ const SECTIONS = [
   },
 ];
 
+// Las preguntas en el formato que Google entiende (pueden salir en los resultados).
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: SECTIONS.flatMap((s) =>
+    s.faqs.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } }))
+  ),
+};
+
 export default function PreguntasFrecuentesPage() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 md:px-6">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
       <h1 className="font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">Preguntas frecuentes</h1>
       <p className="mt-2 text-ink-soft">Todo lo que necesitas saber antes de pedir.</p>
 
