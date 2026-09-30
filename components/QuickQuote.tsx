@@ -9,13 +9,72 @@ import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate, managuaDa
 import { Technique } from "@/lib/types";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
 
-const OCCASIONS = [
-  { label: "Graduación", phrase: "para una graduación" },
-  { label: "Empresa", phrase: "para mi empresa" },
-  { label: "Iglesia o grupo", phrase: "para una iglesia o grupo" },
-  { label: "Equipo", phrase: "para un equipo" },
-  { label: "Marca de ropa", phrase: "para mi marca de ropa" },
-  { label: "Otro", phrase: "un pedido" },
+// Al tocar "¿Para qué es?", el cotizador se arma con lo más común para ese tipo de
+// pedido (cantidad, prenda, técnica y tela); el cliente lo cambia si quiere.
+interface Occasion {
+  label: string;
+  phrase: string; // para el mensaje: "Hola, quiero hablar con un diseñador (es para una graduación)"
+  quantity: number;
+  productId: string;
+  technique: Technique;
+  fabricId?: string;
+  typical: string; // lo que se ve debajo de las opciones
+}
+
+const OCCASIONS: Occasion[] = [
+  {
+    label: "Graduación",
+    phrase: "para una graduación",
+    quantity: 30,
+    productId: "camisa-basica",
+    technique: "serigrafia",
+    fabricId: "algodon",
+    typical: "Lo común: 30 a 60 camisas en serigrafía, con el nombre del colegio y el año.",
+  },
+  {
+    label: "Empresa",
+    phrase: "para mi empresa",
+    quantity: 24,
+    productId: "polo-bordada",
+    technique: "bordado",
+    typical: "Lo común: 12 a 100 polos con el logo bordado al pecho, con factura con RUC.",
+  },
+  {
+    label: "Iglesia o grupo",
+    phrase: "para una iglesia o grupo",
+    quantity: 40,
+    productId: "camisa-basica",
+    technique: "serigrafia",
+    fabricId: "algodon",
+    typical: "Lo común: 20 a 100 camisas en serigrafía para retiros, campamentos y actividades.",
+  },
+  {
+    label: "Equipo",
+    phrase: "para un equipo",
+    quantity: 20,
+    productId: "camisa-basica",
+    technique: "sublimado",
+    fabricId: "poliester",
+    typical: "Lo común: 12 a 30 camisas dry-fit sublimadas, con número y nombre de cada jugador.",
+  },
+  {
+    label: "Marca de ropa",
+    phrase: "para mi marca de ropa",
+    quantity: 48,
+    productId: "camisa-basica",
+    technique: "serigrafia",
+    fabricId: "algodon-peinado",
+    typical: "Lo común: 24 a 200 camisas en algodón peinado, con tu propia etiqueta por dentro.",
+  },
+  {
+    label: "Otro",
+    phrase: "un pedido",
+    quantity: 12,
+    productId: "camisa-basica",
+    technique: "dtf",
+    fabricId: "algodon",
+    typical: "Desde 12 piezas empieza el descuento. Cuéntanos tu idea y la armamos contigo.",
+  },
 ];
 const QUICK = [12, 24, 48, 96, 144];
 
@@ -23,11 +82,19 @@ const QUICK = [12, 24, 48, 96, 144];
 // y manda la cotización ya escrita por WhatsApp.
 export function QuickQuote() {
   const [occasion, setOccasion] = useState(OCCASIONS[0]);
-  const [productId, setProductId] = useState(PRODUCTS[0].id);
+  const [productId, setProductId] = useState(OCCASIONS[0].productId);
   const product = getProductById(productId) ?? PRODUCTS[0];
-  const [technique, setTechnique] = useState<Technique>(product.techniques[0]);
-  const [fabricId, setFabricId] = useState<string | null>(null);
-  const [quantity, setQuantity] = useState(30);
+  const [technique, setTechnique] = useState<Technique>(OCCASIONS[0].technique);
+  const [fabricId, setFabricId] = useState<string | null>(OCCASIONS[0].fabricId ?? null);
+  const [quantity, setQuantity] = useState(OCCASIONS[0].quantity);
+
+  function chooseOccasion(o: Occasion) {
+    setOccasion(o);
+    setQuantity(o.quantity);
+    setProductId(o.productId);
+    setTechnique(o.technique);
+    setFabricId(o.fabricId ?? null);
+  }
   const [date, setDate] = useState("");
 
   const lineTechnique = product.techniques.includes(technique) ? technique : product.techniques[0];
@@ -78,7 +145,7 @@ export function QuickQuote() {
             <button
               key={o.label}
               type="button"
-              onClick={() => setOccasion(o)}
+              onClick={() => chooseOccasion(o)}
               aria-pressed={occasion === o}
               className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
                 occasion === o ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
@@ -88,6 +155,7 @@ export function QuickQuote() {
             </button>
           ))}
         </div>
+        <p className="mt-2 text-[11px] text-ink-muted">{occasion.typical}</p>
       </fieldset>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
