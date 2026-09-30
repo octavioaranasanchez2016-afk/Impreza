@@ -51,19 +51,22 @@ export default function NosotrosPage() {
 
       <section className="mx-auto max-w-3xl px-4 py-16 md:px-6">
         <h2 className="font-display text-4xl uppercase tracking-wide text-ink md:text-5xl">Cómo empezó</h2>
-        <p className="mt-4 leading-relaxed text-ink-soft">
-          La idea de Impreza nació mucho antes de que existiera la empresa —
-          desde los 17 años, con una inquietud simple: ¿por qué es tan difícil
-          conseguir un diseño personalizado de calidad? Esa pregunta se quedó
-          rondando hasta convertirse, en 2026, en Impreza: una marca nicaragüense
-          enfocada en hacer que personalizar tu propia ropa sea tan fácil como
-          debería haber sido siempre.
+        <p className="mt-5 text-lg leading-relaxed text-ink">
+          Todo empezó con una pregunta, a los 17 años: ¿por qué es tan difícil conseguir una camisa con tu propio diseño, bien
+          hecha y sin complicaciones?
         </p>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          No competimos por ser los más grandes. Competimos por ser los más
-          sencillos de usar, los más atentos con cada pedido, y los más
-          accesibles para cualquiera que tenga una idea y quiera verla en una
-          camisa, una polo, un hoodie, una gorra o una tote bag.
+          Pedirla casi siempre significaba escribir a varios talleres, explicar la idea una y otra vez y esperar sin saber
+          cuánto iba a costar ni cómo iba a quedar. Esa pregunta nunca se fue, y en 2026 se convirtió en Impreza, de la mano
+          de Arango Textil, el taller familiar en Managua donde se produce cada pedido.
+        </p>
+        <p className="mt-4 leading-relaxed text-ink-soft">
+          Por eso aquí todo es distinto: diseñas en línea y ves el tamaño real en centímetros, conoces el precio al instante
+          y sigues tu pedido paso a paso. Da igual si es una sola camisa o la de toda tu promoción.
+        </p>
+        <p className="mt-4 leading-relaxed text-ink-soft">
+          No queremos ser los más grandes. Queremos ser los más fáciles de usar, los más atentos con cada pedido y los más
+          cercanos para cualquiera que tenga una idea y quiera verla puesta.
         </p>
 
         <Link
