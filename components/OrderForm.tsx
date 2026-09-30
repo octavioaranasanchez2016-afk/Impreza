@@ -95,8 +95,13 @@ function QuoteProgress({ target, current, multiSize }: { target: number; current
   return (
     <div className={`rounded-brand border p-3 ${done ? "border-ink bg-ink text-paper" : "border-black/10 bg-paper-soft"}`}>
       <p className="text-sm font-semibold">
-        {done ? `✓ Ya tienes las ${target} piezas de tu cotización` : `Tu cotización: ${target} piezas · llevas ${current}`}
+        {done ? `✓ Tus ${target} piezas de la cotización` : `Tu cotización: ${target} piezas · llevas ${current}`}
       </p>
+      {done && multiSize && (
+        <p className="mt-1 text-[11px] text-paper/70">
+          Las repartimos en tallas típicas: cámbialas según tu grupo y agrégalas al pedido.
+        </p>
+      )}
       {!done && (
         <>
           <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-black/10">
@@ -111,6 +116,22 @@ function QuoteProgress({ target, current, multiSize }: { target: number; current
       )}
     </div>
   );
+}
+
+// Reparto típico de tallas para un grupo (más M y L), para que un pedido que viene
+// del cotizador arranque con todas sus piezas y el descuento ya se vea. Suma exacto.
+const TYPICAL_SIZE_WEIGHT: Record<string, number> = { XS: 5, S: 15, M: 35, L: 30, XL: 15, XXL: 5 };
+
+function typicalSizes(total: number, sizes: string[]): Record<string, number> {
+  const weights = sizes.map((s) => TYPICAL_SIZE_WEIGHT[s] ?? 10);
+  const sum = weights.reduce((a, b) => a + b, 0);
+  const exact = weights.map((w) => (total * w) / sum);
+  const out = exact.map(Math.floor);
+  // Lo que falta por redondear va a las tallas con más decimales.
+  const order = exact.map((e, i) => [e - Math.floor(e), i] as const).sort((a, b) => b[0] - a[0]);
+  const missing = total - out.reduce((a, b) => a + b, 0);
+  for (let k = 0; k < missing; k++) out[order[k % order.length][1]]++;
+  return Object.fromEntries(sizes.map((s, i) => [s, out[i]]).filter(([, n]) => (n as number) > 0));
 }
 
 // Con una sola talla (gorra, tote) no hay nada que elegir: arranca en 1.
@@ -152,7 +173,8 @@ export function OrderForm() {
   // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
   const [sizeQty, setSizeQty] = useState<Record<string, number>>(() => {
     const sizes = preVariant?.sizes ?? [];
-    return quoteQuantity && sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : initialSizeQty(sizes);
+    if (!quoteQuantity) return initialSizeQty(sizes);
+    return sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : typicalSizes(quoteQuantity, sizes);
   });
 
   const [clienteNombre, setClienteNombre] = useState("");

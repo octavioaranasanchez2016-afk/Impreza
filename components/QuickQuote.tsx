@@ -127,7 +127,7 @@ export function QuickQuote() {
     ? new Date(`${date}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "long" })
     : "";
 
-  // "Hacer este pedido" abre el diseñador con todo lo elegido aquí ya puesto.
+  // "Armarlo yo mismo" abre el diseñador con todo lo elegido aquí ya puesto.
   const orderParams = new URLSearchParams({ producto: productId, tecnica: lineTechnique, cantidad: String(quantity) });
   if (fabric) orderParams.set("tela", fabric.id);
   orderParams.set("nota", [occasion.label !== "Otro" ? occasion.label : "", dateText ? `Lo necesito para el ${dateText}` : ""].filter(Boolean).join(" · "));
@@ -309,7 +309,7 @@ export function QuickQuote() {
           href={`/pedido?${orderParams.toString()}`}
           className="rounded-brand bg-ink px-5 py-3 text-center text-sm font-semibold text-paper hover:opacity-80"
         >
-          Hacer este pedido →
+          Armarlo yo mismo →
         </Link>
         <WhatsAppLinkButton
           message={message}
@@ -319,7 +319,8 @@ export function QuickQuote() {
         </WhatsAppLinkButton>
       </div>
       <p className="mt-2 text-center text-[11px] text-ink-muted">
-        «Hacer este pedido» abre el diseñador con todo esto ya elegido: solo subes tu diseño y repartes las tallas.
+        «Armarlo yo mismo» abre el diseñador con todo esto ya puesto, las {quantity} piezas incluidas: solo subes tu diseño
+        y ajustas las tallas.
         Precio estimado, sin delivery.
       </p>
     </div>
