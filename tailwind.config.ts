@@ -11,7 +11,7 @@ const config: Config = {
         ink: {
           DEFAULT: "#111111",
           soft: "#3A3A3D",
-          muted: "#8A8A8D",
+          muted: "#6B6B70", // contraste 5:1 sobre blanco: se lee bien aun con sol
         },
         paper: {
           DEFAULT: "#FFFFFF",
