@@ -51,7 +51,7 @@ export function designKey(designs: LineDesigns): string {
       const what =
         c.kind === "imagen"
           ? `i:${imageKey(c.file)}:${c.fill ? 1 : 0}`
-          : `t:${c.texto.trim()}:${c.color.toLowerCase()}:${c.fontFamily}`;
+          : `t:${c.texto.trim()}:${c.color.toLowerCase()}:${c.fontFamily}:${c.outline?.toLowerCase() ?? ""}`;
       return `${zone}|${what}|${round(t.x, 2)},${round(t.y, 2)},${round(t.scale, 3)},${round(t.rotation, 1)}`;
     })
     .join("||");

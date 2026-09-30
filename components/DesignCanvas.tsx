@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
+import { DesignTransform, DesignZone, ProductCategory, Technique } from "@/lib/types";
 import {
   ACCEPTED_DESIGN_TYPES,
   DesignContent,
@@ -15,6 +15,8 @@ import {
 } from "@/lib/design";
 import {
   ZONE_LABEL,
+  ZONE_NAME,
+  isSleeve,
   getCanvasSpanCm,
   getMeasure,
   getPrintArea,
@@ -102,7 +104,9 @@ export function DesignCanvas({
   onContentChange,
   transform,
   onTransformChange,
+  technique,
 }: {
+  technique?: Technique;
   category: ProductCategory;
   color: string;
   size: string;
@@ -125,7 +129,7 @@ export function DesignCanvas({
   const zones = getZonesForCategory(category);
   const measure = getMeasure(category, size);
   const printCm = getPrintAreaCm(category, zone);
-  const embroidered = category === "polo" || category === "gorra";
+  const embroidered = technique ? technique === "bordado" : category === "polo" || category === "gorra";
 
   useEffect(() => {
     if (focusText.current && content?.kind === "texto") {
@@ -196,7 +200,7 @@ export function DesignCanvas({
       />
 
       {zones.length > 1 && (
-        <div className="mt-3 flex justify-center gap-2.5" role="tablist" aria-label="Vistas del producto">
+        <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Vistas del producto">
           {zones.map((z) => {
             const preview = zonePreviews[z];
             const active = zone === z;
@@ -207,7 +211,9 @@ export function DesignCanvas({
                 role="tab"
                 aria-selected={active}
                 onClick={() => onZoneChange(z)}
-                className={`relative w-[4.5rem] rounded-brand border-2 bg-white p-1 transition-colors sm:w-20 ${
+                className={`relative rounded-brand border-2 bg-white p-1 transition-colors ${
+                  zones.length > 3 ? "w-[3.75rem] sm:w-[4.5rem]" : "w-[4.5rem] sm:w-20"
+                } ${
                   active ? "border-ink" : "border-black/10 hover:border-ink/40"
                 }`}
               >
@@ -245,7 +251,13 @@ export function DesignCanvas({
           ? `Tote bag de ${measure.ancho} × ${measure.largo} cm`
           : category === "gorra"
           ? "Gorra de talla ajustable"
-          : zone === "manga"
+          : zone === "etiqueta"
+          ? "Etiqueta por dentro, debajo del cuello"
+          : zone === "manga-izq"
+          ? `Manga izquierda (de quien la lleva puesta), talla ${size}`
+          : zone === "manga-der"
+          ? `Manga derecha (de quien la lleva puesta), talla ${size}`
+          : isSleeve(zone)
           ? `Manga talla ${size}`
           : `Talla ${size}: ${measure.ancho} cm de ancho × ${measure.largo} cm de largo`}
         {" · "}área máxima de {embroidered ? "bordado" : "impresión"} {printCm.w} × {printCm.h} cm (línea punteada)
@@ -254,7 +266,12 @@ export function DesignCanvas({
       <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
         {!content ? (
           <div>
-            <p className="text-sm font-semibold text-ink">¿Qué quieres poner en {ZONE_LABEL[zone].toLowerCase()}?</p>
+            <p className="text-sm font-semibold text-ink">¿Qué quieres poner en {ZONE_NAME[zone]}?</p>
+            {zone === "etiqueta" && (
+              <p className="mt-1 text-xs text-ink-soft">
+                Tu propia etiqueta: el logo de tu marca, la talla o las instrucciones de lavado.
+              </p>
+            )}
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
@@ -323,14 +340,14 @@ export function DesignCanvas({
 
                 <div>
                   <p className="mb-1.5 text-xs font-medium text-ink-soft">Letra</p>
-                  <div className="flex flex-wrap gap-1.5">
+                  <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                     {FONT_OPTIONS.map((f) => (
                       <button
                         key={f.value}
                         type="button"
                         onClick={() => updateText({ fontFamily: f.value })}
-                        style={{ fontFamily: fontFamilyCss(f.value) }}
-                        className={`rounded-brand border px-3 py-1.5 text-sm ${
+                        style={{ fontFamily: fontFamilyCss(f.value), fontWeight: f.weight }}
+                        className={`truncate rounded-brand border px-2 py-1.5 text-sm ${
                           content.fontFamily === f.value
                             ? "border-ink bg-ink text-paper"
                             : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
@@ -372,6 +389,34 @@ export function DesignCanvas({
                         className="absolute inset-0 cursor-pointer opacity-0"
                       />
                     </label>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Contorno de las letras</p>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => updateText({ outline: null })}
+                      className={`h-7 rounded-full border px-2.5 text-xs font-semibold ${
+                        !content.outline ? "border-ink bg-ink text-paper" : "border-black/15 text-ink-soft hover:border-ink"
+                      }`}
+                    >
+                      Sin contorno
+                    </button>
+                    {TEXT_COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        onClick={() => updateText({ outline: c.value })}
+                        title={`Contorno ${c.label.toLowerCase()}`}
+                        aria-label={`Contorno ${c.label.toLowerCase()}`}
+                        className={`h-7 w-7 rounded-full border-[3px] bg-transparent ${
+                          content.outline?.toLowerCase() === c.value.toLowerCase() ? "ring-2 ring-ink ring-offset-2" : ""
+                        }`}
+                        style={{ borderColor: c.value, boxShadow: c.value === "#FFFFFF" ? "inset 0 0 0 1px rgba(0,0,0,0.2)" : undefined }}
+                      />
+                    ))}
                   </div>
                 </div>
               </div>

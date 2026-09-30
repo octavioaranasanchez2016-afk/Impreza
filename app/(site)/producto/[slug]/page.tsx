@@ -143,7 +143,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
           <div className="mt-4 rounded-brand border border-black/10 p-5">
             <p className="font-semibold text-ink">
-              Área máxima de {product.techniques.includes("bordado") ? "bordado" : "impresión"}
+              Área máxima de {product.techniques.every((t) => t === "bordado") ? "bordado" : "impresión"}
             </p>
             <div className="mt-3 grid grid-cols-3 gap-2">
               {zones.map((z) => {

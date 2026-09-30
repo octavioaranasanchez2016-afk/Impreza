@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 // Imagen que aparece al compartir el enlace del sitio en WhatsApp, Facebook, etc.
-export const alt = "Impreza — Serigrafía, sublimado y bordado en Managua";
+export const alt = "Impreza — Serigrafía, DTF, sublimado y bordado en Managua";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 

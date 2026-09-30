@@ -9,7 +9,7 @@ export function Footer() {
           <div>
             <p className="font-display text-6xl uppercase leading-none tracking-wide">Impreza</p>
             <p className="mt-3 max-w-xs text-sm text-paper/70">
-              Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, sublimado y bordado en Managua, Nicaragua.
+              Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, DTF, sublimado y bordado en Managua, Nicaragua.
             </p>
             <WhatsAppLinkButton
               message="Hola, quiero más información sobre Impreza."
@@ -72,7 +72,7 @@ export function Footer() {
             <Link href="/privacidad" className="hover:text-paper">
               Privacidad
             </Link>
-            {" · "}Serigrafía · Sublimado · Bordado · Diseño a escala real
+            {" · "}Serigrafía · DTF · Sublimado · Bordado · Diseño a escala real
           </p>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import { getFabric, getProductById } from "@/lib/catalog";
-import { MockupContent } from "@/lib/design";
+import { FONT_OPTIONS, MockupContent } from "@/lib/design";
 import { StoredDiseno, countPieces, groupDesigns } from "@/lib/design-groups";
 import { OrderItemInput, ProductCategory } from "@/lib/types";
 import { DesignMockup } from "@/components/DesignMockup";
@@ -94,7 +94,13 @@ function DesignPreview({
       ? d.signedUrl
         ? { kind: "imagen", previewUrl: d.signedUrl, width: d.anchoPx ?? 0, height: d.altoPx ?? 0, fill: d.ajuste === "llenar" }
         : null
-      : { kind: "texto", texto: d.texto ?? "", color: d.color ?? "#111111", fontFamily: d.fuente ?? "sans" };
+      : {
+          kind: "texto",
+          texto: d.texto ?? "",
+          color: d.color ?? "#111111",
+          fontFamily: d.fuente ?? "sans",
+          outline: d.contorno ?? null,
+        };
 
   return (
     <div className="print:break-inside-avoid">
@@ -124,6 +130,19 @@ function DesignPreview({
             style={{ backgroundColor: d.color }}
           />{" "}
           {d.color}
+          {d.contorno && (
+            <>
+              {" "}
+              · contorno{" "}
+              <span
+                className="inline-block h-3 w-3 rounded-full border-2 align-middle"
+                style={{ borderColor: d.contorno }}
+              />{" "}
+              {d.contorno}
+            </>
+          )}
+          {" · letra "}
+          {FONT_OPTIONS.find((f) => f.value === d.fuente)?.label ?? "Moderna"}
         </p>
       )}
       {d.tipo === "imagen" && d.signedUrl && (

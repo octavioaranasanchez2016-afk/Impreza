@@ -4,7 +4,7 @@ import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
 export const metadata = {
   title: "Catálogo",
-  description: "Camisas, polos, hoodies, gorras y tote bags para personalizar con serigrafía, sublimado o bordado en Managua. Precios en córdobas y dólares.",
+  description: "Camisas, polos, hoodies, gorras y tote bags para personalizar con serigrafía, DTF, sublimado o bordado en Managua. Precios en córdobas y dólares.",
 };
 
 export default function CatalogoPage() {
@@ -19,7 +19,7 @@ export default function CatalogoPage() {
         para ver colores, guía de tallas y empezar tu diseño.
       </p>
       <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium text-ink">
-        {["Serigrafía, sublimado y bordado", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Hasta 40% por volumen"].map((c) => (
+        {["Serigrafía, DTF, sublimado y bordado", "Desde 1 pieza", `Listo en ${PRODUCTION_BUSINESS_DAYS} días hábiles`, "Hasta 40% por volumen"].map((c) => (
           <span key={c} className="rounded-full border border-black/15 px-3 py-1.5">
             {c}
           </span>

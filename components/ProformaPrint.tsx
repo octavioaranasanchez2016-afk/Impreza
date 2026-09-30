@@ -49,7 +49,7 @@ export function ProformaPrint({ children }: { children: React.ReactNode }) {
             <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-ink pb-3">
               <div>
                 <p className="font-display text-5xl uppercase leading-none tracking-wide">Impreza</p>
-                <p className="mt-1 text-xs text-ink-soft">Serigrafía · Sublimado · Bordado — Managua, Nicaragua</p>
+                <p className="mt-1 text-xs text-ink-soft">Serigrafía · DTF · Sublimado · Bordado — Managua, Nicaragua</p>
               </div>
               <div className="text-right text-xs text-ink-soft">
                 <p className="font-semibold text-ink">{host}</p>

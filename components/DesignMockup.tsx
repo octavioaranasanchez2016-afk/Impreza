@@ -2,8 +2,8 @@
 
 import { RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
-import { fontFamilyCss, FontFamilyKey, MIN_PRINT_DPI, MockupContent } from "@/lib/design";
-import { GarmentShape, getCanvasSpanCm, getPrintArea, getReferenceTopCm } from "./GarmentShape";
+import { fontFamilyCss, FontFamilyKey, fontWeight, MIN_PRINT_DPI, MockupContent, TEXT_OUTLINE_WIDTH } from "@/lib/design";
+import { GarmentShape, getCanvasSpanCm, getPrintArea, getReferenceTopCm, isSleeve } from "./GarmentShape";
 
 // La escala es relativa al área máxima de impresión: 1 = el diseño la llena.
 export const MIN_SCALE = 0.15;
@@ -27,6 +27,14 @@ const TEXT_CHAR_WIDTH_RATIO: Record<FontFamilyKey, number> = {
   script: 0.5,
   serif: 0.58,
   mono: 0.62,
+  colegial: 0.62,
+  gotica: 0.5,
+  marcador: 0.56,
+  manuscrita: 0.42,
+  retro: 0.5,
+  bloque: 0.75,
+  militar: 0.62,
+  redonda: 0.55,
 };
 
 // Ancho del texto por cada unidad de font-size, medido con la fuente real.
@@ -105,7 +113,7 @@ export function DesignMockup({
 
   const area = getPrintArea(category, zone);
   const spanCm = getCanvasSpanCm(category, zone);
-  const textWeight = content?.kind === "texto" && content.fontFamily === "script" ? 400 : 700;
+  const textWeight = content?.kind === "texto" ? fontWeight(content.fontFamily) : 700;
   const displayText = content?.kind === "texto" ? content.texto || "Tu texto" : "";
   const measuredRatio = useTextWidthRatio(
     textRef,
@@ -257,7 +265,7 @@ export function DesignMockup({
 
   // Distancia del borde de arriba del diseño al cuello (o al borde de la bolsa), como la mide el taller.
   const fromReferenceCm =
-    widthCm && heightCm && zone !== "manga" && category !== "gorra"
+    widthCm && heightCm && !isSleeve(zone) && category !== "gorra"
       ? Math.max(0, topEdgeCm(category, zone, transform, spanCm, widthCm, heightCm))
       : null;
 
@@ -314,6 +322,9 @@ export function DesignMockup({
                   style={{
                     color: content.color,
                     fontFamily: fontFamilyCss(content.fontFamily),
+                    ...(content.outline
+                      ? { WebkitTextStroke: `${TEXT_OUTLINE_WIDTH} ${content.outline}`, paintOrder: "stroke fill" }
+                      : {}),
                     fontWeight: textWeight,
                     fontSize: `${textFontSize}cqw`,
                     touchAction: "none",
@@ -384,7 +395,7 @@ export function DesignMockup({
           {!showPlacement && fromReferenceCm !== null && (
             <>
               {" · "}a <span className="font-semibold text-ink">{fromReferenceCm.toFixed(1)} cm</span>{" "}
-              {REFERENCE_LABEL[category]}
+              {zone === "etiqueta" ? "de la costura del cuello" : REFERENCE_LABEL[category]}
             </>
           )}
         </p>
@@ -436,7 +447,11 @@ function Placement({
 }) {
   const offsetX = ((transform.x - 50) / 100) * spanCm;
   const topEdge = topEdgeCm(category, zone, transform, spanCm, widthCm, heightCm);
-  const reference = zone === "manga" ? "del borde superior de la manga" : REFERENCE_LABEL[category];
+  const reference = isSleeve(zone)
+    ? "del borde superior de la manga"
+    : zone === "etiqueta"
+    ? "de la costura del cuello (por dentro)"
+    : REFERENCE_LABEL[category];
   const rotation = Math.round(transform.rotation > 180 ? transform.rotation - 360 : transform.rotation);
 
   return (

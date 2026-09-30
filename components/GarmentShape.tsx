@@ -1,18 +1,34 @@
 import { DesignZone, ProductCategory } from "@/lib/types";
 
 export const ZONES_BY_CATEGORY: Record<ProductCategory, DesignZone[]> = {
-  camisa: ["frente", "espalda", "manga"],
+  camisa: ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"],
   hoodie: ["frente", "espalda"],
   tote: ["frente"],
-  polo: ["frente", "espalda", "manga"],
+  polo: ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"],
   gorra: ["frente"],
 };
 
+// Nombre corto (miniaturas del diseñador y hoja de producción).
 export const ZONE_LABEL: Record<DesignZone, string> = {
   frente: "Frente",
   espalda: "Espalda",
   manga: "Manga",
+  "manga-izq": "Manga izq.",
+  "manga-der": "Manga der.",
+  etiqueta: "Etiqueta",
 };
+
+// Para frases: "¿Qué quieres poner en la manga izquierda?".
+export const ZONE_NAME: Record<DesignZone, string> = {
+  frente: "el frente",
+  espalda: "la espalda",
+  manga: "la manga",
+  "manga-izq": "la manga izquierda",
+  "manga-der": "la manga derecha",
+  etiqueta: "la etiqueta",
+};
+
+export const isSleeve = (zone: DesignZone) => zone === "manga" || zone === "manga-izq" || zone === "manga-der";
 
 export interface GarmentMeasure {
   ancho: number; // cm, prenda plana de costura a costura
@@ -82,12 +98,19 @@ const VIEWS: Record<string, ViewSpec> = {
   "camisa:frente": { span: 110, top: 14, print: { w: 30, h: 40, top: 12 } },
   "camisa:espalda": { span: 110, top: 14, print: { w: 30, h: 40, top: 8 } },
   "camisa:manga": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
+  "camisa:manga-izq": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
+  "camisa:manga-der": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
+  // Etiqueta: la espalda por dentro, cerca del cuello. (0, 0) es la costura del cuello.
+  "camisa:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "hoodie:frente": { span: 115, top: 24, print: { w: 30, h: 22, top: 12 } },
   "hoodie:espalda": { span: 115, top: 24, print: { w: 34, h: 28, top: 32 } },
   "tote:frente": { span: 70, top: 26, print: { w: 30, h: 30, top: 5 } },
   "polo:frente": { span: 110, top: 14, print: { w: 10, h: 10, top: 12, dx: 10 } },
   "polo:espalda": { span: 110, top: 14, print: { w: 25, h: 20, top: 10 } },
   "polo:manga": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
+  "polo:manga-izq": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
+  "polo:manga-der": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
+  "polo:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "gorra:frente": { span: 30, top: 6, print: { w: 11, h: 5.5, top: 4 } },
 };
 
@@ -254,7 +277,10 @@ const detailProps = (s: Style) => ({
 });
 
 function renderGarment(category: ProductCategory, zone: DesignZone, m: GarmentMeasure, at: At, s: Style) {
-  if ((category === "camisa" || category === "polo") && zone === "manga") return tshirtSleeve(m, at, s);
+  if ((category === "camisa" || category === "polo") && isSleeve(zone)) {
+    return tshirtSleeve(m, at, s, zone === "manga-der" ? "der" : zone === "manga-izq" ? "izq" : null);
+  }
+  if ((category === "camisa" || category === "polo") && zone === "etiqueta") return neckLabel(at, s, category === "polo");
   if (category === "camisa") return tshirt(m, at, s, zone === "espalda");
   if (category === "polo") return polo(m, at, s, zone === "espalda");
   if (category === "hoodie") return hoodie(m, at, s, zone === "espalda");
@@ -309,18 +335,47 @@ function tshirt(m: GarmentMeasure, at: At, s: Style, back: boolean) {
   );
 }
 
-function tshirtSleeve(m: GarmentMeasure, at: At, s: Style) {
+// Manga vista de lado. side marca cuál es (izquierda o derecha de quien la lleva
+// puesta) con un pedacito del cuerpo de la camisa del lado donde se une.
+function tshirtSleeve(m: GarmentMeasure, at: At, s: Style, side: "izq" | "der" | null) {
   const k = m.ancho / 2 - 25.5;
   const cap = 10.5 + k * 0.2;
   const opening = 9 + k * 0.15;
   const len = 20 + k * 0.2;
   const d = `M ${at([-cap, 4])} C ${at([-cap + 4, -0.5])} ${at([cap - 4, -0.5])} ${at([cap, 4])} L ${at([opening, len])} L ${at([-opening, len])} Z`;
+  // Vista desde afuera: la manga izquierda se une al cuerpo por su derecha, y al revés.
+  const x = side === "izq" ? 1 : -1;
+  const body = side
+    ? `M ${at([cap * x, 4])} L ${at([(cap + 9) * x, 2])} L ${at([(cap + 9) * x, 30])} L ${at([opening * x, 30])} L ${at([opening * x, len])} Z`
+    : null;
   return (
     <>
+      {body && <path d={body} fill={s.fill} opacity={0.55} {...outlineProps(s)} />}
       <path d={d} fill={s.fill} {...outlineProps(s)} />
       <path d={line(at, [-opening + 0.1, len - 2.5], [opening - 0.1, len - 2.5])} {...detailProps(s)} />
     </>
   );
+}
+
+// Espalda por dentro, alrededor del cuello, donde va la etiqueta. (0, 0) es la
+// costura del cuello al centro de la espalda.
+function neckLabel(at: At, s: Style, polo: boolean) {
+  const back = `M ${at([-15, 3])} L ${at([-8.5, -1.5])} C ${at([-6, 0.6])} ${at([6, 0.6])} ${at([8.5, -1.5])} L ${at([15, 3])} L ${at([15, 24])} L ${at([-15, 24])} Z`;
+  const bandTop = polo ? -4.2 : -3.2;
+  const band = `M ${at([-8.5, -1.5])} C ${at([-6, 0.6])} ${at([6, 0.6])} ${at([8.5, -1.5])} L ${at([8.2, bandTop])} C ${at([5.8, bandTop + 1.9])} ${at([-5.8, bandTop + 1.9])} ${at([-8.2, bandTop])} Z`;
+  return (
+    <>
+      <path d={back} fill={s.fill} {...outlineProps(s)} />
+      <path d={band} fill={s.fill} {...outlineProps(s)} />
+      <path d={band} fill={s.shade} />
+      <path d={`M ${at([-8.3, -0.9])} C ${at([-6, 1.2])} ${at([6, 1.2])} ${at([8.3, -0.9])}`} {...detailProps(s)} strokeDasharray="2 2" />
+      {bothSidesShoulder(at, s)}
+    </>
+  );
+}
+
+function bothSidesShoulder(at: At, s: Style) {
+  return <path d={bothSides(at, [8.5, -1.5], [15, 3])} {...detailProps(s)} />;
 }
 
 const HOODIE_NECK = 10;

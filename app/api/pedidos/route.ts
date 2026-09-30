@@ -17,6 +17,7 @@ interface DisenoInput {
   texto?: string;
   color?: string;
   fuente?: string;
+  contorno?: string; // color del contorno del texto
   posX: number;
   posY: number;
   escala: number;
@@ -42,7 +43,7 @@ interface CreateOrderBody {
   orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
 }
 
-const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga"];
+const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga", "manga-izq", "manga-der", "etiqueta"];
 const MAX_DESIGN_GROUPS = 50;
 const isGroup = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_GROUPS;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -99,6 +100,7 @@ export async function POST(req: NextRequest) {
     texto: d.tipo === "texto" ? d.texto : undefined,
     color: d.tipo === "texto" ? d.color : undefined,
     fuente: d.tipo === "texto" ? d.fuente ?? "sans" : undefined,
+    contorno: d.tipo === "texto" && /^#[0-9a-f]{6}$/i.test(d.contorno ?? "") ? d.contorno : undefined,
     posX: clamp(d.posX, 0, 100),
     posY: clamp(d.posY, 0, 100),
     escala: clamp(d.escala, 0.1, 5),
@@ -143,11 +145,14 @@ export async function POST(req: NextRequest) {
     ({ data: order, error: orderError } = await insertOrder());
   }
 
-  // "bordado" es un valor nuevo del tipo technique en la base de datos; si todavía
-  // no se agregó (supabase/bordado.sql), el pedido no se puede guardar.
-  if (orderError?.code === "22P02" && body.tecnica === "bordado") {
+  // "bordado" y "dtf" son valores nuevos del tipo technique en la base de datos; si
+  // todavía no se agregaron (supabase/bordado.sql, supabase/dtf.sql), el pedido no se
+  // puede guardar.
+  if (orderError?.code === "22P02" && (body.tecnica === "bordado" || body.tecnica === "dtf")) {
     return NextResponse.json(
-      { error: "Por ahora los pedidos con bordado se reciben por WhatsApp. Escríbenos y te atendemos." },
+      {
+        error: `Por ahora los pedidos con ${body.tecnica === "dtf" ? "DTF" : "bordado"} se reciben por WhatsApp. Escríbenos y te atendemos.`,
+      },
       { status: 503 }
     );
   }

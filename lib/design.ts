@@ -21,18 +21,45 @@ export const TEXT_COLOR_OPTIONS = [
   { label: "Dorado", value: "#B8860B" },
 ];
 
-export type FontFamilyKey = "sans" | "display" | "script" | "serif" | "mono";
+export type FontFamilyKey =
+  | "sans"
+  | "display"
+  | "script"
+  | "serif"
+  | "mono"
+  | "colegial"
+  | "gotica"
+  | "marcador"
+  | "manuscrita"
+  | "retro"
+  | "bloque"
+  | "militar"
+  | "redonda";
 
-export const FONT_OPTIONS: { label: string; value: FontFamilyKey; cssVar: string }[] = [
-  { label: "Moderna", value: "sans", cssVar: "var(--font-sans)" },
-  { label: "Impacto", value: "display", cssVar: "var(--font-display)" },
-  { label: "Script", value: "script", cssVar: "var(--font-script)" },
-  { label: "Elegante", value: "serif", cssVar: "var(--font-serif)" },
-  { label: "Mono", value: "mono", cssVar: "var(--font-mono)" },
+// weight: grosor con que se dibuja. Las fuentes que solo vienen en un grosor van en
+// 400; si se les pide negrita, el navegador la inventa y se ve mal.
+export const FONT_OPTIONS: { label: string; value: FontFamilyKey; cssVar: string; weight: number }[] = [
+  { label: "Moderna", value: "sans", cssVar: "var(--font-sans)", weight: 700 },
+  { label: "Impacto", value: "display", cssVar: "var(--font-display)", weight: 700 },
+  { label: "Colegial", value: "colegial", cssVar: "var(--font-colegial)", weight: 400 },
+  { label: "Gótica", value: "gotica", cssVar: "var(--font-gotica)", weight: 400 },
+  { label: "Script", value: "script", cssVar: "var(--font-script)", weight: 400 },
+  { label: "Retro", value: "retro", cssVar: "var(--font-retro)", weight: 400 },
+  { label: "Marcador", value: "marcador", cssVar: "var(--font-marcador)", weight: 400 },
+  { label: "Manuscrita", value: "manuscrita", cssVar: "var(--font-manuscrita)", weight: 700 },
+  { label: "Bloque", value: "bloque", cssVar: "var(--font-bloque)", weight: 400 },
+  { label: "Militar", value: "militar", cssVar: "var(--font-militar)", weight: 400 },
+  { label: "Redonda", value: "redonda", cssVar: "var(--font-redonda)", weight: 600 },
+  { label: "Elegante", value: "serif", cssVar: "var(--font-serif)", weight: 700 },
+  { label: "Mono", value: "mono", cssVar: "var(--font-mono)", weight: 700 },
 ];
 
 export function fontFamilyCss(key: FontFamilyKey): string {
   return FONT_OPTIONS.find((f) => f.value === key)?.cssVar ?? "var(--font-sans)";
+}
+
+export function fontWeight(key: FontFamilyKey): number {
+  return FONT_OPTIONS.find((f) => f.value === key)?.weight ?? 700;
 }
 
 // Emojis y símbolos rápidos para insertar en el texto — no reemplazan el
@@ -72,7 +99,11 @@ export interface MockupTextContent {
   texto: string;
   color: string;
   fontFamily: FontFamilyKey;
+  outline?: string | null; // color del contorno de las letras; sin valor = sin contorno
 }
+
+// Grosor del contorno, relativo al tamaño de la letra.
+export const TEXT_OUTLINE_WIDTH = "0.07em";
 
 export type MockupContent = MockupImageContent | MockupTextContent;
 

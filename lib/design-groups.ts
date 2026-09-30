@@ -25,6 +25,7 @@ export interface StoredDiseno {
   texto?: string;
   color?: string;
   fuente?: FontFamilyKey;
+  contorno?: string;
   posX: number;
   posY: number;
   escala: number;

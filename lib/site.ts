@@ -2,7 +2,7 @@ import { WORKSHOP } from "./shipping";
 
 export const SITE_NAME = "Impreza";
 export const SITE_DESCRIPTION =
-  "Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, sublimado y bordado en Managua, desde 1 pieza hasta pedidos por mayor. Diseña en línea a escala real y recibe en 7 días hábiles.";
+  "Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, DTF, sublimado y bordado en Managua, desde 1 pieza hasta pedidos por mayor. Diseña en línea a escala real y recibe en 7 días hábiles.";
 
 // Dominio principal. imprezani.com (sin www) redirige aquí, y el viejo
 // impreza-pink.vercel.app sigue funcionando.

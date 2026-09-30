@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   PRODUCTS,
+  TECHNIQUE_HINT,
   TECHNIQUE_LABEL,
   getFabric,
   getProductById,
@@ -634,6 +635,7 @@ export function OrderForm() {
               texto: content.texto.trim(),
               color: content.color,
               fuente: content.fontFamily,
+              ...(content.outline ? { contorno: content.outline } : {}),
               grupo,
               ...placement,
             });
@@ -792,6 +794,7 @@ export function OrderForm() {
                     </button>
                   ))}
                 </div>
+                <p className="mt-1.5 text-[11px] text-ink-muted">{TECHNIQUE_HINT[technique]}</p>
                 {sublimationOnDark && (
                   <div className="mt-2 rounded-brand bg-yellow-50 p-3 text-xs text-yellow-900">
                     <p>
@@ -984,6 +987,7 @@ export function OrderForm() {
                   onContentChange={handleContentChange}
                   transform={currentTransform}
                   onTransformChange={handleTransformChange}
+                  technique={technique}
                 />
               )}
             </div>

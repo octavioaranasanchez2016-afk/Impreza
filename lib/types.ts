@@ -1,9 +1,11 @@
-export type Technique = "serigrafia" | "sublimado" | "bordado";
+export type Technique = "serigrafia" | "sublimado" | "bordado" | "dtf";
 
 export type ProductCategory = "camisa" | "hoodie" | "tote" | "polo" | "gorra";
 
-// Zonas donde el cliente puede colocar un diseño distinto (frente, espalda, manga).
-export type DesignZone = "frente" | "espalda" | "manga";
+// Zonas donde el cliente puede colocar un diseño distinto. "manga" es de los
+// pedidos anteriores (una sola manga); ahora cada manga es su propia zona, y la
+// etiqueta va por dentro, debajo del cuello.
+export type DesignZone = "frente" | "espalda" | "manga" | "manga-izq" | "manga-der" | "etiqueta";
 
 export interface ProductVariantOption {
   color: string;

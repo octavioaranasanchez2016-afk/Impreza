@@ -18,6 +18,7 @@ const TECHNIQUE_UNIT_MODIFIER: Record<Technique, number> = {
   serigrafia: 0,
   sublimado: 55,
   bordado: 0,
+  dtf: 0,
 };
 
 // Cargo fijo por diseño (una sola vez por pedido), no por prenda (córdobas).
@@ -27,6 +28,7 @@ const TECHNIQUE_SETUP_FEE: Record<Technique, number> = {
   serigrafia: 0,
   sublimado: 0,
   bordado: 0,
+  dtf: 0,
 };
 
 // Solo para pedidos antiguos que sí traen este cargo.

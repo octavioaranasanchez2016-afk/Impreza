@@ -63,7 +63,7 @@ function layout(body: string) {
       <div style="background:#111;color:#fff;padding:18px 24px;font-size:22px;font-weight:bold;letter-spacing:2px;">IMPREZA</div>
       <div style="padding:24px;font-size:15px;line-height:1.5;">${body}</div>
       <div style="padding:16px 24px;border-top:1px solid #eee;font-size:12px;color:#8a8a8d;">
-        Impreza · Serigrafía, sublimado y bordado en Managua, Nicaragua
+        Impreza · Serigrafía, DTF, sublimado y bordado en Managua, Nicaragua
       </div>
     </div>
   </div>`;

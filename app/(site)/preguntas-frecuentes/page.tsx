@@ -88,11 +88,19 @@ const SECTIONS = [
       },
       {
         q: "¿De qué tamaño se imprime mi diseño?",
-        a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en la manga y 30 × 30 cm en la tote bag. En bordado: 10 × 10 cm al pecho de la polo, 25 × 20 cm en su espalda y 11 × 5.5 cm al frente de la gorra.",
+        a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en cada manga, 8 × 8 cm en la etiqueta y 30 × 30 cm en la tote bag. En bordado: 10 × 10 cm al pecho de la polo, 25 × 20 cm en su espalda y 11 × 5.5 cm al frente de la gorra.",
       },
       {
         q: "¿Hacen bordado?",
         a: "Sí. Las polos y las gorras llevan tu logo bordado. Sube tu logo en JPG o escribe tu texto en el diseñador, y ves el tamaño real del bordado en centímetros.",
+      },
+      {
+        q: "¿Qué es el DTF?",
+        a: "Es una impresión a todo color que se transfiere a la prenda con calor. Sirve en cualquier tela y color, reproduce degradados y fotos, y conviene desde 1 pieza. Lo puedes elegir en camisas, hoodies, tote bags y polos.",
+      },
+      {
+        q: "¿Puedo poner mi propia etiqueta en la camisa?",
+        a: "Sí. En camisas y polos elige la zona «Etiqueta» en el diseñador: va por dentro, debajo del cuello. Ideal para el logo de tu marca, la talla o las instrucciones de lavado.",
       },
       {
         q: "¿Puedo hacer que mi imagen ocupe todo el espacio?",
@@ -100,7 +108,7 @@ const SECTIONS = [
       },
       {
         q: "¿Puedo poner diseños en la espalda o la manga?",
-        a: "Sí. Ninguna zona es obligatoria: puedes poner un diseño distinto en frente, espalda y manga.",
+        a: "Sí. Ninguna zona es obligatoria: puedes poner un diseño distinto en el frente, la espalda, cada manga (izquierda y derecha) y la etiqueta por dentro del cuello.",
       },
       {
         q: "¿Puedo pedir productos con diseños distintos en un mismo pedido?",

@@ -9,28 +9,28 @@ const CAMISA_FABRICS: FabricOption[] = [
     id: "algodon",
     name: "Algodón 100%",
     description: "Suave y fresca, la de siempre.",
-    techniques: ["serigrafia"],
+    techniques: ["serigrafia", "dtf"],
     extra: 0,
   },
   {
     id: "algodon-peinado",
     name: "Algodón peinado",
     description: "Premium: hilo más fino, más suave y resistente.",
-    techniques: ["serigrafia"],
+    techniques: ["serigrafia", "dtf"],
     extra: 0,
   },
   {
     id: "mezcla",
     name: "Mezcla 50/50",
     description: "Algodón y poliéster: no se encoge ni se arruga.",
-    techniques: ["serigrafia"],
+    techniques: ["serigrafia", "dtf"],
     extra: 0,
   },
   {
     id: "poliester",
     name: "Poliéster dry-fit",
     description: "Deportiva, liviana y seca rápido. La tela para sublimado.",
-    techniques: ["serigrafia", "sublimado"],
+    techniques: ["serigrafia", "sublimado", "dtf"],
     extra: 0,
   },
 ];
@@ -39,6 +39,15 @@ export const TECHNIQUE_LABEL: Record<Technique, string> = {
   serigrafia: "Serigrafía",
   sublimado: "Sublimado",
   bordado: "Bordado",
+  dtf: "DTF",
+};
+
+// Una línea para explicar cada técnica al cliente.
+export const TECHNIQUE_HINT: Record<Technique, string> = {
+  serigrafia: "Tinta durable, ideal para pedidos grandes.",
+  sublimado: "Colores vivos que no se sienten; solo en poliéster claro.",
+  bordado: "Hilo cosido: elegante y resistente.",
+  dtf: "Full color y degradados en cualquier tela y color, desde 1 pieza.",
 };
 
 // Catálogo inicial con precios de referencia en córdobas (NIO). Ajusta
@@ -49,15 +58,26 @@ export const PRODUCTS: Product[] = [
     slug: "camisa-basica",
     category: "camisa",
     name: "Camisa básica",
-    description: "Camisa corte unisex en cuatro telas: algodón para serigrafía o poliéster dry-fit para sublimado.",
+    description:
+      "Camisa corte unisex en 14 colores y cuatro telas. Serigrafía o DTF en cualquier tela; sublimado en poliéster dry-fit.",
     basePrice: 220,
     image: "https://images.unsplash.com/photo-1651761179569-4ba2aa054997?w=900&q=80&auto=format&fit=crop",
-    techniques: ["serigrafia", "sublimado"],
+    techniques: ["serigrafia", "sublimado", "dtf"],
     variants: [
       { color: "Blanco", colorHex: "#FFFFFF", sizes: ["S", "M", "L", "XL", "XXL"] },
       { color: "Negro", colorHex: "#111111", sizes: ["S", "M", "L", "XL", "XXL"] },
       { color: "Gris", colorHex: "#9CA3AF", sizes: ["S", "M", "L", "XL"] },
       { color: "Azul marino", colorHex: "#1E3A8A", sizes: ["S", "M", "L", "XL"] },
+      { color: "Azul rey", colorHex: "#1D4ED8", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Celeste", colorHex: "#7DD3FC", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Rojo", colorHex: "#C8102E", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Vino", colorHex: "#7F1D1D", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Rosado", colorHex: "#F9A8D4", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Naranja", colorHex: "#F97316", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Amarillo", colorHex: "#FACC15", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Verde botella", colorHex: "#14532D", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Morado", colorHex: "#6D28D9", sizes: ["S", "M", "L", "XL", "XXL"] },
+      { color: "Beige", colorHex: "#E8DCC4", sizes: ["S", "M", "L", "XL", "XXL"] },
     ],
     fabrics: CAMISA_FABRICS,
   },
@@ -69,7 +89,7 @@ export const PRODUCTS: Product[] = [
     description: "Hoodie fleece con bolsillo canguro, ideal para diseños grandes.",
     basePrice: 510,
     image: "https://images.unsplash.com/photo-1581655353466-d5ad6765dd37?w=900&q=80&auto=format&fit=crop",
-    techniques: ["serigrafia", "sublimado"],
+    techniques: ["serigrafia", "sublimado", "dtf"],
     variants: [
       { color: "Negro", colorHex: "#111111", sizes: ["S", "M", "L", "XL", "XXL"] },
       { color: "Gris jaspe", colorHex: "#B6B6B6", sizes: ["S", "M", "L", "XL"] },
@@ -84,7 +104,7 @@ export const PRODUCTS: Product[] = [
     description: "Bolsa de tela resistente, tamaño único. Perfecta para eventos y regalos.",
     basePrice: 165,
     image: "https://images.unsplash.com/photo-1574365569389-a10d488ca3fb?w=900&q=80&auto=format&fit=crop",
-    techniques: ["serigrafia", "sublimado"],
+    techniques: ["serigrafia", "sublimado", "dtf"],
     variants: [
       { color: "Natural", colorHex: "#EFE7D8", sizes: ["Único"] },
       { color: "Negro", colorHex: "#111111", sizes: ["Único"] },
@@ -96,10 +116,11 @@ export const PRODUCTS: Product[] = [
     slug: "polo-bordada",
     category: "polo",
     name: "Camisa polo",
-    description: "Polo de piqué con cuello y botones, con tu logo bordado. Ideal para uniformes de empresa.",
+    description:
+      "Polo de piqué con cuello y botones, con tu logo bordado o en DTF, y tu propia etiqueta por dentro. Ideal para uniformes de empresa.",
     basePrice: 380,
     image: "https://images.unsplash.com/photo-1625910513413-c23b8bb81cba?w=900&q=80&auto=format&fit=crop",
-    techniques: ["bordado"],
+    techniques: ["bordado", "dtf"],
     variants: [
       { color: "Blanco", colorHex: "#FFFFFF", sizes: ["S", "M", "L", "XL", "XXL"] },
       { color: "Negro", colorHex: "#111111", sizes: ["S", "M", "L", "XL", "XXL"] },
