@@ -14,6 +14,7 @@ import {
   Black_Ops_One,
   Fredoka,
 } from "next/font/google";
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
 
@@ -65,6 +66,7 @@ export default function RootLayout({
         className={`${inter.variable} ${bebas.variable} ${pacifico.variable} ${playfair.variable} ${jetbrains.variable} ${designerFonts} font-sans antialiased`}
       >
         {children}
+        <SpeedInsights />
       </body>
     </html>
   );
