@@ -23,6 +23,29 @@ body {
   background: #111111;
 }
 
+/* Fila de tarjetas que se desliza de lado en el celular (se asoma la siguiente);
+   desde 640px vuelve a ser una grilla (las columnas las pone cada página). */
+@layer components {
+  .swipe-row {
+    @apply -mx-4 flex snap-x snap-mandatory scroll-px-4 overflow-x-auto px-4 pb-2;
+    scrollbar-width: none;
+  }
+  .swipe-row::-webkit-scrollbar {
+    display: none;
+  }
+  .swipe-item {
+    @apply w-[82%] shrink-0 snap-start;
+  }
+  @media (min-width: 640px) {
+    .swipe-row {
+      @apply mx-0 grid overflow-visible px-0 pb-0;
+    }
+    .swipe-item {
+      @apply w-auto;
+    }
+  }
+}
+
 /* Las secciones del inicio aparecen suavemente al bajar. Solo en navegadores
    que lo soportan; en los demás se ven normal, sin animación. */
 @supports (animation-timeline: view()) {

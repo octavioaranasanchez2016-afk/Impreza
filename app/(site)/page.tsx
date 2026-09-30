@@ -87,16 +87,16 @@ export default async function HomePage() {
               Camisas, polos, hoodies, gorras y tote bags con tu diseño. Lo creas en línea, ves el tamaño real en centímetros y
               nosotros lo imprimimos, desde 1 pieza hasta pedidos por mayor.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/pedido"
-                className="rounded-brand bg-ink px-7 py-3.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
+                className="rounded-brand bg-ink px-7 py-3.5 text-center text-sm font-semibold text-paper transition-opacity hover:opacity-80"
               >
                 Empezar mi diseño →
               </Link>
               <Link
                 href="/catalogo"
-                className="rounded-brand border border-ink/20 px-7 py-3.5 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+                className="rounded-brand border border-ink/20 px-7 py-3.5 text-center text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
               >
                 Ver productos
               </Link>
@@ -144,9 +144,11 @@ export default async function HomePage() {
 
       <section className="mx-auto max-w-6xl px-4 py-20 md:px-6">
         <SectionTitle eyebrow="Catálogo" title="Elige tu prenda" link={{ href: "/catalogo", label: "Ver todo" }} />
-        <div className="reveal mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3">
+        <div className="reveal swipe-row mt-10 gap-4 sm:grid-cols-2 sm:gap-6 md:grid-cols-3">
           {PRODUCTS.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <div key={product.id} className="swipe-item grid">
+              <ProductCard product={product} />
+            </div>
           ))}
         </div>
       </section>
@@ -223,9 +225,9 @@ export default async function HomePage() {
 
       <section id="como-funciona" className="mx-auto max-w-6xl px-4 py-20 md:px-6">
         <SectionTitle eyebrow="Así de fácil" title="Cómo funciona" />
-        <ol className="reveal mt-10 grid gap-px overflow-hidden rounded-brand border border-black/10 bg-black/10 md:grid-cols-4">
+        <ol className="reveal mt-10 grid grid-cols-2 gap-px overflow-hidden rounded-brand border border-black/10 bg-black/10 md:grid-cols-4">
           {STEPS.map(([n, title, text]) => (
-            <li key={n} className="bg-white p-6">
+            <li key={n} className="bg-white p-4 sm:p-6">
               <span className="font-display text-5xl leading-none text-ink/15">{n}</span>
               <p className="mt-3 font-semibold text-ink">{title}</p>
               <p className="mt-1 text-sm text-ink-soft">{text}</p>

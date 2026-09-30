@@ -14,12 +14,14 @@ export function TechniqueGuide({
 }) {
   const list = TECHNIQUE_ORDER.filter((t) => techniques.includes(t));
   const cols = list.length >= 4 ? "lg:grid-cols-4" : list.length === 3 ? "lg:grid-cols-3" : "";
+  // En el celular, la versión grande se desliza de lado en vez de apilar las tarjetas.
+  const swipe = !compact && list.length > 1;
 
   return (
     <div>
-      <div className={`grid gap-3 sm:grid-cols-2 ${compact ? "" : cols}`}>
+      <div className={swipe ? `swipe-row gap-3 sm:grid-cols-2 ${cols}` : "grid gap-3 sm:grid-cols-2"}>
         {list.map((t) => (
-          <div key={t} className="rounded-brand border border-black/10 bg-white p-5">
+          <div key={t} className={`rounded-brand border border-black/10 bg-white p-5 ${swipe ? "swipe-item" : ""}`}>
             <p className={`font-display uppercase leading-none tracking-wide text-ink ${compact ? "text-2xl" : "text-3xl"}`}>
               {TECHNIQUE_LABEL[t]}
             </p>
