@@ -26,12 +26,17 @@ export function QuickQuote() {
   const [productId, setProductId] = useState(PRODUCTS[0].id);
   const product = getProductById(productId) ?? PRODUCTS[0];
   const [technique, setTechnique] = useState<Technique>(product.techniques[0]);
+  const [fabricId, setFabricId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState(30);
   const [date, setDate] = useState("");
 
   const lineTechnique = product.techniques.includes(technique) ? technique : product.techniques[0];
-  // El sublimado solo agarra en poliéster: se cotiza en la primera tela que lo permite.
-  const fabric = product.fabrics?.find((f) => f.techniques.includes(lineTechnique));
+  // Telas que sirven con la técnica elegida (el sublimado solo agarra en poliéster).
+  // Si la tela elegida no sirve con la técnica nueva, se toma la primera que sí.
+  const fabricOptions = product.fabrics?.filter((f) => f.techniques.includes(lineTechnique)) ?? [];
+  const fabric = fabricOptions.find((f) => f.id === fabricId) ?? fabricOptions[0];
+  // "serigrafía", "sublimado"... pero DTF va siempre en mayúsculas.
+  const techniqueText = lineTechnique === "dtf" ? "DTF" : TECHNIQUE_LABEL[lineTechnique].toLowerCase();
   const pricing = calculateOrderTotal(
     [{ productId, color: product.variants[0].color, size: product.variants[0].sizes[0], quantity, technique: lineTechnique, fabric: fabric?.id }],
     lineTechnique
@@ -51,12 +56,9 @@ export function QuickQuote() {
 
   const set = (n: number) => setQuantity(Math.max(1, Math.min(9999, Math.round(n) || 1)));
 
-  // La tela solo se menciona cuando la técnica la obliga (sublimado → poliéster).
-  const forcedFabric = lineTechnique === "sublimado" && product.fabrics && product.fabrics.length > 1 ? fabric : undefined;
-
   const message = [
     `Hola, quiero hablar con un diseñador${occasion.phrase.startsWith("para") ? ` (es ${occasion.phrase})` : ""}:`,
-    `• ${quantity} × ${product.name}${forcedFabric ? ` (${forcedFabric.name})` : ""} en ${TECHNIQUE_LABEL[lineTechnique].toLowerCase()}`,
+    `• ${quantity} × ${product.name}${fabric ? ` (${fabric.name})` : ""} en ${techniqueText}`,
     date ? `• Lo necesito para el ${new Date(`${date}T12:00:00`).toLocaleDateString("es-NI", { day: "numeric", month: "long" })}` : null,
     `• Estimado en el sitio: ${formatCordobas(pricing.total)} (${formatCordobas(Math.round(perPiece * 100) / 100)} por pieza${
       pricing.discountPct ? `, ${Math.round(pricing.discountPct * 100)}% de descuento` : ""
@@ -126,6 +128,26 @@ export function QuickQuote() {
           </div>
         </fieldset>
       </div>
+
+      {product.fabrics && fabric && (
+        <label className="mt-4 block">
+          <span className="text-xs font-semibold text-ink-soft">Tela</span>
+          <select value={fabric.id} onChange={(e) => setFabricId(e.target.value)} className="input mt-1">
+            {fabricOptions.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1.5 block text-[11px] text-ink-muted">
+            {fabric.description}
+            {fabricOptions.length < product.fabrics.length &&
+              ` Con ${techniqueText}, ${
+                fabricOptions.length === 1 ? "solo esta tela" : `solo estas ${fabricOptions.length} telas`
+              }.`}
+          </span>
+        </label>
+      )}
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
@@ -203,9 +225,6 @@ export function QuickQuote() {
             </p>
           </div>
         </div>
-        {forcedFabric && (
-          <p className="mt-2 text-[11px] text-paper/60">El sublimado se hace en {forcedFabric.name.toLowerCase()}.</p>
-        )}
       </div>
 
       <div className="mt-4 flex flex-col gap-2 sm:flex-row">
