@@ -5,7 +5,7 @@ import { WORKSHOP } from "@/lib/shipping";
 export const metadata = {
   title: "Quiénes somos",
   alternates: { canonical: "/nosotros" },
-  description: "La historia y los valores detrás de Impreza, ropa personalizada hecha en Arango Textil, Managua. Horario y cómo llegar.",
+  description: "La historia y los valores detrás de Impreza, ropa personalizada hecha en Managua, Nicaragua. Horario y cómo llegar.",
 };
 
 const VALUES = [
@@ -56,17 +56,33 @@ export default function NosotrosPage() {
           hecha y sin complicaciones?
         </p>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          Pedirla casi siempre significaba escribir a varios talleres, explicar la idea una y otra vez y esperar sin saber
-          cuánto iba a costar ni cómo iba a quedar. Esa pregunta nunca se fue, y en 2026 se convirtió en Impreza, de la mano
-          de Arango Textil, el taller familiar en Managua donde se produce cada pedido.
+          La respuesta estaba en todas partes. Para una camisa de graduación, el uniforme de un equipo o un regalo con una
+          foto, había que escribir a varios talleres, mandar la idea por partes, explicar lo mismo una y otra vez y esperar
+          sin saber cuánto iba a costar, cuándo iba a estar listo ni cómo iba a quedar. Muchas buenas ideas se quedaban en el
+          camino, no por falta de ganas, sino porque el proceso cansaba.
         </p>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          Por eso aquí todo es distinto: diseñas en línea y ves el tamaño real en centímetros, conoces el precio al instante
-          y sigues tu pedido paso a paso. Da igual si es una sola camisa o la de toda tu promoción.
+          Esa pregunta nunca se fue. Creció con cada camisa que no se hizo y con cada pedido que llegó distinto a lo que
+          alguien se imaginaba. Hasta que dejó de ser una pregunta y se volvió un plan: si pedir ropa personalizada era
+          complicado, había que construir la forma fácil.
         </p>
         <p className="mt-4 leading-relaxed text-ink-soft">
-          No queremos ser los más grandes. Queremos ser los más fáciles de usar, los más atentos con cada pedido y los más
-          cercanos para cualquiera que tenga una idea y quiera verla puesta.
+          Así nació Impreza, en Managua, en 2026. La idea es simple: que cualquier persona pueda crear su diseño, verlo en la
+          prenda a tamaño real y saber el precio en el mismo momento, sin llamadas, sin vueltas y sin sorpresas. Diseñas en
+          línea, eliges tu técnica, pagas y sigues tu pedido paso a paso hasta tenerlo en tus manos, sea una sola camisa o la
+          de toda tu promoción.
+        </p>
+        <p className="mt-4 leading-relaxed text-ink-soft">
+          Detrás de cada pedido hay personas que lo revisan antes de imprimir, que se fijan en los detalles y que te escriben
+          si algo no está claro. Porque una camisa de graduación guarda un recuerdo, un uniforme representa a un equipo y una
+          marca que apenas empieza merece verse profesional desde la primera pieza.
+        </p>
+        <blockquote className="my-8 border-l-4 border-ink pl-5 font-display text-3xl uppercase leading-tight tracking-wide text-ink md:text-4xl">
+          No queremos ser los más grandes. Queremos ser los más fáciles, los más atentos y los más cercanos.
+        </blockquote>
+        <p className="leading-relaxed text-ink-soft">
+          Hoy empezamos en Nicaragua, una camisa a la vez. Mañana queremos que pedir tu propio diseño sea así de fácil en toda
+          Centroamérica. Si tienes una idea y quieres verla puesta, este es el lugar.
         </p>
 
         <Link
@@ -102,7 +118,7 @@ export default function NosotrosPage() {
           <div className="flex flex-col justify-center p-8">
             <h2 className="font-display text-3xl uppercase tracking-wide text-ink">Dónde estamos</h2>
             <p className="mt-2 text-sm text-ink-soft">
-              Arango Textil, Managua. Aquí se produce cada pedido, y aquí lo recoges gratis si no quieres delivery.
+              Nuestro taller en Managua: aquí se produce cada pedido, y aquí lo recoges gratis si no quieres delivery.
             </p>
 
             <div className="mt-6 space-y-1 text-sm text-ink-soft">
