@@ -107,8 +107,58 @@ export const TEXT_OUTLINE_WIDTH = "0.07em";
 
 export type MockupContent = MockupImageContent | MockupTextContent;
 
+// Parte de la imagen que se usa, en fracciones (0 a 1) del ancho y alto originales.
+export interface CropRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+export interface SourceImage {
+  file: File;
+  previewUrl: string;
+  width: number;
+  height: number;
+}
+
 export interface ImageDesignContent extends MockupImageContent {
   file: File;
+  // Si el cliente eligió qué parte de su imagen usar: la original y el recorte, para
+  // poder cambiarlo. Lo que se sube e imprime es file (ya recortado).
+  source?: SourceImage & { crop: CropRect };
+}
+
+// Lado más largo del recorte: los navegadores del celular no pueden dibujar lienzos
+// mucho más grandes, y a 30 cm sigue dando más de 300 ppp.
+const MAX_CROP_SIDE = 4096;
+
+// Recorta la imagen en el navegador y devuelve un JPG nuevo con solo esa parte.
+export async function cropImageFile(source: SourceImage, crop: CropRect): Promise<SourceImage> {
+  const img = new Image();
+  img.src = source.previewUrl;
+  await img.decode();
+  const sx = Math.round(crop.x * img.naturalWidth);
+  const sy = Math.round(crop.y * img.naturalHeight);
+  const sw = Math.max(1, Math.round(crop.w * img.naturalWidth));
+  const sh = Math.max(1, Math.round(crop.h * img.naturalHeight));
+  const ratio = Math.min(1, MAX_CROP_SIDE / Math.max(sw, sh));
+  const width = Math.round(sw * ratio);
+  const height = Math.round(sh * ratio);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Tu navegador no pudo recortar la imagen.");
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, width, height);
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  if (!blob) throw new Error("Tu navegador no pudo recortar la imagen.");
+
+  const base = source.file.name.replace(/\.[^.]+$/, "").replace(/^recorte-/, "");
+  const file = new File([blob], `recorte-${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+  return { file, previewUrl: URL.createObjectURL(file), width, height };
 }
 
 export type DesignContent = ImageDesignContent | MockupTextContent;

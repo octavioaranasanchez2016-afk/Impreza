@@ -791,22 +791,30 @@ export function OrderForm() {
 
               <div>
                 <p className="text-sm font-medium text-ink-soft">Técnica</p>
-                <div className="mt-1.5 flex gap-2">
-                  {(selectedProduct?.techniques ?? []).map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      disabled={!techniqueAvailable(t)}
-                      onClick={() => chooseTechnique(t)}
-                      className={`flex-1 rounded-brand border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-                        technique === t ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
-                      }`}
-                    >
-                      {TECHNIQUE_LABEL[t]}
-                    </button>
-                  ))}
+                {/* Tarjetas como las de tela: caben en el panel angosto y explican cada técnica. */}
+                <div className="mt-1.5 grid gap-1.5" role="radiogroup" aria-label="Técnica">
+                  {(selectedProduct?.techniques ?? []).map((t) => {
+                    const active = technique === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        disabled={!techniqueAvailable(t)}
+                        onClick={() => chooseTechnique(t)}
+                        className={`rounded-brand border px-3 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                          active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                        }`}
+                      >
+                        <span className="block text-sm font-semibold">{TECHNIQUE_LABEL[t]}</span>
+                        <span className={`block text-[11px] leading-snug ${active ? "text-paper/75" : "text-ink-muted"}`}>
+                          {TECHNIQUE_HINT[t]}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="mt-1.5 text-[11px] text-ink-muted">{TECHNIQUE_HINT[technique]}</p>
                 {sublimationOnDark && (
                   <div className="mt-2 rounded-brand bg-yellow-50 p-3 text-xs text-yellow-900">
                     <p>

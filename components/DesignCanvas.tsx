@@ -4,7 +4,9 @@ import { useEffect, useRef, useState } from "react";
 import { DesignTransform, DesignZone, ProductCategory, Technique } from "@/lib/types";
 import {
   ACCEPTED_DESIGN_TYPES,
+  CropRect,
   DesignContent,
+  cropImageFile,
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
   MAX_DESIGN_SIZE_MB,
@@ -25,6 +27,7 @@ import {
   isDarkColor,
 } from "./GarmentShape";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
+import { ImageCropper } from "./ImageCropper";
 
 // Posiciones rápidas, como las del taller. Sin ancho ni "max" es la posición estándar.
 // topCm se mide desde el borde de arriba del área de impresión; dxCm, desde su centro
@@ -125,6 +128,8 @@ export function DesignCanvas({
   const focusText = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
+  const [cropping, setCropping] = useState(false);
+  const [cropError, setCropError] = useState<string | null>(null);
 
   const zones = getZonesForCategory(category);
   const measure = getMeasure(category, size);
@@ -180,6 +185,44 @@ export function DesignCanvas({
   const area = getPrintArea(category, zone);
   const presets = PLACEMENT_PRESETS[`${category}:${zone}`];
   const maxCm = sizeCm && transform.scale > 0 ? { w: (sizeCm.w / transform.scale) * MAX_SCALE, h: (sizeCm.h / transform.scale) * MAX_SCALE } : null;
+
+  // La imagen completa que subió el cliente (si ya la recortó, la original).
+  const sourceImage =
+    content?.kind === "imagen"
+      ? content.source
+        ? {
+            file: content.source.file,
+            previewUrl: content.source.previewUrl,
+            width: content.source.width,
+            height: content.source.height,
+          }
+        : { file: content.file, previewUrl: content.previewUrl, width: content.width, height: content.height }
+      : null;
+  const fillTransform = { x: area.x + area.w / 2, y: area.y + area.h / 2, scale: MAX_SCALE, rotation: 0 };
+
+  function showWholeImage() {
+    if (content?.kind !== "imagen" || !sourceImage) return;
+    setCropError(null);
+    if (content.source) {
+      onContentChange({ kind: "imagen", ...sourceImage, fill: false }, false);
+      onTransformChange(defaultTransform(category, zone));
+    } else {
+      onContentChange({ ...content, fill: false }, false);
+    }
+  }
+
+  async function applyCrop(crop: CropRect, fillsArea: boolean) {
+    if (!sourceImage) return;
+    try {
+      const cropped = await cropImageFile(sourceImage, crop);
+      onContentChange({ kind: "imagen", ...cropped, fill: false, source: { ...sourceImage, crop } }, false);
+      onTransformChange(fillsArea ? fillTransform : defaultTransform(category, zone));
+      setCropError(null);
+    } catch (err) {
+      setCropError(err instanceof Error ? err.message : "No se pudo recortar la imagen.");
+    }
+    setCropping(false);
+  }
 
   function resizeTo(target: number, current: number) {
     if (!(target > 0) || !(current > 0)) return;
@@ -427,22 +470,40 @@ export function DesignCanvas({
                 <p className="mb-1.5 text-xs font-medium text-ink-soft">Ajuste de la imagen</p>
                 <div className="grid grid-cols-2 gap-2">
                   <FitOption
-                    active={!content.fill}
-                    onClick={() => onContentChange({ ...content, fill: false }, false)}
+                    active={!content.fill && !content.source}
+                    onClick={showWholeImage}
                     title="Imagen completa"
                     hint="Se ve toda la imagen"
                   />
                   <FitOption
-                    active={Boolean(content.fill)}
-                    onClick={() => {
-                      onContentChange({ ...content, fill: true }, false);
-                      onTransformChange({ x: area.x + area.w / 2, y: area.y + area.h / 2, scale: MAX_SCALE, rotation: 0 });
-                    }}
-                    title="Llenar el área"
-                    hint={`Cubre los ${printCm.w} × ${printCm.h} cm; recorta los bordes`}
+                    active={Boolean(content.fill || content.source)}
+                    onClick={() => setCropping(true)}
+                    title="Elegir qué parte"
+                    hint="Como un fondo de pantalla: mueve y acerca"
                   />
                 </div>
+                {content.source && (
+                  <p className="mt-1.5 text-[11px] text-ink-muted">
+                    Estás usando una parte de tu imagen.{" "}
+                    <button type="button" onClick={() => setCropping(true)} className="font-semibold text-ink underline">
+                      Cambiar la parte
+                    </button>
+                  </p>
+                )}
+                {cropError && <p className="mt-1.5 text-xs font-medium text-red-600">{cropError}</p>}
               </div>
+            )}
+            {cropping && sourceImage && content?.kind === "imagen" && (
+              <ImageCropper
+                src={sourceImage.previewUrl}
+                width={sourceImage.width}
+                height={sourceImage.height}
+                areaAspect={printCm.w / printCm.h}
+                areaLabel={`${printCm.w} × ${printCm.h} cm`}
+                initialCrop={content.source?.crop}
+                onCancel={() => setCropping(false)}
+                onApply={applyCrop}
+              />
             )}
 
             {presets && sizeCm && (
