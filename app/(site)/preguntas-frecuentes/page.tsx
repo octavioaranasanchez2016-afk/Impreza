@@ -182,12 +182,12 @@ export default function PreguntasFrecuentesPage() {
         sections={SECTIONS}
         extras={{
           tecnicas: (
-            <div className="mt-4">
+            <div key="tecnicas" className="mt-4">
               <TechniqueGuide comparison compact />
             </div>
           ),
           pagos: (
-            <div className="mt-4 rounded-brand border border-black/10 bg-white p-5">
+            <div key="pagos" className="mt-4 rounded-brand border border-black/10 bg-white p-5">
               <p className="text-sm font-semibold text-ink">Descuento por cantidad</p>
               <p className="mt-1 text-xs text-ink-soft">Aplica automáticamente sobre el total de piezas de tu pedido.</p>
               <div className="mt-4">

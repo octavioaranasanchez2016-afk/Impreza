@@ -2,6 +2,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { WhatsAppFloatingButton } from "@/components/WhatsAppButton";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
+import { SiteAnalytics } from "@/components/SiteAnalytics";
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
       <main id="contenido">{children}</main>
       <Footer />
       <WhatsAppFloatingButton />
+      <SiteAnalytics />
     </>
   );
 }
