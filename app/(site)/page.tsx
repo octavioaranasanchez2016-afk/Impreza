@@ -126,7 +126,7 @@ export default async function HomePage() {
 
           <div className="relative grid grid-cols-2 grid-rows-2 gap-3">
             <div className="row-span-2 overflow-hidden rounded-brand">
-              <img src={PROCESS_PHOTO} alt="Serigrafía en proceso" className="h-full w-full object-cover" />
+              <img src={PROCESS_PHOTO} alt="Serigrafía en proceso" fetchPriority="high" className="h-full w-full object-cover" />
             </div>
             <div className="aspect-square overflow-hidden rounded-brand bg-paper-soft">
               <img src={tee.image} alt={tee.name} className="h-full w-full object-cover" />

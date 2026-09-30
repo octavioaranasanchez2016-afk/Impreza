@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
+import { WORKSHOP } from "@/lib/shipping";
 
 export function Footer() {
   return (
@@ -51,6 +52,14 @@ export function Footer() {
               className="block hover:text-paper"
             >
               Arango Textil, Managua ↗
+            </a>
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${WORKSHOP.lat},${WORKSHOP.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block font-semibold text-paper hover:underline"
+            >
+              Cómo llegar
             </a>
             <p>Lun – Vie: 8am – 5pm</p>
             <p>Sábado: 8am – 12pm</p>
