@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TECHNIQUE_LABEL, getProductBySlug, PRODUCTS } from "@/lib/catalog";
+import { TECHNIQUE_HINT, TECHNIQUE_LABEL, getProductBySlug, PRODUCTS } from "@/lib/catalog";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { SIZE_MEASUREMENTS, ZONE_LABEL, getPrintAreaCm, getZonesForCategory } from "@/components/GarmentShape";
@@ -54,16 +54,6 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
           </p>
           <p className="mt-0.5 text-[11px] text-ink-muted">Por pieza · baja hasta 40% según la cantidad.</p>
 
-          <Link
-            href={`/pedido?producto=${product.id}`}
-            className="mt-6 block rounded-brand bg-ink px-6 py-4 text-center text-base font-semibold text-paper transition-opacity hover:opacity-80"
-          >
-            Personalizar y pedir →
-          </Link>
-          <p className="mt-3 text-center text-xs text-ink-soft">
-            Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Pago en C$ o US$
-          </p>
-
           <dl className="mt-8 divide-y divide-black/10 border-y border-black/10">
             <Spec label="Colores">
               <div className="flex flex-wrap gap-2">
@@ -76,8 +66,15 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
               </div>
             </Spec>
             <Spec label="Técnicas">
-              <p className="text-sm text-ink">{product.techniques.map((t) => TECHNIQUE_LABEL[t]).join(" · ")}</p>
-              <Link href="/preguntas-frecuentes#tecnicas" className="mt-1 inline-block text-xs font-semibold text-ink underline">
+              <ul className={`grid gap-2 ${product.techniques.length > 2 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
+                {product.techniques.map((t) => (
+                  <li key={t} className="rounded-brand border border-black/10 px-3 py-2.5">
+                    <p className="text-sm font-semibold text-ink">{TECHNIQUE_LABEL[t]}</p>
+                    <p className="text-xs text-ink-soft">{TECHNIQUE_HINT[t]}</p>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/preguntas-frecuentes#tecnicas" className="mt-2.5 inline-block text-xs font-semibold text-ink underline">
                 ¿Cuál me conviene? Ver diferencias
               </Link>
             </Spec>
@@ -149,6 +146,16 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
               </ul>
             </Detail>
           </div>
+
+          <Link
+            href={`/pedido?producto=${product.id}`}
+            className="mt-8 block rounded-brand bg-ink px-6 py-4 text-center text-base font-semibold text-paper transition-opacity hover:opacity-80"
+          >
+            Personalizar y pedir →
+          </Link>
+          <p className="mt-3 text-center text-xs text-ink-soft">
+            Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Pago en C$ o US$
+          </p>
         </div>
       </div>
     </section>
