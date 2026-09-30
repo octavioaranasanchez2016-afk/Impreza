@@ -3,6 +3,7 @@
 import { createContext, useContext, useState } from "react";
 import Link from "next/link";
 import { Product } from "@/lib/types";
+import { imageAt } from "@/lib/catalog";
 import { GarmentShape, getZonesForCategory } from "./GarmentShape";
 
 // Color elegido en la página del producto: lo comparten la galería, los botones
@@ -65,7 +66,7 @@ export function ProductGallery({ product }: { product: Product }) {
             }`}
           >
             {v === "foto" ? (
-              <img src={product.image} alt="" className="h-full w-full object-cover" />
+              <img src={imageAt(product.image, 160)} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full p-1.5">
                 <GarmentShape category={product.category} zone={v} color={hex} />

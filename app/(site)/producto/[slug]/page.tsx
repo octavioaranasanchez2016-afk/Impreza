@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TECHNIQUE_HINT, TECHNIQUE_LABEL, getProductBySlug, PRODUCTS } from "@/lib/catalog";
+import { TECHNIQUE_HINT, TECHNIQUE_LABEL, getProductBySlug, imageAt, PRODUCTS } from "@/lib/catalog";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { VOLUME_TIERS, getUnitPrice } from "@/lib/pricing";
@@ -278,7 +278,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
               <Link href={`/producto/${p.slug}`} className="group block">
                 <div className="aspect-square overflow-hidden rounded-brand bg-paper-soft">
                   <img
-                    src={p.image}
+                    src={imageAt(p.image, 480)}
                     alt={p.name}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"

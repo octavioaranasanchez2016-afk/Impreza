@@ -201,6 +201,12 @@ export const PRODUCTS: Product[] = [
   },
 ];
 
+// Las fotos de Unsplash traen ?w=900: para tarjetas y miniaturas se pide una versión
+// más chica, que en datos móviles carga más rápido. Otras fotos quedan igual.
+export function imageAt(url: string, width: number): string {
+  return /[?&]w=\d+/.test(url) ? url.replace(/([?&])w=\d+/, `$1w=${width}`) : url;
+}
+
 export function getProductById(id: string): Product | undefined {
   return PRODUCTS.find((p) => p.id === id);
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PRODUCTS } from "@/lib/catalog";
+import { PRODUCTS, imageAt } from "@/lib/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { Marquee } from "@/components/Marquee";
 import { HomeDesignDemo } from "@/components/HomeDesignDemo";
@@ -129,10 +129,10 @@ export default async function HomePage() {
               <img src={PROCESS_PHOTO} alt="Serigrafía en proceso" fetchPriority="high" className="h-full w-full object-cover" />
             </div>
             <div className="aspect-square overflow-hidden rounded-brand bg-paper-soft">
-              <img src={tee.image} alt={tee.name} className="h-full w-full object-cover" />
+              <img src={imageAt(tee.image, 500)} alt={tee.name} className="h-full w-full object-cover" />
             </div>
             <div className="aspect-square overflow-hidden rounded-brand bg-paper-soft">
-              <img src={hoodie.image} alt={hoodie.name} className="h-full w-full object-cover" />
+              <img src={imageAt(hoodie.image, 500)} alt={hoodie.name} className="h-full w-full object-cover" />
             </div>
             <div className="absolute -bottom-5 left-4 rounded-brand bg-ink px-4 py-3 text-paper shadow-xl">
               <p className="font-display text-2xl uppercase leading-none tracking-wide">Hasta 40% menos</p>

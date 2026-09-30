@@ -1,4 +1,4 @@
-import { TECHNIQUE_LABEL } from "@/lib/catalog";
+import { TECHNIQUE_LABEL, imageAt } from "@/lib/catalog";
 import Link from "next/link";
 import { Product } from "@/lib/types";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
@@ -14,7 +14,7 @@ export function ProductCard({ product }: { product: Product }) {
     >
       <div className="relative aspect-square overflow-hidden bg-paper-soft">
         <img
-          src={product.image}
+          src={imageAt(product.image, 640)}
           alt={product.name}
           loading="lazy"
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
