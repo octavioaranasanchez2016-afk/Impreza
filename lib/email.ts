@@ -113,7 +113,7 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       <p style="margin:4px 0;"><strong>Cliente:</strong> ${escapeHtml(params.clienteNombre)}</p>
       <p style="margin:4px 0;"><strong>Teléfono:</strong> ${escapeHtml(params.clienteTelefono)}</p>
       ${params.clienteEmail ? `<p style="margin:4px 0;"><strong>Correo:</strong> ${escapeHtml(params.clienteEmail)}</p>` : ""}
-      <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? params.tecnica} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
+      <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? escapeHtml(params.tecnica)} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
       ${params.sinDiseno ? `<p style="margin:4px 0;"><strong>Diseño:</strong> el cliente no subió diseño; pídeselo por WhatsApp.</p>` : ""}
       ${!params.sinDiseno && (params.disenosDistintos ?? 1) > 1 ? `<p style="margin:4px 0;"><strong>Diseños:</strong> ${params.disenosDistintos} diseños distintos (el panel dice qué piezas lleva cada uno).</p>` : ""}

@@ -5,10 +5,11 @@
 // su único diseño va en todas las piezas.
 
 import { FontFamilyKey } from "./design";
-import { DesignZone, OrderItemInput } from "./types";
+import { DesignZone, OrderItemInput, Technique } from "./types";
 
 export interface StoredPieza {
   productId: string;
+  tecnica?: Technique | null;
   tela?: string | null;
   color: string;
   talla: string;
@@ -61,6 +62,7 @@ export function groupDesigns<D extends StoredDiseno>(
       disenos: ds,
       piezas: (ds.find((d) => d.piezas?.length)?.piezas ?? []).map((p) => ({
         productId: p.productId,
+        technique: p.tecnica ?? null,
         fabric: p.tela ?? null,
         color: p.color,
         size: p.talla,
@@ -78,6 +80,7 @@ export function groupDesigns<D extends StoredDiseno>(
         if (r.productId !== p.productId || r.color !== p.color || r.size !== p.size || r.quantity <= 0) continue;
         // La tela solo se compara si ambos lados la tienen (sin la columna order_items.tela no viene).
         if (r.fabric && p.fabric && r.fabric !== p.fabric) continue;
+        if (r.technique && p.technique && r.technique !== p.technique) continue;
         const take = Math.min(r.quantity, left);
         r.quantity -= take;
         left -= take;

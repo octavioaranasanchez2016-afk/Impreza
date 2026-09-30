@@ -1,5 +1,6 @@
 import { getFabric, getProductById } from "@/lib/catalog";
 import { FONT_OPTIONS, MockupContent } from "@/lib/design";
+import { TECHNIQUE_LABEL } from "@/lib/catalog";
 import { StoredDiseno, countPieces, groupDesigns } from "@/lib/design-groups";
 import { OrderItemInput, ProductCategory } from "@/lib/types";
 import { DesignMockup } from "@/components/DesignMockup";
@@ -71,7 +72,7 @@ function PiecesList({ items }: { items: OrderItemInput[] }) {
       {items
         .map((i) => {
           const fabric = getFabric(i.productId, i.fabric);
-          return `${i.quantity}× ${getProductById(i.productId)?.name ?? i.productId}${fabric ? ` (${fabric.name})` : ""} — ${i.color} — ${i.size}`;
+          return `${i.quantity}× ${getProductById(i.productId)?.name ?? i.productId}${fabric ? ` (${fabric.name})` : ""} — ${i.color} — ${i.size}${i.technique ? ` · ${TECHNIQUE_LABEL[i.technique]}` : ""}`;
         })
         .join(" · ")}
     </p>

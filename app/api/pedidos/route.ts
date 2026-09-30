@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { calculateOrderTotal } from "@/lib/pricing";
+import { calculateOrderTotal, techniquesText } from "@/lib/pricing";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
@@ -88,7 +88,14 @@ export async function POST(req: NextRequest) {
   const piezasDelGrupo = (grupo: number) =>
     body.items
       .filter((i) => i.diseno === grupo)
-      .map((i) => ({ productId: i.productId, tela: i.fabric ?? null, color: i.color, talla: i.size, cantidad: i.quantity }));
+      .map((i) => ({
+        productId: i.productId,
+        tecnica: i.technique ?? body.tecnica,
+        tela: i.fabric ?? null,
+        color: i.color,
+        talla: i.size,
+        cantidad: i.quantity,
+      }));
   const disenos = (body.disenos ?? []).map((d) => ({
     ...(isGroup(d.grupo) ? { grupo: d.grupo, piezas: piezasDelGrupo(d.grupo) } : {}),
     zona: d.zona,
@@ -169,30 +176,41 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const itemRows = body.items.map((item) => ({
+  let itemRows: Record<string, unknown>[] = body.items.map((item) => ({
     order_id: order.id,
     product_id: item.productId,
     color: item.color,
     talla: item.size,
     cantidad: item.quantity,
+    tecnica: item.technique ?? body.tecnica,
     ...(item.fabric ? { tela: item.fabric } : {}),
   }));
   let { error: itemsError } = await supabase.from("order_items").insert(itemRows);
 
-  // Sin la columna order_items.tela (falta correr supabase/telas.sql), la tela de
-  // cada pieza se anota en las notas del pedido para que el taller no la pierda.
-  if (itemsError?.code === "PGRST204" && /'tela' column/.test(itemsError.message)) {
-    console.error("Falta la columna order_items.tela; guardando las telas en las notas.");
-    ({ error: itemsError } = await supabase
-      .from("order_items")
-      .insert(itemRows.map(({ tela: _tela, ...rest }: { tela?: string } & Record<string, unknown>) => rest)));
-    const telas = body.items
-      .filter((i) => i.fabric)
-      .map((i) => `${i.quantity}× ${getProductById(i.productId)?.name} ${i.color} ${i.size}: ${getFabric(i.productId, i.fabric)?.name ?? i.fabric}`);
-    if (!itemsError && telas.length) {
-      const notas = [payload.notas, `Telas:\n${telas.join("\n")}`].filter(Boolean).join("\n\n");
-      await supabase.from("orders").update({ notas }).eq("id", order.id);
-    }
+  // Si falta alguna columna nueva de order_items (telas.sql, tecnica-por-pieza.sql),
+  // la pieza se guarda sin ella y el dato se anota en las notas del pedido para que
+  // el taller no lo pierda.
+  const pieceText = (i: ItemInput) => `${i.quantity}× ${getProductById(i.productId)?.name} ${i.color} ${i.size}`;
+  const extraNotes: string[] = [];
+  for (let attempt = 0; attempt < 2 && itemsError?.code === "PGRST204"; attempt++) {
+    const missing = /'(\w+)' column/.exec(itemsError.message)?.[1];
+    if (missing === "tela") {
+      const telas = body.items.filter((i) => i.fabric);
+      if (telas.length) {
+        extraNotes.push(`Telas:\n${telas.map((i) => `${pieceText(i)}: ${getFabric(i.productId, i.fabric)?.name ?? i.fabric}`).join("\n")}`);
+      }
+    } else if (missing === "tecnica") {
+      extraNotes.push(
+        `Técnica de cada pieza:\n${body.items.map((i) => `${pieceText(i)}: ${TECHNIQUE_LABEL[i.technique ?? body.tecnica]}`).join("\n")}`
+      );
+    } else break;
+    console.error(`Falta la columna order_items.${missing}; guardando ese dato en las notas.`);
+    itemRows = itemRows.map(({ [missing]: _drop, ...rest }) => rest);
+    ({ error: itemsError } = await supabase.from("order_items").insert(itemRows));
+  }
+  if (!itemsError && extraNotes.length) {
+    const notas = [payload.notas, ...extraNotes].filter(Boolean).join("\n\n");
+    await supabase.from("orders").update({ notas }).eq("id", order.id);
   }
 
   if (itemsError) {
@@ -214,7 +232,7 @@ export async function POST(req: NextRequest) {
         clienteTelefono: body.clienteTelefono.trim(),
         clienteEmail,
         total: pricing.total,
-        tecnica: body.tecnica,
+        tecnica: techniquesText(body.items, body.tecnica),
         piezas: pricing.totalQuantity,
         entrega,
         factura,
@@ -275,14 +293,19 @@ function validate(body: CreateOrderBody): string | null {
     if (!product) {
       return `Producto inválido: ${item.productId}`;
     }
-    if (!product.techniques.includes(body.tecnica)) {
-      return `${product.name} no se hace con ${TECHNIQUE_LABEL[body.tecnica].toLowerCase()}. Haz un pedido aparte para ese producto.`;
+    // Cada pieza puede ir con su propia técnica; sin técnica propia, la del pedido.
+    const lineTechnique = item.technique ?? body.tecnica;
+    if (!(lineTechnique in TECHNIQUE_LABEL)) {
+      return "Técnica de impresión inválida.";
+    }
+    if (!product.techniques.includes(lineTechnique)) {
+      return `${product.name} no se hace con ${TECHNIQUE_LABEL[lineTechnique].toLowerCase()}.`;
     }
     if (item.fabric != null) {
       const fabric = getFabric(item.productId, item.fabric);
       if (!fabric) return `Tela inválida para ${product.name}.`;
-      if (!fabric.techniques.includes(body.tecnica)) {
-        return `La tela ${fabric.name} no se puede imprimir con ${TECHNIQUE_LABEL[body.tecnica].toLowerCase()}.`;
+      if (!fabric.techniques.includes(lineTechnique)) {
+        return `La tela ${fabric.name} no se puede imprimir con ${TECHNIQUE_LABEL[lineTechnique].toLowerCase()}.`;
       }
     }
     if (!item.quantity || item.quantity < 1) {

@@ -55,6 +55,7 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
   const payment = order.payment_status as PaymentStatus;
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id,
+    technique: (i.tecnica as Technique | null) ?? null,
     fabric: (i.tela as string | null) ?? null,
     color: i.color,
     size: i.talla,

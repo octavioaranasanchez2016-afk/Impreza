@@ -12,7 +12,7 @@ import { ArchiveButton } from "@/components/admin/ArchiveButton";
 import { OrderDesigns } from "@/components/admin/OrderDesigns";
 import { StatusBadge } from "@/components/StatusBadge";
 import { Invoice } from "@/components/Invoice";
-import { buildInvoiceLines } from "@/lib/pricing";
+import { buildInvoiceLines, techniquesText } from "@/lib/pricing";
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { estimateReadyDate, formatReadyDate, isPastDue, toManagua } from "@/lib/delivery";
 import { clientWhatsAppUrl, telUrl } from "@/lib/whatsapp";
@@ -68,6 +68,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   const orderItems = (items ?? []).map((i) => ({
     productId: i.product_id as string,
+    technique: ((i.tecnica as Technique | null) ?? technique) as Technique,
     fabric: (i.tela as string | null) ?? null,
     color: i.color as string,
     size: i.talla as string,
@@ -76,6 +77,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
   const piecesToMake = [...orderItems].sort(
     (a, b) =>
       a.productId.localeCompare(b.productId) ||
+      a.technique.localeCompare(b.technique) ||
       (a.fabric ?? "").localeCompare(b.fabric ?? "") ||
       a.color.localeCompare(b.color) ||
       SIZE_ORDER.indexOf(a.size) - SIZE_ORDER.indexOf(b.size)
@@ -167,7 +169,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="font-semibold text-ink">Hoja de producción</h2>
               <p className="text-xs text-ink-soft">
-                {TECHNIQUE_LABEL[technique] ?? technique} · {totalPieces} pieza{totalPieces === 1 ? "" : "s"}
+                {techniquesText(orderItems, technique)} · {totalPieces} pieza{totalPieces === 1 ? "" : "s"}
               </p>
             </div>
 
@@ -175,6 +177,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               <thead>
                 <tr className="border-b border-black/10 text-left text-xs text-ink-muted">
                   <th className="pb-2 font-medium">Producto</th>
+                  <th className="pb-2 font-medium">Técnica</th>
                   {hasFabrics && <th className="pb-2 font-medium">Tela</th>}
                   <th className="pb-2 font-medium">Color</th>
                   <th className="pb-2 font-medium">Talla</th>
@@ -185,6 +188,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 {piecesToMake.map((p, i) => (
                   <tr key={i} className="border-b border-black/5">
                     <td className="py-2 text-ink">{getProductById(p.productId)?.name ?? p.productId}</td>
+                    <td className="py-2 font-semibold text-ink">{TECHNIQUE_LABEL[p.technique] ?? p.technique}</td>
                     {hasFabrics && (
                       <td className="py-2 font-semibold text-ink">{getFabric(p.productId, p.fabric)?.name ?? "—"}</td>
                     )}

@@ -1,6 +1,5 @@
 import { CORDOBAS_PER_DOLLAR, formatCordobas, formatInDollars } from "@/lib/currency";
 import { InvoiceLine, SETUP_FEE_LABEL } from "@/lib/pricing";
-import { TECHNIQUE_LABEL } from "@/lib/catalog";
 import { PricingBreakdown, Technique } from "@/lib/types";
 import { ShippingInfo } from "@/lib/shipping";
 import { BillingInfo } from "@/lib/billing";
@@ -18,7 +17,7 @@ export function Invoice({
 }: {
   lines: InvoiceLine[];
   pricing: PricingBreakdown;
-  technique: Technique;
+  technique?: Technique; // ya no se muestra: cada línea dice su técnica
   clienteNombre?: string;
   orderNumber?: string;
   date?: Date;
@@ -65,10 +64,6 @@ export function Invoice({
             <dd className="font-mono font-medium uppercase text-ink">{billing.ruc}</dd>
           </div>
         )}
-        <div>
-          <dt className="text-ink-muted">Técnica</dt>
-          <dd className="font-medium text-ink">{TECHNIQUE_LABEL[technique]}</dd>
-        </div>
       </dl>
 
       <table className="mt-4 w-full text-sm">

@@ -41,6 +41,7 @@ export interface OrderItemInput {
   size: string;
   quantity: number;
   fabric?: string | null; // id de la tela, solo en productos con telas
+  technique?: Technique | null; // técnica de esta línea (pedidos anteriores: la del pedido)
 }
 
 export type OrderStatus =
