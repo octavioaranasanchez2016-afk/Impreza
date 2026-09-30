@@ -88,6 +88,12 @@ function defaultFabricFor(product: Product | undefined, technique: Technique): s
   return (product.fabrics.find((f) => f.techniques.includes(technique)) ?? product.fabrics[0]).id;
 }
 
+// Texto del botón que pasa las piezas al pedido: "Agrega tus 30 piezas al pedido".
+function addLabel(pieces: number): string {
+  if (pieces === 1) return "Agrega tu pieza al pedido";
+  return pieces > 1 ? `Agrega tus ${pieces} piezas al pedido` : "Agrega tus piezas al pedido";
+}
+
 // Pedido que viene del cotizador: cuántas piezas lleva de las que cotizó.
 function QuoteProgress({ target, current, multiSize }: { target: number; current: number; multiSize: boolean }) {
   const done = current >= target;
@@ -95,11 +101,11 @@ function QuoteProgress({ target, current, multiSize }: { target: number; current
   return (
     <div className={`rounded-brand border p-3 ${done ? "border-ink bg-ink text-paper" : "border-black/10 bg-paper-soft"}`}>
       <p className="text-sm font-semibold">
-        {done ? `✓ Tus ${target} piezas de la cotización` : `Tu cotización: ${target} piezas · llevas ${current}`}
+        {done ? `✓ Tus ${target} piezas están listas` : `Tu cotización: ${target} piezas · llevas ${current}`}
       </p>
       {done && multiSize && (
         <p className="mt-1 text-[11px] text-paper/70">
-          Las repartimos en tallas típicas: cámbialas según tu grupo y agrégalas al pedido.
+          Las repartimos en tallas típicas: cámbialas según tu grupo y toca «Agrega tus {current} piezas al pedido».
         </p>
       )}
       {!done && (
@@ -647,7 +653,7 @@ export function OrderForm() {
   const emailInvalid = clienteEmail.trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteEmail.trim());
   const missingSteps = [
     items.length === 0 && {
-      label: pendingTotal > 0 ? "tocar «Agregar al pedido» en el paso 1" : "al menos un producto",
+      label: pendingTotal > 0 ? `tocar «${addLabel(pendingTotal)}» en el paso 1` : "al menos un producto",
       section: "diseno",
     },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
@@ -1027,9 +1033,7 @@ export function OrderForm() {
                 disabled={pendingTotal === 0}
                 className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
               >
-                {pendingTotal > 0
-                  ? `+ Agregar ${pendingTotal} pieza${pendingTotal === 1 ? "" : "s"} al pedido`
-                  : "+ Agregar al pedido"}
+                + {addLabel(pendingTotal)}
               </button>
               <p className="text-[11px] text-ink-muted">
                 Cada producto se guarda con el diseño, la técnica y la tela que ves en ese momento. Para pedir el mismo

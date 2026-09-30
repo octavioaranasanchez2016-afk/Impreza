@@ -137,7 +137,7 @@ const SECTIONS = [
       },
       {
         q: "¿Puedo pedir productos con diseños distintos en un mismo pedido?",
-        a: "Sí. Cada producto se guarda con el diseño que tiene el diseñador cuando tocas «Agregar al pedido». Para otro diseño, cámbialo y vuelve a agregar: en tu pedido verás «Diseño 1», «Diseño 2», etc., con las piezas de cada uno.",
+        a: "Sí. Cada producto se guarda con el diseño que tiene el diseñador cuando tocas «Agrega tus piezas al pedido». Para otro diseño, cámbialo y vuelve a agregar: en tu pedido verás «Diseño 1», «Diseño 2», etc., con las piezas de cada uno.",
       },
     ],
   },
