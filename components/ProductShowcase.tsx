@@ -42,7 +42,7 @@ export function ProductGallery({ product }: { product: Product }) {
           <img src={product.image} alt={product.name} className="h-full w-full object-cover" />
         ) : (
           <div className="h-full w-full p-[8%]">
-            <GarmentShape category={product.category} zone={view} color={hex} size="M" />
+            <GarmentShape category={product.category} zone={view} color={hex} />
           </div>
         )}
         {view !== "foto" && (
@@ -68,7 +68,7 @@ export function ProductGallery({ product }: { product: Product }) {
               <img src={product.image} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full p-1.5">
-                <GarmentShape category={product.category} zone={v} color={hex} size="M" />
+                <GarmentShape category={product.category} zone={v} color={hex} />
               </div>
             )}
           </button>
