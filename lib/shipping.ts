@@ -10,13 +10,73 @@ export interface ShippingInfo {
   recibe?: string; // quién recibe, si no es el cliente
   lat?: number;
   lng?: number;
+  envio?: DeliveryQuote; // lo calcula el servidor al guardar el pedido
 }
 
+// De aquí sale el delivery. Coordenadas del Plus Code 4PCW+PM5, Managua.
 export const WORKSHOP = {
   name: "Arango Textil, Managua",
   mapsUrl: "https://www.google.com/maps/search/?api=1&query=4PCW%2BPM5+Managua",
   hours: "Lun – Vie 8am – 5pm · Sáb 8am – 12pm",
+  lat: 12.121762,
+  lng: -86.253266,
 };
+
+// Tarifa del delivery en córdobas: base + cada kilómetro desde Arango Textil,
+// redondeado a C$5, con un mínimo. Cambia estos números para ajustar el precio.
+export const DELIVERY_RATE = { base: 40, perKm: 15, minimum: 80 };
+
+// Las calles no van en línea recta: la distancia en carretera es ~35% mayor.
+const ROAD_FACTOR = 1.35;
+
+// Kilómetros típicos por carretera desde Arango Textil cuando el cliente no comparte
+// su ubicación. Con la ubicación GPS se calcula la distancia exacta.
+const MUNICIPIO_KM: Record<string, number> = {
+  Managua: 7,
+  "Ciudad Sandino": 14,
+  Tipitapa: 22,
+  Ticuantepe: 16,
+  Nindirí: 24,
+  Masaya: 29,
+  "El Crucero": 22,
+};
+
+export interface DeliveryQuote {
+  km: number;
+  costo: number; // córdobas
+  exacto: boolean; // true: con la ubicación GPS del cliente; false: estimado por municipio
+}
+
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }) {
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const dLat = rad(b.lat - a.lat);
+  const dLng = rad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * 6371 * Math.asin(Math.sqrt(h));
+}
+
+export function deliveryFee(km: number): number {
+  const raw = DELIVERY_RATE.base + DELIVERY_RATE.perKm * km;
+  return Math.max(DELIVERY_RATE.minimum, Math.ceil(raw / 5) * 5);
+}
+
+// Costo del delivery a esta dirección, o null si todavía no se puede calcular
+// (fuera de los municipios de la lista y sin ubicación GPS).
+export function deliveryQuote(info: ShippingInfo | null): DeliveryQuote | null {
+  if (!info || info.metodo !== "domicilio") return null;
+  let km: number;
+  let exacto = false;
+  if (hasGps(info)) {
+    km = distanceKm(WORKSHOP, info) * ROAD_FACTOR;
+    exacto = true;
+  } else if (info.municipio && MUNICIPIO_KM[info.municipio] !== undefined) {
+    km = MUNICIPIO_KM[info.municipio];
+  } else {
+    return null;
+  }
+  km = Math.round(km * 10) / 10;
+  return { km, costo: deliveryFee(km), exacto };
+}
 
 export const OTHER_MUNICIPIO = "Otro lugar de Nicaragua";
 
@@ -31,7 +91,7 @@ export const MUNICIPIOS = [
   OTHER_MUNICIPIO,
 ];
 
-export const SHIPPING_COST_NOTE = "El costo del envío depende de tu zona y te lo confirmamos por WhatsApp.";
+export const SHIPPING_COST_NOTE = `El delivery sale de Arango Textil: C$${DELIVERY_RATE.base} + C$${DELIVERY_RATE.perKm} por kilómetro (mínimo C$${DELIVERY_RATE.minimum}).`;
 
 const MIN_DIRECCION_LENGTH = 10;
 
@@ -41,6 +101,8 @@ export function missingAddressField(info: ShippingInfo): string | null {
   if (!info.municipio?.trim()) return "el municipio de entrega";
   if ((info.barrio?.trim().length ?? 0) < 2) return "el barrio de entrega";
   if ((info.direccion?.trim().length ?? 0) < MIN_DIRECCION_LENGTH) return "tu dirección con señas";
+  // Fuera de los municipios de la lista, el envío se calcula con la ubicación.
+  if (!deliveryQuote(info)) return "compartir tu ubicación para calcular el envío";
   return null;
 }
 
@@ -76,6 +138,11 @@ export function parseShipping(raw: unknown): ShippingInfo | null {
     info.lat = Math.round(lat * 1e6) / 1e6;
     info.lng = Math.round(lng * 1e6) / 1e6;
   }
+  // El costo guardado del pedido (el servidor siempre lo vuelve a calcular al crearlo).
+  const envio = r.envio as Record<string, unknown> | undefined;
+  if (envio && Number.isFinite(Number(envio.costo)) && Number.isFinite(Number(envio.km))) {
+    info.envio = { km: Number(envio.km), costo: Number(envio.costo), exacto: Boolean(envio.exacto) };
+  }
   return info;
 }
 
@@ -108,6 +175,7 @@ export function addressText(info: ShippingInfo): string {
   if (info.metodo === "retiro") return `Recoge en el taller (${WORKSHOP.name})`;
   return [
     `Entrega a domicilio: ${areaLabel(info)}`,
+    info.envio && `Delivery: C$${info.envio.costo} (${info.envio.km} km)`,
     info.direccion && `Señas: ${info.direccion}`,
     info.recibe && `Recibe: ${info.recibe}`,
     hasGps(info) && `Ubicación: ${addressMapsUrl(info)}`,

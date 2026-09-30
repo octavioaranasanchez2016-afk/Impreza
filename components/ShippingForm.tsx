@@ -5,6 +5,7 @@ import {
   MUNICIPIOS,
   OTHER_MUNICIPIO,
   SHIPPING_COST_NOTE,
+  deliveryQuote,
   ShippingInfo,
   ShippingMethod,
   WORKSHOP,
@@ -13,6 +14,33 @@ import {
 } from "@/lib/shipping";
 
 type GpsState = "idle" | "locating" | "error";
+
+// El costo del delivery según la distancia desde Arango Textil.
+function DeliveryBox({ quote, municipio }: { quote: ReturnType<typeof deliveryQuote>; municipio?: string }) {
+  if (!quote) {
+    return (
+      <div className="rounded-brand border border-dashed border-black/20 px-4 py-3 text-xs text-ink-soft">
+        {municipio === OTHER_MUNICIPIO
+          ? "Para envíos fuera de la lista de municipios, comparte tu ubicación y calculamos el delivery por kilómetro."
+          : SHIPPING_COST_NOTE}
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3">
+      <div className="min-w-0">
+        <p className="text-sm font-semibold text-ink">Delivery · {quote.km} km desde Arango Textil</p>
+        <p className="text-[11px] text-ink-soft">
+          {quote.exacto
+            ? "Calculado con tu ubicación."
+            : `Estimado para ${municipio}. Comparte tu ubicación para el cálculo exacto.`}{" "}
+          {SHIPPING_COST_NOTE}
+        </p>
+      </div>
+      <p className="shrink-0 text-lg font-bold text-ink">C${quote.costo}</p>
+    </div>
+  );
+}
 
 export function ShippingForm({
   value,
@@ -189,10 +217,7 @@ export function ShippingForm({
             {gpsError && <p className="mt-2 text-xs font-medium text-red-600">{gpsError}</p>}
           </div>
 
-          <p className="text-xs text-ink-soft">
-            {SHIPPING_COST_NOTE}
-            {address.municipio === OTHER_MUNICIPIO && " Para envíos fuera de Managua te confirmamos por WhatsApp cómo te lo hacemos llegar."}
-          </p>
+          <DeliveryBox quote={deliveryQuote(address)} municipio={address.municipio} />
         </div>
       )}
     </div>

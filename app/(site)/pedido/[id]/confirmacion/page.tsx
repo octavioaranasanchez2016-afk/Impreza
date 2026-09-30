@@ -10,7 +10,7 @@ import { formatBoth } from "@/lib/currency";
 import { buildInvoiceLines } from "@/lib/pricing";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
 import { OrderStatus, PaymentStatus, Technique } from "@/lib/types";
-import { SHIPPING_COST_NOTE, ShippingInfo, WORKSHOP, areaLabel, parseShipping } from "@/lib/shipping";
+import { ShippingInfo, WORKSHOP, areaLabel, parseShipping } from "@/lib/shipping";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +22,7 @@ export const metadata = {
 const STATUS_ORDER: OrderStatus[] = ["recibido", "diseno_aprobado", "en_produccion", "listo_entregado"];
 
 function readyText(entrega: ShippingInfo | null) {
-  if (entrega?.metodo === "domicilio") return "Te escribimos por WhatsApp para coordinar la entrega en tu dirección.";
+  if (entrega?.metodo === "domicilio") return "Sale de Arango Textil hacia tu dirección. Te avisamos cuando vaya en camino.";
   if (entrega?.metodo === "retiro") return `Ya puedes recogerlo en ${WORKSHOP.name} (${WORKSHOP.hours}).`;
   return "Escríbenos por WhatsApp para coordinar la entrega o recogida.";
 }
@@ -128,7 +128,11 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
           {entrega.metodo === "domicilio" ? (
             <p className="text-ink">
               <span className="font-semibold">A domicilio</span> en {areaLabel(entrega)}
-              <span className="block text-xs text-ink-soft">{SHIPPING_COST_NOTE}</span>
+              {entrega.envio && (
+                <span className="block text-xs text-ink-soft">
+                  Delivery: C${entrega.envio.costo} · {entrega.envio.km} km desde Arango Textil
+                </span>
+              )}
             </p>
           ) : (
             <p className="text-ink">
@@ -172,6 +176,8 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
             discountPct: Number(order.descuento_pct),
             discountAmount: Number(order.descuento_monto),
             setupFee: Number(order.cargo_diseno),
+            shipping: entrega?.envio?.costo ?? 0,
+            shippingKm: entrega?.envio?.km,
             total,
           }}
           technique={technique}

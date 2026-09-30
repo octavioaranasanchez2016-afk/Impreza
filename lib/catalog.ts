@@ -42,13 +42,68 @@ export const TECHNIQUE_LABEL: Record<Technique, string> = {
   dtf: "DTF",
 };
 
-// Una línea para explicar cada técnica al cliente.
+// Una línea corta para el formulario del pedido (la explicación completa está en
+// TECHNIQUE_INFO y se ve con "Ver diferencias").
 export const TECHNIQUE_HINT: Record<Technique, string> = {
-  serigrafia: "Tinta durable, ideal para pedidos grandes.",
-  sublimado: "Colores vivos que no se sienten; solo en poliéster claro.",
-  bordado: "Hilo cosido: elegante y resistente.",
-  dtf: "Full color y degradados en cualquier tela y color, desde 1 pieza.",
+  serigrafia: "Durable, ideal para muchas piezas.",
+  sublimado: "Full color, solo poliéster claro.",
+  bordado: "Hilo cosido, elegante.",
+  dtf: "Full color en cualquier tela.",
 };
+
+// Qué es cada técnica, para el inicio, la página del producto, las preguntas
+// frecuentes y la ventana "Ver diferencias" del pedido.
+export const TECHNIQUE_INFO: Record<Technique, { what: string; points: string[] }> = {
+  serigrafia: {
+    what: "La tinta pasa a través de una malla directo sobre la tela, un color a la vez. Colores sólidos y muy duraderos.",
+    points: ["Ideal para logos de 1 a 3 colores", "La mejor opción para pedidos grandes", "Muy resistente al lavado"],
+  },
+  sublimado: {
+    what: "Con calor, la tinta se funde con las fibras de poliéster. Colores vivos y detalle de fotografía.",
+    points: ["Ideal para fotos y diseños a todo color", "No se siente al tacto: no se agrieta ni se despega", "Solo en poliéster blanco o claro"],
+  },
+  dtf: {
+    what: "El diseño se imprime a todo color en una película especial y se pega a la prenda con calor.",
+    points: ["Fotos, degradados y muchos colores", "En cualquier tela y color, incluso oscuros", "Conviene desde 1 pieza"],
+  },
+  bordado: {
+    what: "Tu logo cosido con hilo directo en la prenda. Un acabado elegante que dura años.",
+    points: ["Ideal para logos en polos y gorras", "Perfecto para uniformes de empresa", "No se despinta ni se agrieta al lavar"],
+  },
+};
+
+// Comparación rápida, fila por fila.
+export const TECHNIQUE_COMPARISON: { label: string; values: Record<Technique, string> }[] = [
+  {
+    label: "Mejor para",
+    values: {
+      serigrafia: "Pedidos grandes y logos simples",
+      sublimado: "Fotos y diseños a todo color",
+      dtf: "Pocas piezas a todo color",
+      bordado: "Logos en polos y gorras",
+    },
+  },
+  {
+    label: "Colores",
+    values: { serigrafia: "1 a 3 colores sólidos", sublimado: "Ilimitados", dtf: "Ilimitados", bordado: "Según los hilos" },
+  },
+  {
+    label: "Telas",
+    values: {
+      serigrafia: "Algodón, mezcla y poliéster",
+      sublimado: "Solo poliéster claro",
+      dtf: "Cualquier tela y color",
+      bordado: "Polos y gorras",
+    },
+  },
+  {
+    label: "Al tacto",
+    values: { serigrafia: "Capa de tinta", sublimado: "No se siente", dtf: "Capa fina y flexible", bordado: "Hilo en relieve" },
+  },
+];
+
+// Orden en que se muestran las técnicas.
+export const TECHNIQUE_ORDER: Technique[] = ["serigrafia", "dtf", "sublimado", "bordado"];
 
 // Catálogo inicial con precios de referencia en córdobas (NIO). Ajusta
 // basePrice y variantes con los precios reales del taller antes de publicar.

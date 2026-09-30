@@ -29,6 +29,9 @@ export function PricingSummary({
             highlight="font-semibold text-ink"
           />
         )}
+        {(pricing.shipping ?? 0) > 0 && (
+          <Row label={`Delivery (${pricing.shippingKm} km)`} value={money(pricing.shipping ?? 0)} />
+        )}
         {pricing.setupFee > 0 && (
           <Row label="Cargo por preparación de diseño" value={money(pricing.setupFee)} />
         )}

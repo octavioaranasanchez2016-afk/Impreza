@@ -129,6 +129,16 @@ export interface ImageDesignContent extends MockupImageContent {
   source?: SourceImage & { crop: CropRect };
 }
 
+// El recorte más grande con esa proporción (ancho/alto en píxeles), centrado.
+export function centeredCrop(aspect: number, width: number, height: number): CropRect {
+  const w = width / height > aspect ? (aspect * height) / width : 1;
+  const h = width / height > aspect ? 1 : width / (aspect * height);
+  return { x: (1 - w) / 2, y: (1 - h) / 2, w, h };
+}
+
+// Proporción en píxeles de un recorte.
+export const cropAspect = (crop: CropRect, width: number, height: number) => (crop.w * width) / (crop.h * height);
+
 // Lado más largo del recorte: los navegadores del celular no pueden dibujar lienzos
 // mucho más grandes, y a 30 cm sigue dando más de 300 ppp.
 const MAX_CROP_SIDE = 4096;

@@ -25,7 +25,7 @@ import {
 } from "@/lib/cart-designs";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
-import { ShippingInfo, missingAddressField } from "@/lib/shipping";
+import { ShippingInfo, deliveryQuote, missingAddressField } from "@/lib/shipping";
 import { BillingInfo, missingBillingField } from "@/lib/billing";
 import {
   DraftDesign,
@@ -49,6 +49,7 @@ import { ShippingForm } from "./ShippingForm";
 import { OrderCodeBox } from "./OrderCodeBox";
 import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
+import { TechniqueGuide } from "./TechniqueGuide";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -106,6 +107,8 @@ export function OrderForm() {
   );
   // Aviso cuando cambiar la técnica obligó a cambiar la tela (o al revés).
   const [fabricNote, setFabricNote] = useState<string | null>(null);
+  // Ventana con la explicación y comparación de técnicas.
+  const [showTechniques, setShowTechniques] = useState(false);
   const [color, setColor] = useState(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.color ?? "");
   const [size, setSize] = useState(defaultSize(PRODUCTS.find((p) => p.id === preselected)?.variants[0]?.sizes ?? []));
   // Cuántas piezas de cada talla se van a agregar, como en una hoja de pedido.
@@ -136,7 +139,15 @@ export function OrderForm() {
   const selectedFabric = getFabric(productId, fabric);
   // La tinta de sublimación es transparente: sobre telas oscuras no se ve.
   const sublimationOnDark = technique === "sublimado" && isDarkColor(selectedVariant?.colorHex ?? "#FFFFFF");
-  const pricing = useMemo(() => calculateOrderTotal(items, technique), [items, technique]);
+  // El delivery se cobra aparte del descuento por cantidad y se suma al total.
+  const delivery = deliveryQuote(shipping);
+  const productPricing = useMemo(() => calculateOrderTotal(items, technique), [items, technique]);
+  const pricing = {
+    ...productPricing,
+    shipping: delivery?.costo ?? 0,
+    shippingKm: delivery?.km,
+    total: productPricing.total + (items.length ? delivery?.costo ?? 0 : 0),
+  };
 
   const zones = selectedProduct ? getZonesForCategory(selectedProduct.category) : (["frente"] as DesignZone[]);
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
@@ -815,6 +826,41 @@ export function OrderForm() {
                     );
                   })}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTechniques(true)}
+                  className="mt-1.5 text-[11px] font-semibold text-ink underline"
+                >
+                  ¿Cuál me conviene? Ver diferencias
+                </button>
+                {showTechniques && (
+                  <div
+                    className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-3"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Diferencias entre técnicas"
+                    onClick={(e) => e.target === e.currentTarget && setShowTechniques(false)}
+                  >
+                    <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-brand bg-paper-soft p-4 shadow-xl sm:p-5">
+                      <div className="mb-3 flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-display text-3xl uppercase leading-none tracking-wide text-ink">Técnicas</p>
+                          <p className="mt-1 text-xs text-ink-soft">
+                            Las de {selectedProduct?.name.toLowerCase()}. Puedes mezclar técnicas en un mismo pedido.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowTechniques(false)}
+                          className="rounded-brand border border-black/15 bg-white px-3 py-1.5 text-sm font-semibold text-ink hover:border-ink"
+                        >
+                          Cerrar
+                        </button>
+                      </div>
+                      <TechniqueGuide techniques={selectedProduct?.techniques} comparison compact />
+                    </div>
+                  </div>
+                )}
                 {sublimationOnDark && (
                   <div className="mt-2 rounded-brand bg-yellow-50 p-3 text-xs text-yellow-900">
                     <p>

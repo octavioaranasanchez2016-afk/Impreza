@@ -67,5 +67,7 @@ export interface PricingBreakdown {
   discountPct: number;
   discountAmount: number;
   setupFee: number;
+  shipping?: number; // delivery en córdobas (ya incluido en total)
+  shippingKm?: number;
   total: number;
 }

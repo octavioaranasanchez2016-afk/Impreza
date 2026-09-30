@@ -4,6 +4,7 @@ import { TECHNIQUE_LABEL, getProductBySlug, PRODUCTS } from "@/lib/catalog";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { SIZE_MEASUREMENTS, ZONE_LABEL, getPrintAreaCm, getZonesForCategory } from "@/components/GarmentShape";
+import { TechniqueGuide } from "@/components/TechniqueGuide";
 
 export function generateStaticParams() {
   return PRODUCTS.map((p) => ({ slug: p.slug }));
@@ -64,13 +65,16 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
           <div className="mt-6">
             <p className="text-sm font-semibold text-ink">Técnicas</p>
-            <div className="mt-2 flex gap-2">
-              {product.techniques.map((t) => (
-                <span key={t} className="rounded-full border border-ink/15 px-3 py-1.5 text-sm font-medium text-ink">
-                  {TECHNIQUE_LABEL[t]}
-                </span>
-              ))}
+            <p className="mt-1 text-xs text-ink-soft">Así se puede imprimir este producto. Eliges la técnica al armar tu pedido.</p>
+            <div className="mt-2">
+              <TechniqueGuide techniques={product.techniques} compact />
             </div>
+            <Link
+              href="/preguntas-frecuentes#tecnicas"
+              className="mt-2 inline-block text-xs font-semibold text-ink underline"
+            >
+              Comparar todas las técnicas →
+            </Link>
           </div>
 
           {product.fabrics && (

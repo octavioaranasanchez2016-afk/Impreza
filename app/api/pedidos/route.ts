@@ -4,7 +4,7 @@ import { calculateOrderTotal, techniquesText } from "@/lib/pricing";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
-import { addressText, missingAddressField, parseShipping } from "@/lib/shipping";
+import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 
 interface DisenoInput {
@@ -61,11 +61,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: validationError }, { status: 400 });
   }
 
-  const entrega = parseShipping(body.entrega);
-  if (!entrega) {
+  const parsedEntrega = parseShipping(body.entrega);
+  if (!parsedEntrega) {
     return NextResponse.json({ error: "Elige si quieres entrega a domicilio o recoger en el taller." }, { status: 400 });
   }
-  const missingAddress = missingAddressField(entrega);
+  const missingAddress = missingAddressField(parsedEntrega);
   if (missingAddress) {
     return NextResponse.json({ error: `Para la entrega a domicilio falta ${missingAddress}.` }, { status: 400 });
   }
@@ -79,6 +79,12 @@ export async function POST(req: NextRequest) {
   // monto enviado por el cliente. Este es también el punto donde, cuando la
   // pasarela de BAC esté activa, se llamaría a getActivePaymentProvider().
   const pricing = calculateOrderTotal(body.items, body.tecnica);
+
+  // El delivery se calcula aquí de nuevo (nunca se confía en el monto del navegador)
+  // y queda guardado con la dirección.
+  const envio = deliveryQuote(parsedEntrega);
+  const entrega = envio ? { ...parsedEntrega, envio } : { ...parsedEntrega, envio: undefined };
+  const total = Math.round((pricing.total + (envio?.costo ?? 0)) * 100) / 100;
 
   if (pricing.totalQuantity === 0) {
     return NextResponse.json({ error: "El pedido no tiene productos válidos." }, { status: 400 });
@@ -131,7 +137,7 @@ export async function POST(req: NextRequest) {
     descuento_pct: pricing.discountPct,
     descuento_monto: pricing.discountAmount,
     cargo_diseno: pricing.setupFee,
-    total: pricing.total,
+    total,
   };
 
   const payload: Record<string, unknown> = { ...row, entrega, ...(factura ? { factura } : {}) };
@@ -231,7 +237,7 @@ export async function POST(req: NextRequest) {
         clienteNombre,
         clienteTelefono: body.clienteTelefono.trim(),
         clienteEmail,
-        total: pricing.total,
+        total,
         tecnica: techniquesText(body.items, body.tecnica),
         piezas: pricing.totalQuantity,
         entrega,
@@ -244,12 +250,12 @@ export async function POST(req: NextRequest) {
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
       }),
       clienteEmail
-        ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total: pricing.total })
+        ? sendCustomerConfirmationEmail({ orderId: order.id, clienteNombre, clienteEmail, total })
         : Promise.resolve(),
     ]);
   });
 
-  return NextResponse.json({ orderId: order.id, total: pricing.total });
+  return NextResponse.json({ orderId: order.id, total });
 }
 
 function validate(body: CreateOrderBody): string | null {

@@ -102,7 +102,15 @@ export function Invoice({
           />
         )}
         {pricing.setupFee > 0 && <Row label={SETUP_FEE_LABEL} value={formatCordobas(pricing.setupFee)} />}
-        {shipping?.metodo === "domicilio" && <Row label="Envío a domicilio" value="Según zona" />}
+        {shipping?.metodo === "domicilio" &&
+          ((pricing.shipping ?? 0) > 0 ? (
+            <Row
+              label={`Delivery desde Arango Textil${pricing.shippingKm ? ` (${pricing.shippingKm} km)` : ""}`}
+              value={formatCordobas(pricing.shipping ?? 0)}
+            />
+          ) : (
+            <Row label="Delivery" value="Por calcular" />
+          ))}
         {shipping?.metodo === "retiro" && <Row label="Recoger en el taller" value="Gratis" />}
       </dl>
 

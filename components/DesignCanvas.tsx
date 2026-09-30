@@ -6,6 +6,8 @@ import {
   ACCEPTED_DESIGN_TYPES,
   CropRect,
   DesignContent,
+  centeredCrop,
+  cropAspect,
   cropImageFile,
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
@@ -211,6 +213,25 @@ export function DesignCanvas({
     }
   }
 
+  // Qué encuadre tiene la imagen: completa, llenando el área (con la forma del área,
+  // en cualquier posición) o con otro recorte.
+  const areaAspect = printCm.w / printCm.h;
+  const framing: "completa" | "llenar" | "recorte" =
+    content?.kind !== "imagen"
+      ? "completa"
+      : content.source
+      ? Math.abs(cropAspect(content.source.crop, content.source.width, content.source.height) - areaAspect) < 0.01
+        ? "llenar"
+        : "recorte"
+      : content.fill
+      ? "llenar"
+      : "completa";
+
+  function fillArea() {
+    if (!sourceImage) return;
+    void applyCrop(centeredCrop(areaAspect, sourceImage.width, sourceImage.height), true);
+  }
+
   async function applyCrop(crop: CropRect, fillsArea: boolean) {
     if (!sourceImage) return;
     try {
@@ -382,7 +403,7 @@ export function DesignCanvas({
                 </div>
 
                 <div>
-                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Letra</p>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Letra</p>
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
                     {FONT_OPTIONS.map((f) => (
                       <button
@@ -403,7 +424,7 @@ export function DesignCanvas({
                 </div>
 
                 <div>
-                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Color</p>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Color</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     {TEXT_COLOR_OPTIONS.map((c) => (
                       <button
@@ -436,7 +457,7 @@ export function DesignCanvas({
                 </div>
 
                 <div>
-                  <p className="mb-1.5 text-xs font-medium text-ink-soft">Contorno de las letras</p>
+                  <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Contorno de las letras</p>
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
@@ -466,32 +487,34 @@ export function DesignCanvas({
             )}
 
             {content.kind === "imagen" && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-ink-soft">Ajuste de la imagen</p>
-                <div className="grid grid-cols-2 gap-2">
+              <Section title="Encuadre">
+                <div className="grid grid-cols-3 gap-1.5">
+                  <FitOption active={framing === "completa"} onClick={showWholeImage} title="Completa" hint="La imagen entera" />
                   <FitOption
-                    active={!content.fill && !content.source}
-                    onClick={showWholeImage}
-                    title="Imagen completa"
-                    hint="Se ve toda la imagen"
+                    active={framing === "llenar"}
+                    onClick={fillArea}
+                    title="Llenar área"
+                    hint={`Cubre ${printCm.w} × ${printCm.h} cm`}
                   />
                   <FitOption
-                    active={Boolean(content.fill || content.source)}
+                    active={framing === "recorte"}
                     onClick={() => setCropping(true)}
-                    title="Elegir qué parte"
-                    hint="Como un fondo de pantalla: mueve y acerca"
+                    title="Recortar"
+                    hint="Encuadre a tu medida"
                   />
                 </div>
                 {content.source && (
-                  <p className="mt-1.5 text-[11px] text-ink-muted">
-                    Estás usando una parte de tu imagen.{" "}
+                  <p className="mt-2 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-muted">
+                    <span>
+                      Recorte aplicado · {content.width} × {content.height} px
+                    </span>
                     <button type="button" onClick={() => setCropping(true)} className="font-semibold text-ink underline">
-                      Cambiar la parte
+                      Ajustar recorte
                     </button>
                   </p>
                 )}
                 {cropError && <p className="mt-1.5 text-xs font-medium text-red-600">{cropError}</p>}
-              </div>
+              </Section>
             )}
             {cropping && sourceImage && content?.kind === "imagen" && (
               <ImageCropper
@@ -506,66 +529,60 @@ export function DesignCanvas({
               />
             )}
 
-            {presets && sizeCm && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-ink-soft">Posición rápida</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {presets.map((p) => {
+            <Section title="Posición">
+              <div className="flex flex-wrap gap-1.5">
+                {presets &&
+                  sizeCm &&
+                  presets.map((p) => {
                     const target = presetTransform(p, category, zone, transform, sizeCm);
                     const active = sameTransform(target, transform);
                     return (
-                      <button
-                        key={p.label}
-                        type="button"
-                        aria-pressed={active}
-                        onClick={() => onTransformChange(target)}
-                        className={`rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                          active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
-                        }`}
-                      >
+                      <Chip key={p.label} active={active} onClick={() => onTransformChange(target)}>
                         {p.label}
-                      </button>
+                      </Chip>
                     );
                   })}
-                </div>
+                <Chip onClick={() => onTransformChange({ ...transform, x: area.x + area.w / 2 })}>Centrar</Chip>
+                {!presets && <Chip onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</Chip>}
               </div>
-            )}
+            </Section>
 
-            {sizeCm && maxCm && (
-              <div>
-                <p className="mb-1.5 text-xs font-medium text-ink-soft">Medidas exactas</p>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Section
+              title="Tamaño"
+              aside={
+                <button
+                  type="button"
+                  onClick={() => onTransformChange({ ...transform, scale: MAX_SCALE })}
+                  disabled={transform.scale >= MAX_SCALE}
+                  className="text-[11px] font-semibold text-ink underline disabled:text-ink-muted disabled:no-underline"
+                >
+                  Máximo
+                </button>
+              }
+            >
+              {sizeCm && maxCm && (
+                <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-2">
                   <CmInput label="Ancho" value={sizeCm.w} onCommit={(cm) => resizeTo(cm, sizeCm.w)} />
                   <CmInput label="Alto" value={sizeCm.h} onCommit={(cm) => resizeTo(cm, sizeCm.h)} />
                   <span className="text-[11px] text-ink-muted">
                     máx. {maxCm.w.toFixed(1)} × {maxCm.h.toFixed(1)} cm
                   </span>
                 </div>
-              </div>
-            )}
-
-            <div className="grid gap-4 sm:grid-cols-2">
+              )}
               <Slider
-                label="Tamaño"
+                label="Escala"
                 value={transform.scale}
                 min={MIN_SCALE}
                 max={MAX_SCALE}
                 step={0.01}
                 display={`${Math.round(transform.scale * 100)}%`}
                 onChange={(scale) => onTransformChange({ ...transform, scale })}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => onTransformChange({ ...transform, scale: MAX_SCALE })}
-                    disabled={transform.scale >= MAX_SCALE}
-                    className="rounded border border-ink bg-ink px-2 py-0.5 text-[11px] font-semibold text-paper transition-opacity hover:opacity-80 disabled:border-black/15 disabled:bg-transparent disabled:text-ink-muted"
-                  >
-                    Máximo
-                  </button>
-                }
               />
+            </Section>
+
+            <Section title="Rotación">
               <Slider
-                label="Girar"
+                label="Ángulo"
                 value={rotationDisplay}
                 min={-180}
                 max={180}
@@ -573,18 +590,17 @@ export function DesignCanvas({
                 display={`${Math.round(rotationDisplay)}°`}
                 onChange={setRotation}
               />
-            </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {[-90, 0, 90].map((deg) => (
+                  <Chip key={deg} active={Math.round(rotationDisplay) === deg} onClick={() => setRotation(deg)}>
+                    {deg === 0 ? "0° · Enderezar" : `${deg > 0 ? "+" : "−"}${Math.abs(deg)}°`}
+                  </Chip>
+                ))}
+              </div>
+            </Section>
 
-            <div className="flex flex-wrap gap-2">
-              <ToolButton onClick={() => onTransformChange({ ...transform, x: area.x + area.w / 2 })}>Centrar</ToolButton>
-              <ToolButton onClick={() => setRotation(0)}>Enderezar</ToolButton>
-              {!presets && (
-                <ToolButton onClick={() => onTransformChange(defaultTransform(category, zone))}>Restablecer</ToolButton>
-              )}
-            </div>
-
-            <p className="text-xs text-ink-muted">
-              También puedes arrastrar el diseño. Punto negro: tamaño · punto blanco: girar.
+            <p className="border-t border-black/10 pt-3 text-[11px] text-ink-muted">
+              Arrastra el diseño sobre la prenda para moverlo · esquina negra: tamaño · círculo blanco: rotación.
             </p>
           </div>
         )}
@@ -603,6 +619,33 @@ export function DesignCanvas({
 
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
     </div>
+  );
+}
+
+function Section({ title, aside, children }: { title: string; aside?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="border-t border-black/10 pt-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">{title}</p>
+        {aside}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function Chip({ active = false, onClick, children }: { active?: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={`rounded-brand border px-3 py-1.5 text-xs font-semibold transition-colors ${
+        active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 
@@ -692,18 +735,6 @@ function FitOption({ active, onClick, title, hint }: { active: boolean; onClick:
     >
       <span className="block text-sm font-semibold">{title}</span>
       <span className={`block text-[11px] ${active ? "text-paper/70" : "text-ink-muted"}`}>{hint}</span>
-    </button>
-  );
-}
-
-function ToolButton({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-brand border border-black/15 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink"
-    >
-      {children}
     </button>
   );
 }

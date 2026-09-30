@@ -48,6 +48,12 @@ export function ShippingCard({
               Recibe: <span className="text-ink">{entrega.recibe}</span>
             </p>
           )}
+          {entrega.envio && (
+            <p className="mt-2 rounded-brand bg-paper-soft px-3 py-2 text-sm text-ink">
+              Delivery cobrado: <span className="font-semibold">C${entrega.envio.costo}</span> · {entrega.envio.km} km
+              desde Arango Textil{entrega.envio.exacto ? " (con GPS)" : " (estimado por municipio)"}
+            </p>
+          )}
           <p className="mt-2 text-xs text-ink-muted">
             {hasGps(entrega)
               ? "✓ El cliente compartió su ubicación GPS: el mapa abre el punto exacto."

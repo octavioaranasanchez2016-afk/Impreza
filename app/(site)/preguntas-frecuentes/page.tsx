@@ -1,4 +1,5 @@
 import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
+import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 
@@ -28,7 +29,7 @@ const SECTIONS = [
       },
       {
         q: "¿Hacen entrega a domicilio?",
-        a: "Sí, puerta a puerta. Al hacer tu pedido elige «Entrega a domicilio» y escribe tu dirección con señas; si estás en el lugar de entrega, también puedes compartir tu ubicación GPS para que el repartidor llegue directo. El costo del envío depende de tu zona y te lo confirmamos por WhatsApp.",
+        a: "Sí, puerta a puerta. Al hacer tu pedido elige «Entrega a domicilio» y escribe tu dirección con señas; si estás en el lugar de entrega, también puedes compartir tu ubicación GPS para que el repartidor llegue directo. El delivery sale de Arango Textil y se cobra por kilómetro: lo ves calculado en tu factura antes de pagar (con tu ubicación GPS, el cálculo es exacto).",
       },
       {
         q: "¿Puedo recoger mi pedido?",
@@ -79,6 +80,32 @@ const SECTIONS = [
     ],
   },
   {
+    id: "tecnicas",
+    title: "Técnicas de impresión",
+    faqs: [
+      {
+        q: "¿Qué es la serigrafía?",
+        a: "Es la técnica clásica: la tinta pasa a través de una malla directo sobre la tela, un color a la vez. Da colores sólidos, intensos y muy resistentes al lavado. Es ideal para logos de 1 a 3 colores y para pedidos grandes, como uniformes, eventos o graduaciones.",
+      },
+      {
+        q: "¿Qué es el sublimado?",
+        a: "Con calor, la tinta se convierte en gas y se funde con las fibras de poliéster: queda dentro de la tela, así que no se siente al tacto y no se agrieta ni se despega. Reproduce fotos y diseños a todo color. Solo funciona en poliéster blanco o de color claro, porque la tinta es transparente.",
+      },
+      {
+        q: "¿Qué es el DTF?",
+        a: "DTF significa «Direct To Film»: el diseño se imprime a todo color en una película especial y se pega a la prenda con calor. Sirve en cualquier tela y color (incluso prendas oscuras o de algodón), reproduce fotos y degradados, y conviene desde 1 pieza. Se siente como una capa fina y flexible sobre la tela.",
+      },
+      {
+        q: "¿Qué es el bordado?",
+        a: "Tu logo se cose con hilo directo en la prenda. Es el acabado más elegante y dura años: no se despinta ni se agrieta. Lo usamos en polos y gorras, ideal para uniformes de empresa. Los detalles muy finos y los degradados no se pueden bordar.",
+      },
+      {
+        q: "¿Qué técnica me conviene?",
+        a: "Para muchas piezas con un logo de pocos colores, serigrafía. Para fotos o diseños a todo color en pocas piezas, o en prendas oscuras, DTF. Para diseños a todo color que no se sientan, en camisas de poliéster claras, sublimado. Para un logo elegante en polos o gorras, bordado. Puedes mezclar técnicas en un mismo pedido.",
+      },
+    ],
+  },
+  {
     id: "diseno",
     title: "Diseño y archivos",
     faqs: [
@@ -91,20 +118,12 @@ const SECTIONS = [
         a: "La vista previa está a escala: al acomodar tu diseño ves su tamaño real en centímetros. El área máxima es de 30 × 40 cm en camisas, 30 × 22 cm al frente del hoodie (arriba del bolsillo), 34 × 28 cm en su espalda, 10 × 10 cm en cada manga, 8 × 8 cm en la etiqueta y 30 × 30 cm en la tote bag. En bordado: 10 × 10 cm al pecho de la polo, 25 × 20 cm en su espalda y 11 × 5.5 cm al frente de la gorra.",
       },
       {
-        q: "¿Hacen bordado?",
-        a: "Sí. Las polos y las gorras llevan tu logo bordado. Sube tu logo en JPG o escribe tu texto en el diseñador, y ves el tamaño real del bordado en centímetros.",
-      },
-      {
-        q: "¿Qué es el DTF?",
-        a: "Es una impresión a todo color que se transfiere a la prenda con calor. Sirve en cualquier tela y color, reproduce degradados y fotos, y conviene desde 1 pieza. Lo puedes elegir en camisas, hoodies, tote bags y polos.",
-      },
-      {
         q: "¿Puedo poner mi propia etiqueta en la camisa?",
         a: "Sí. En camisas y polos elige la zona «Etiqueta» en el diseñador: va por dentro, debajo del cuello. Ideal para el logo de tu marca, la talla o las instrucciones de lavado.",
       },
       {
         q: "¿Puedo hacer que mi imagen ocupe todo el espacio?",
-        a: "Sí. Usa el botón «Máximo» junto al tamaño, o elige «Llenar el área» para que la imagen cubra toda el área de impresión (se recortan un poco los bordes).",
+        a: "Sí. En «Encuadre» elige «Llenar área» para que tu imagen cubra toda el área de impresión, o «Recortar» para elegir exactamente qué parte de tu imagen se imprime. También puedes usar «Máximo» en el tamaño.",
       },
       {
         q: "¿Puedo poner diseños en la espalda o la manga?",
@@ -170,6 +189,12 @@ export default function PreguntasFrecuentesPage() {
                 </details>
               ))}
             </div>
+
+            {s.id === "tecnicas" && (
+              <div className="mt-4">
+                <TechniqueGuide comparison compact />
+              </div>
+            )}
 
             {s.id === "pagos" && (
               <div className="mt-4 rounded-brand border border-black/10 bg-white p-5">

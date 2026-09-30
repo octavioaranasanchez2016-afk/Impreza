@@ -4,6 +4,7 @@ import { ProductCard } from "@/components/ProductCard";
 import { Marquee } from "@/components/Marquee";
 import { DesignMockup } from "@/components/DesignMockup";
 import { DiscountCalculator } from "@/components/DiscountCalculator";
+import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { businessJsonLd } from "@/lib/site";
 import { getApprovedReviews } from "@/lib/reviews";
@@ -171,40 +172,8 @@ export default async function HomePage() {
 
       <section id="tecnicas" className="mx-auto max-w-6xl px-4 pb-20 md:px-6">
         <SectionTitle eyebrow="Calidad" title="Nuestras técnicas" />
-        <div className="mt-10 grid gap-6 md:grid-cols-3">
-          <div className="rounded-brand bg-ink p-8 text-paper">
-            <p className="font-display text-4xl uppercase tracking-wide">Serigrafía</p>
-            <p className="mt-3 text-paper/80">
-              Tinta directa sobre la tela con malla. Colores sólidos y muy duraderos.
-            </p>
-            <ul className="mt-5 space-y-1.5 text-sm text-paper/90">
-              <li>✦ Ideal para logos de 1 a 3 colores</li>
-              <li>✦ La mejor opción para pedidos grandes</li>
-              <li>✦ Entre más piezas, más barato por unidad</li>
-            </ul>
-          </div>
-          <div className="rounded-brand border-2 border-ink bg-white p-8 text-ink">
-            <p className="font-display text-4xl uppercase tracking-wide">Sublimado</p>
-            <p className="mt-3 text-ink-soft">
-              La tinta se funde con la tela con calor. Colores vivos y detalle fotográfico.
-            </p>
-            <ul className="mt-5 space-y-1.5 text-sm">
-              <li>✦ Ideal para fotos y diseños a todo color</li>
-              <li>✦ Acabado que no se agrieta ni se despega</li>
-              <li>✦ Para prendas blancas o claras</li>
-            </ul>
-          </div>
-          <div className="rounded-brand bg-paper-soft p-8 text-ink">
-            <p className="font-display text-4xl uppercase tracking-wide">Bordado</p>
-            <p className="mt-3 text-ink-soft">
-              Tu logo cosido con hilo directo en la prenda. Un acabado elegante que dura años.
-            </p>
-            <ul className="mt-5 space-y-1.5 text-sm">
-              <li>✦ Ideal para logos en polos y gorras</li>
-              <li>✦ Perfecto para uniformes de empresa</li>
-              <li>✦ No se despinta ni se agrieta al lavar</li>
-            </ul>
-          </div>
+        <div className="mt-10">
+          <TechniqueGuide comparison />
         </div>
       </section>
 

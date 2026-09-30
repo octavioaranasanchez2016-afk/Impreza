@@ -213,6 +213,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
                 discountPct: Number(order.descuento_pct),
                 discountAmount: Number(order.descuento_monto),
                 setupFee: Number(order.cargo_diseno),
+                shipping: entrega?.envio?.costo ?? 0,
+                shippingKm: entrega?.envio?.km,
                 total,
               }}
               technique={technique}

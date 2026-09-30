@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { CropRect } from "@/lib/design";
 
-// Como al poner un fondo de pantalla en el teléfono: el cliente mueve un marco sobre
-// su imagen y acerca o aleja para elegir qué parte se imprime.
+// Recorte de la imagen: el cliente mueve un marco sobre su imagen y ajusta el zoom
+// para elegir el encuadre que se imprime.
 
 const MIN_SHORT_SIDE_PX = 1000; // por debajo, la impresión puede verse borrosa
 
@@ -42,11 +42,11 @@ export function ImageCropper({
 }) {
   // Si el área ya tiene la forma de alguna opción (30 × 40 cm es vertical 3:4), esa sobra.
   const options: AspectOption[] = [
-    { label: `Llenar el área (${areaLabel})`, value: areaAspect },
+    { label: `Área de impresión · ${areaLabel}`, value: areaAspect },
     ...[
-      { label: "Cuadrado", value: 1 },
-      { label: "Vertical", value: 3 / 4 },
-      { label: "Horizontal", value: 4 / 3 },
+      { label: "Cuadrado 1:1", value: 1 },
+      { label: "Vertical 3:4", value: 3 / 4 },
+      { label: "Horizontal 4:3", value: 4 / 3 },
     ].filter((o) => Math.abs(o.value - areaAspect) > 0.01),
   ];
 
@@ -110,11 +110,11 @@ export function ImageCropper({
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-3"
       role="dialog"
       aria-modal="true"
-      aria-label="Elegir qué parte de la imagen se imprime"
+      aria-label="Recortar imagen"
     >
       <div className="max-h-[94vh] w-full max-w-lg overflow-y-auto rounded-brand bg-white p-4 shadow-xl">
-        <p className="font-semibold text-ink">Elige qué parte de tu imagen se imprime</p>
-        <p className="text-xs text-ink-soft">Arrastra el marco para moverlo y usa el zoom para acercar.</p>
+        <p className="font-semibold text-ink">Recortar imagen</p>
+        <p className="text-xs text-ink-soft">Arrastra el marco para encuadrar y ajusta el zoom.</p>
 
         <div className="mt-3 flex flex-wrap gap-1.5">
           {options.map((o) => (
@@ -177,8 +177,8 @@ export function ImageCropper({
         </label>
 
         <p className={`mt-2 text-xs ${lowRes ? "font-medium text-yellow-700" : "text-ink-muted"}`}>
-          Esta parte mide {outW} × {outH} px.
-          {lowRes && " Es poca resolución: podría verse borrosa. Aleja el zoom o usa una imagen más grande."}
+          Resolución del recorte: {outW} × {outH} px.
+          {lowRes && " Resolución baja: podría verse borrosa. Reduce el zoom o usa una imagen de mayor resolución."}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2">
@@ -198,7 +198,7 @@ export function ImageCropper({
             }}
             className="rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper hover:opacity-80 disabled:opacity-50"
           >
-            {busy ? "Recortando..." : "Usar esta parte"}
+            {busy ? "Aplicando..." : "Aplicar recorte"}
           </button>
         </div>
       </div>
