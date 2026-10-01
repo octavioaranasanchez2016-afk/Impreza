@@ -50,6 +50,7 @@ import { OrderCodeBox } from "./OrderCodeBox";
 import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
+import { SizeChartButton } from "./SizeChartButton";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -94,18 +95,30 @@ function addLabel(pieces: number): string {
   return pieces > 1 ? `Agrega tus ${pieces} piezas al pedido` : "Agrega tus piezas al pedido";
 }
 
-// Pedido que viene del cotizador: cuántas piezas lleva de las que cotizó.
-function QuoteProgress({ target, current, multiSize }: { target: number; current: number; multiSize: boolean }) {
+// Pedido que viene del cotizador: cuántas piezas lleva de las que cotizó. Las que ya
+// están en el pedido (inCart) y las que están en las tallas sin agregar (pending)
+// se cuentan por separado, para que el botón diga el número correcto.
+function QuoteProgress({ target, inCart, pending, multiSize }: { target: number; inCart: number; pending: number; multiSize: boolean }) {
+  const current = inCart + pending;
+  const added = inCart >= target;
   const done = current >= target;
   const pct = Math.min(100, Math.round((current / target) * 100));
   return (
     <div className={`rounded-brand border p-3 ${done ? "border-ink bg-ink text-paper" : "border-black/10 bg-paper-soft"}`}>
       <p className="text-sm font-semibold">
-        {done ? `✓ Tus ${target} piezas están listas` : `Tu cotización: ${target} piezas · llevas ${current}`}
+        {added
+          ? `✓ Ya agregaste las ${target} piezas de tu cotización`
+          : done
+          ? `✓ Tus ${target} piezas están listas`
+          : `Tu cotización: ${target} piezas · llevas ${current}`}
       </p>
-      {done && multiSize && (
+      {done && (
         <p className="mt-1 text-[11px] text-paper/70">
-          Las repartimos en tallas típicas: cámbialas según tu grupo y toca «Agrega tus {current} piezas al pedido».
+          {added
+            ? pending > 0
+              ? `Si quieres más, toca «${addLabel(pending)}»; si no, sigue con tus datos.`
+              : "Sigue con tus datos aquí abajo."
+            : `${multiSize ? "Las repartimos en tallas típicas: cámbialas según tu grupo y toca" : "Toca"} «${addLabel(pending)}».`}
         </p>
       )}
       {!done && (
@@ -321,6 +334,7 @@ export function OrderForm() {
       savedImageKeys.current = Object.keys(files).sort().join("|");
 
       setItems(restoredItems);
+      if (quoteQuantity && restoredItems.reduce((sum, i) => sum + i.quantity, 0) >= quoteQuantity) setSizeQty({});
       // Si llegó desde la página de otro producto, ese queda elegido para agregarlo.
       const keepProduct = (!urlProduct || urlProduct === draft.productId) && getProductById(draft.productId);
       if (keepProduct) {
@@ -977,14 +991,18 @@ export function OrderForm() {
               {quoteQuantity && (
                 <QuoteProgress
                   target={quoteQuantity}
-                  current={items.reduce((sum, i) => sum + i.quantity, 0) + pendingTotal}
+                  inCart={items.reduce((sum, i) => sum + i.quantity, 0)}
+                  pending={pendingTotal}
                   multiSize={availableSizes.length > 1}
                 />
               )}
 
               {availableSizes.length > 1 ? (
                 <div>
-                  <p className="text-sm font-medium text-ink-soft">Cantidad por talla</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium text-ink-soft">Cantidad por talla</p>
+                    {selectedProduct && <SizeChartButton category={selectedProduct.category} productName={selectedProduct.name} />}
+                  </div>
                   <p className="mb-2 text-[11px] text-ink-muted">Toca tu talla o escribe cuántas quieres de cada una.</p>
                   <div className="grid grid-cols-5 gap-1.5">
                     {availableSizes.map((s) => (
@@ -1310,6 +1328,21 @@ export function OrderForm() {
           >
             {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
           </button>
+          {/* Piezas escritas en las tallas pero sin agregar: no entran al pedido si confirma así. */}
+          {items.length > 0 && pendingTotal > 0 && !submitting && (
+            <div className="flex flex-wrap items-center justify-center gap-2 rounded-brand border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs text-ink">
+              <span>
+                Tienes {pendingTotal} pieza{pendingTotal === 1 ? "" : "s"} en las tallas del paso 1 que todavía no están en tu pedido.
+              </span>
+              <button
+                type="button"
+                onClick={addItem}
+                className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
+              >
+                + {addLabel(pendingTotal)}
+              </button>
+            </div>
+          )}
           {missing.length > 0 && !submitting && (
             <div className="text-center text-xs text-ink-soft">
               <p>Para confirmar falta:</p>

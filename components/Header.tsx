@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
+import { SocialLinks } from "./SocialLinks";
 
 // wideOnly: en pantallas medianas no cabe; se muestra desde lg y siempre en el menú del celular.
 // mobileOnly: solo en el menú del celular (en computadora está en el pie de página).
@@ -93,6 +94,7 @@ export function Header() {
               WhatsApp
             </WhatsAppLinkButton>
           </div>
+          <SocialLinks tone="light" className="mt-3 justify-center pb-1" />
         </nav>
       )}
 

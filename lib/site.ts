@@ -4,6 +4,14 @@ export const SITE_NAME = "Impreza";
 export const SITE_DESCRIPTION =
   "Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, DTF, sublimado y bordado en Managua, desde 1 pieza hasta pedidos por mayor. Diseña en línea a escala real y recibe en 7 días hábiles.";
 
+// Redes sociales de Impreza. Pon aquí el enlace completo de cada cuenta
+// (p. ej. "https://www.instagram.com/tu_cuenta"); las que estén vacías no se muestran.
+export const SOCIAL_LINKS: { network: "Instagram" | "TikTok" | "Facebook"; url: string }[] = [
+  { network: "Instagram", url: "" },
+  { network: "TikTok", url: "" },
+  { network: "Facebook", url: "" },
+];
+
 // Dominio principal. imprezani.com (sin www) redirige aquí, y el viejo
 // impreza-pink.vercel.app sigue funcionando.
 const PRODUCTION_URL = "https://www.imprezani.com";
@@ -36,6 +44,8 @@ export function businessJsonLd() {
       addressCountry: "NI",
     },
     areaServed: { "@type": "Country", name: "Nicaragua" },
+    // Las redes sociales ayudan a Google a reconocer que todo es la misma marca.
+    ...(SOCIAL_LINKS.some((l) => l.url) ? { sameAs: SOCIAL_LINKS.filter((l) => l.url).map((l) => l.url) } : {}),
     openingHoursSpecification: [
       {
         "@type": "OpeningHoursSpecification",

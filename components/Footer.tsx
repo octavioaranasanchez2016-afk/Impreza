@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
+import { SocialLinks } from "./SocialLinks";
 import { WORKSHOP } from "@/lib/shipping";
 
 export function Footer() {
@@ -18,6 +19,7 @@ export function Footer() {
             >
               Escríbenos por WhatsApp
             </WhatsAppLinkButton>
+            <SocialLinks className="mt-4" />
           </div>
 
           <FooterColumn title="Explorar">
