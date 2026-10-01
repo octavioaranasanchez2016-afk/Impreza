@@ -44,9 +44,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin/trabajos" className="text-paper/80 hover:text-paper">
                 Trabajos
               </Link>
-              <Link href="/admin/finca" className="text-paper/80 hover:text-paper">
-                Finca
-              </Link>
               <a href="/" target="_blank" rel="noopener noreferrer" className="text-paper/80 hover:text-paper">
                 Ver sitio ↗
               </a>

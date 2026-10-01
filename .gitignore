@@ -7,3 +7,10 @@ out
 .DS_Store
 next-env.d.ts
 *.tsbuildinfo
+
+# Sistema de la finca: solo local, no se publica
+/app/admin/(protected)/finca/
+/app/api/admin/finca/
+/components/admin/Finca*.tsx
+/lib/finca*.ts
+/supabase/finca.sql
