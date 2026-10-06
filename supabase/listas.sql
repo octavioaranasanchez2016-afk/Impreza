@@ -14,6 +14,9 @@ create table if not exists listas_tallas (
   created_at timestamptz not null default now()
 );
 
+-- Por si la tabla ya existía de un intento anterior sin esta columna.
+alter table listas_tallas add column if not exists order_id uuid references orders(id) on delete set null;
+
 create index if not exists listas_tallas_order_idx on listas_tallas (order_id);
 
 create table if not exists listas_tallas_personas (
