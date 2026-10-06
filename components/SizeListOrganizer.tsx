@@ -46,7 +46,7 @@ export function SizeListOrganizer({
   closed,
   orderHref,
   baseUrl,
-  hasNames = false,
+  campos = { nombre: false, numero: false },
 }: {
   listId: string;
   clave: string;
@@ -55,12 +55,21 @@ export function SizeListOrganizer({
   entries: Entry[];
   closed: boolean;
   orderHref: string;
-  baseUrl: string;
-  hasNames?: boolean; // cada camisa lleva nombre // dirección oficial del sitio, para que el enlace compartido sea el bueno
+  baseUrl: string; // dirección oficial del sitio, para que el enlace compartido sea el bueno
+  campos?: { nombre: boolean; numero: boolean }; // lo que cada persona escribe para su camisa
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  // "y lo que dirá tu camisa": lo que cada quien tiene que escribir, para el mensaje al grupo.
+  const extra =
+    campos.nombre && campos.numero
+      ? " y tu nombre y número para la camisa"
+      : campos.nombre
+        ? " y lo que dirá tu camisa"
+        : campos.numero
+          ? " y tu número"
+          : "";
   const shareUrl = `${baseUrl}/lista-de-tallas/${listId}`;
   const organizerUrl = `${shareUrl}?clave=${encodeURIComponent(clave)}`;
 
@@ -134,8 +143,8 @@ export function SizeListOrganizer({
           <a
             href={shareWhatsAppUrl(
               entries.length > 0
-                ? `Ya somos ${entries.length} anotados para «${listName}». Si te falta, anota tu talla${hasNames ? " y lo que dirá tu camisa" : ""} aquí, solo toma un minuto: ${shareUrl}`
-                : `Anota tu talla${hasNames ? " y lo que dirá tu camisa" : ""} para «${listName}» aquí, solo toma un minuto: ${shareUrl}`
+                ? `Ya somos ${entries.length} anotados para «${listName}». Si te falta, anota tu talla${extra} aquí, solo toma un minuto: ${shareUrl}`
+                : `Anota tu talla${extra} para «${listName}» aquí, solo toma un minuto: ${shareUrl}`
             )}
             target="_blank"
             rel="noopener noreferrer"
@@ -184,7 +193,8 @@ export function SizeListOrganizer({
                   <span className="block truncate">{e.nombre}</span>
                   {(e.texto || e.numero) && (
                     <span className="block truncate text-xs text-ink-soft">
-                      Dirá «{e.texto}»{e.numero ? ` · #${e.numero}` : ""}
+                      {e.texto ? `Dirá «${e.texto}»` : "Número"}
+                      {e.numero ? `${e.texto ? " · " : " "}#${e.numero}` : ""}
                     </span>
                   )}
                 </span>

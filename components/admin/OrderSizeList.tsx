@@ -19,7 +19,7 @@ export function OrderSizeList({
   nombre: string;
   organizador: string | null;
   entries: OrderSizeListEntry[];
-  nombresEstilo?: string | null; // "Espalda, arriba · letra Colegial · blanco"
+  nombresEstilo?: string | null; // "Espalda: nombre y número · Manga izquierda: número · letra Colegial · blanco"
 }) {
   const withText = entries.some((e) => e.texto);
   const withNumber = entries.some((e) => e.numero);
@@ -45,10 +45,10 @@ export function OrderSizeList({
           </span>
         ))}
       </p>
-      {withText && (
+      {(withText || withNumber || nombresEstilo) && (
         <p className="mt-3 rounded-brand border-2 border-ink px-3 py-2 text-sm text-ink">
-          <span className="font-semibold">Cada camisa lleva su nombre</span>
-          {nombresEstilo ? `: ${nombresEstilo}` : " (el estilo no quedó guardado; pregúntalo al cliente)"}
+          <span className="font-semibold">Cada camisa personalizada</span>
+          {nombresEstilo ? `: ${nombresEstilo}` : " (no quedó guardado dónde va ni cómo; pregúntalo al cliente)"}
         </p>
       )}
       <table className="mt-3 w-full text-sm">

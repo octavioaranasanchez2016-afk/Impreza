@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { ProductCategory } from "@/lib/types";
 import { SizeChartButton } from "./SizeChartButton";
 import { NamePreview } from "./NamePreview";
-import { MAX_NUMERO, MAX_TEXTO, Personalizado } from "@/lib/group-names";
+import { Lugares, MAX_NUMERO, MAX_TEXTO, camposDe, personalizadoDe } from "@/lib/group-names";
 
 // Los registros que este teléfono hizo en la lista, para poder quitarlos.
 interface Mine {
@@ -45,7 +45,7 @@ export function SizeListSignup({
   productName,
   title = "Anótate",
   forOthers = false,
-  personalizado = "ninguno",
+  lugares = {},
   colorHex = "#FFFFFF",
 }: {
   listId: string;
@@ -55,7 +55,7 @@ export function SizeListSignup({
   productName: string;
   title?: string;
   forOthers?: boolean; // el organizador anota a otra persona
-  personalizado?: Personalizado; // si cada camisa lleva nombre (y número)
+  lugares?: Lugares; // qué lleva cada camisa y dónde (vacío: todas iguales)
   colorHex?: string; // color de la camisa, para la vista previa
 }) {
   const router = useRouter();
@@ -64,8 +64,9 @@ export function SizeListSignup({
   const [cantidad, setCantidad] = useState(1);
   const [texto, setTexto] = useState("");
   const [numero, setNumero] = useState("");
-  const withName = personalizado !== "ninguno";
-  const withNumber = personalizado === "nombre_numero";
+  const campos = camposDe(personalizadoDe(lugares));
+  const withName = campos.nombre;
+  const withNumber = campos.numero;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<Mine[]>([]);
@@ -129,7 +130,11 @@ export function SizeListSignup({
           <p className="font-semibold">¡Listo, {justAdded.nombre}!</p>
           <p className="mt-0.5 text-sm text-paper/70">
             Quedaste anotado con talla {justAdded.talla}
-            {justAdded.texto ? `, y tu camisa dirá «${justAdded.texto}»${justAdded.numero ? ` con el ${justAdded.numero}` : ""}` : ""}
+            {justAdded.texto
+              ? `, y tu camisa dirá «${justAdded.texto}»${justAdded.numero ? ` con el ${justAdded.numero}` : ""}`
+              : justAdded.numero
+                ? `, con el número ${justAdded.numero}`
+                : ""}
             {justAdded.cantidad > 1 ? ` (${justAdded.cantidad} piezas)` : ""}. Puedes anotar a alguien más aquí abajo.
           </p>
         </div>
@@ -148,27 +153,29 @@ export function SizeListSignup({
         />
       </label>
 
-      {withName && (
-        <div className="mt-4 grid gap-4 sm:grid-cols-[1fr_8.5rem] sm:items-start">
-          <div className="space-y-4">
-            <label className="block">
-              <span className="text-xs font-semibold text-ink-soft">
-                {forOthers ? "Lo que dirá su camisa" : "Lo que dirá tu camisa"}
-              </span>
-              <input
-                value={texto}
-                maxLength={MAX_TEXTO}
-                onChange={(e) => setTexto(e.target.value)}
-                placeholder="Tu nombre o apodo, ej. CHEPE"
-                className="input mt-1 font-semibold"
-              />
-              <span className="mt-1 block text-[11px] text-ink-muted">
-                Tal cual: mayúsculas, tildes y espacios salen como los escribas ({texto.length}/{MAX_TEXTO}).
-              </span>
-            </label>
+      {(withName || withNumber) && (
+        <div className="mt-4">
+          <div className="flex items-start gap-3">
+            {withName && (
+              <label className="block min-w-0 flex-1">
+                <span className="block text-xs font-semibold text-ink-soft">
+                  {forOthers ? "Lo que dirá su camisa" : "Lo que dirá tu camisa"}
+                </span>
+                <input
+                  value={texto}
+                  maxLength={MAX_TEXTO}
+                  onChange={(e) => setTexto(e.target.value)}
+                  placeholder="Nombre o apodo, ej. CHEPE"
+                  className="input mt-1 font-semibold"
+                />
+                <span className="mt-1 block text-[11px] text-ink-muted">
+                  Tal cual: mayúsculas, tildes y espacios salen como los escribas ({texto.length}/{MAX_TEXTO}).
+                </span>
+              </label>
+            )}
             {withNumber && (
-              <label className="block">
-                <span className="text-xs font-semibold text-ink-soft">Número</span>
+              <label className="block shrink-0">
+                <span className="block text-xs font-semibold text-ink-soft">Número</span>
                 <input
                   value={numero}
                   inputMode="numeric"
@@ -181,9 +188,15 @@ export function SizeListSignup({
               </label>
             )}
           </div>
-          <div className="mx-auto w-36 sm:w-full">
-            <NamePreview category={category} colorHex={colorHex} texto={texto.trim()} numero={withNumber ? numero : undefined} />
-            <p className="mt-1 text-center text-[10px] text-ink-muted">Así se vería (el diseño final lo arma el grupo)</p>
+          <div className="mt-3">
+            <NamePreview
+              category={category}
+              colorHex={colorHex}
+              texto={withName ? texto.trim() : ""}
+              numero={withNumber ? numero : undefined}
+              style={{ lugares }}
+            />
+            <p className="mt-1 text-center text-[10px] text-ink-muted">Así se vería (la letra y el color los elige el organizador)</p>
           </div>
         </div>
       )}
@@ -254,7 +267,8 @@ export function SizeListSignup({
               <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-ink">
                   {m.nombre} · <span className="font-semibold">{m.talla}</span>
-                  {m.texto ? ` · «${m.texto}»${m.numero ? ` ${m.numero}` : ""}` : ""}
+                  {m.texto ? ` · «${m.texto}»` : ""}
+                  {m.numero ? ` · #${m.numero}` : ""}
                   {m.cantidad > 1 ? ` × ${m.cantidad}` : ""}
                 </span>
                 <button type="button" onClick={() => remove(m)} className="text-xs font-semibold text-red-700 hover:underline">

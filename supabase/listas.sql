@@ -34,9 +34,10 @@ create index if not exists listas_tallas_personas_lista_idx on listas_tallas_per
 alter table listas_tallas enable row level security;
 alter table listas_tallas_personas enable row level security;
 
--- Camisas con el nombre de cada persona (2026-10-06): la lista dice si cada camisa
--- lleva nombre o nombre y número, cada persona escribe lo que dirá la suya, y el
--- diseñador guarda dónde va y cómo se ve (estilo).
+-- Camisas con el nombre de cada persona (2026-10-06): el organizador elige qué va en
+-- cada lugar (estilo.lugares, ej. {"espalda":"ambos","manga-izq":"numero"}), de ahí
+-- sale lo que cada persona escribe (personalizado: nombre, numero o nombre_numero), y
+-- el diseñador guarda además la letra y el color (estilo.fuente, estilo.color).
 alter table listas_tallas add column if not exists personalizado text not null default 'ninguno';
 alter table listas_tallas add column if not exists estilo jsonb;
 alter table listas_tallas_personas add column if not exists texto text;

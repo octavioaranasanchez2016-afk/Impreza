@@ -5,7 +5,7 @@ import { listSizes, loadSizeList, sizesParam } from "@/lib/size-lists";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
-import { Personalizado, examplesParam } from "@/lib/group-names";
+import { camposDe, describeLugares, examplesParam, lugaresDeLista, lugaresParam, parsePersonalizado } from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -45,16 +45,19 @@ export default async function ListaPage({
   const sizes = listSizes(list.product_id, list.color);
   const isOrganizer = Boolean(clave) && clave === result.clave;
   const total = entries.reduce((sum, e) => sum + e.cantidad, 0);
-  const personalizado: Personalizado =
-    list.personalizado === "nombre" || list.personalizado === "nombre_numero" ? list.personalizado : "ninguno";
+  const personalizado = parsePersonalizado(list.personalizado);
+  // Qué lleva cada camisa y dónde (lo eligió el organizador al crear la lista).
+  const lugares = lugaresDeLista(personalizado, list.estilo, product.category);
   const colorHex = product.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF";
 
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
   if (list.color) order.set("color", list.color);
   order.set("lista", list.id);
-  // Camisas con nombre: el diseñador abre el apartado de nombres con ejemplos del grupo.
+  // Camisas personalizadas: el diseñador abre el apartado de nombres con los lugares
+  // que eligió el organizador y ejemplos del grupo.
   if (personalizado !== "ninguno") {
     order.set("personal", personalizado);
+    order.set("lugares", lugaresParam(lugares));
     order.set("ejemplos", examplesParam(entries));
   }
 
@@ -69,6 +72,11 @@ export default async function ListaPage({
         {list.color ? ` · ${list.color}` : ""}
         {list.organizador ? ` · Organiza ${list.organizador}` : ""}
       </p>
+      {personalizado !== "ninguno" && (
+        <p className="mt-2 inline-block rounded-full bg-paper-soft px-3 py-1 text-xs text-ink">
+          <span className="font-semibold">Cada camisa lleva</span> · {describeLugares(lugares, product.category)}
+        </p>
+      )}
 
       {list.order_id && (
         <div className="mt-6 rounded-brand border-2 border-ink bg-white p-5">
@@ -101,7 +109,7 @@ export default async function ListaPage({
             closed={list.cerrada}
             orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
             baseUrl={siteUrl()}
-            hasNames={personalizado !== "ninguno"}
+            campos={camposDe(personalizado)}
           />
         ) : (
           <div className="rounded-brand border border-black/10 bg-white p-5">
@@ -117,7 +125,13 @@ export default async function ListaPage({
                   <li key={e.id} className="flex justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0 truncate text-ink">
                       {e.nombre}
-                      {e.texto ? <span className="text-ink-soft"> · «{e.texto}»{e.numero ? ` #${e.numero}` : ""}</span> : null}
+                      {e.texto || e.numero ? (
+                        <span className="text-ink-soft">
+                          {" "}
+                          · {e.texto ? `«${e.texto}»` : ""}
+                          {e.numero ? `${e.texto ? " " : ""}#${e.numero}` : ""}
+                        </span>
+                      ) : null}
                     </span>
                     <span className="shrink-0 font-semibold text-ink">
                       {e.talla}
@@ -139,7 +153,7 @@ export default async function ListaPage({
             productName={product.name}
             title={isOrganizer ? "Anotar a alguien" : "Anótate"}
             forOthers={isOrganizer}
-            personalizado={personalizado}
+            lugares={lugares}
             colorHex={colorHex}
           />
           <p className="mt-3 text-center text-xs text-ink-soft">

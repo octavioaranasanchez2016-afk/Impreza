@@ -52,7 +52,7 @@ import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
 import { GroupNamesSection } from "./GroupNamesSection";
-import { NameStyle, Personalizado, parseExamples } from "@/lib/group-names";
+import { NameStyle, Personalizado, fitLugares, parseExamples, parseLugaresParam, parsePersonalizado } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -203,12 +203,11 @@ export function OrderForm() {
   const quoteQuantity =
     (listTotal || Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0)))) || null;
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
-  // Lista con nombres en las camisas (?personal=nombre|nombre_numero&ejemplos=CHEPE~10|...):
-  // el diseñador muestra el apartado "Nombre de cada persona".
-  const urlPersonal: Personalizado | null =
-    searchParams.get("personal") === "nombre" || searchParams.get("personal") === "nombre_numero"
-      ? (searchParams.get("personal") as Personalizado)
-      : null;
+  // Lista personalizada (?personal=nombre|numero|nombre_numero&lugares=espalda:ambos,...&ejemplos=CHEPE~10|...):
+  // el diseñador muestra el apartado "Nombre de cada persona" con los lugares que eligió el organizador.
+  const personalParam = parsePersonalizado(searchParams.get("personal"));
+  const urlPersonal: Personalizado | null = personalParam === "ninguno" ? null : personalParam;
+  const urlLugares = parseLugaresParam(searchParams.get("lugares"));
   const nameExamples = parseExamples(searchParams.get("ejemplos"));
   // La lista de tallas de donde viene el pedido: al confirmarlo, queda unida a él.
   const urlListaId = UUID_RE.test(searchParams.get("lista") ?? "") ? searchParams.get("lista") : null;
@@ -239,7 +238,7 @@ export function OrderForm() {
 
   // Dónde y cómo va el nombre de cada persona (solo pedidos de grupo con nombres).
   const [nameStyle, setNameStyle] = useState<NameStyle>(() => ({
-    ubicacion: "espalda-arriba",
+    lugares: urlPersonal ? fitLugares(urlLugares, urlPersonal, getProductById(preselected)?.category ?? "camisa") : {},
     fuente: "display",
     color: isDarkColor(preVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111",
   }));
@@ -830,7 +829,10 @@ export function OrderForm() {
           comprobantePath,
           orderId: pendingOrderId,
           listaId: urlListaId,
-          personalizacion: urlListaId && urlPersonal ? nameStyle : null,
+          personalizacion:
+            urlListaId && urlPersonal
+              ? { ...nameStyle, lugares: fitLugares(nameStyle.lugares, urlPersonal, selectedProduct?.category ?? "camisa") }
+              : null,
         }),
       });
 

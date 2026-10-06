@@ -133,8 +133,8 @@ export function buildNewOrderEmail(params: NewOrderParams) {
       ${params.clienteEmail ? `<p style="margin:4px 0;"><strong>Correo:</strong> ${escapeHtml(params.clienteEmail)}</p>` : ""}
       <p style="margin:4px 0;"><strong>Técnica:</strong> ${TECHNIQUE_LABEL[params.tecnica as Technique] ?? escapeHtml(params.tecnica)} · ${params.piezas} pieza${params.piezas === 1 ? "" : "s"}</p>
       <p style="margin:4px 0;"><strong>Total:</strong> ${formatBoth(params.total)}</p>
-      ${params.listaPersonas ? `<p style="margin:4px 0;"><strong>Lista del grupo:</strong> ${params.listaPersonas} personas con su nombre y talla; la ves dentro del pedido en el panel.</p>` : ""}
-      ${params.nombresEstilo ? `<p style="margin:4px 0;"><strong>Cada camisa con su nombre:</strong> ${escapeHtml(params.nombresEstilo)}.</p>` : ""}
+      ${params.listaPersonas ? `<p style="margin:4px 0;"><strong>Lista del grupo:</strong> ${params.listaPersonas} personas con ${params.nombresEstilo ? "su talla y lo que dirá su camisa" : "su nombre y talla"}; la ves dentro del pedido en el panel.</p>` : ""}
+      ${params.nombresEstilo ? `<p style="margin:4px 0;"><strong>Cada camisa personalizada:</strong> ${escapeHtml(params.nombresEstilo)}.</p>` : ""}
       ${params.sinDiseno ? `<p style="margin:4px 0;"><strong>Diseño:</strong> el cliente no subió diseño; pídeselo por WhatsApp.</p>` : ""}
       ${!params.sinDiseno && (params.disenosDistintos ?? 1) > 1 ? `<p style="margin:4px 0;"><strong>Diseños:</strong> ${params.disenosDistintos} diseños distintos (el panel dice qué piezas lleva cada uno).</p>` : ""}
       ${params.piezasSinDiseno ? `<p style="margin:4px 0;"><strong>Sin diseño:</strong> ${params.piezasSinDiseno} pieza${params.piezasSinDiseno === 1 ? "" : "s"}; pregúntale al cliente por WhatsApp.</p>` : ""}

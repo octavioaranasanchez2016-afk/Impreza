@@ -6,7 +6,7 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
-import { describeNameStyle, parseNameStyle } from "@/lib/group-names";
+import { describeLugares, describeNameStyle, lugaresDeLista, parseNameStyle, parsePersonalizado } from "@/lib/group-names";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
@@ -80,11 +80,20 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
       .then(async ({ data: list }) => {
         if (!list) return null;
         const { data: people } = await service.from("listas_tallas_personas").select("*").eq("lista_id", list.id);
-        const style = parseNameStyle(list.estilo);
+        // Qué lleva cada camisa y dónde, con letra y color. Si el pedido no guardó la letra
+        // y el color, al menos los lugares que eligió el organizador.
+        const personalizado = parsePersonalizado(list.personalizado);
+        const category = getProductById(list.product_id as string)?.category;
+        const style = parseNameStyle(list.estilo, personalizado);
+        const estilo = style
+          ? describeNameStyle(style, category)
+          : personalizado !== "ninguno" && category
+            ? `${describeLugares(lugaresDeLista(personalizado, list.estilo, category), category)} (la letra y el color no quedaron guardados; pregúntalos al cliente)`
+            : null;
         return {
           nombre: list.nombre as string,
           organizador: list.organizador as string | null,
-          estilo: style ? describeNameStyle(style) : null,
+          estilo,
           entries: (people ?? []).map((p) => ({
             nombre: p.nombre as string,
             talla: p.talla as string,

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_PERSONAS, cleanName, listSizes, newSecret } from "@/lib/size-lists";
-import { cleanNumero, cleanTexto } from "@/lib/group-names";
+import { camposDe, cleanNumero, cleanTexto, parsePersonalizado } from "@/lib/group-names";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -30,12 +30,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20) {
     return NextResponse.json({ error: "La cantidad va de 1 a 20." }, { status: 400 });
   }
-  // Si cada camisa lleva nombre (y número), no se puede anotar sin ellos.
-  const personalizado = (list.personalizado as string | undefined) ?? "ninguno";
-  if (personalizado !== "ninguno" && !texto) {
+  // Si cada camisa lleva nombre y/o número, no se puede anotar sin ellos.
+  const campos = camposDe(parsePersonalizado(list.personalizado));
+  if (campos.nombre && !texto) {
     return NextResponse.json({ error: "Escribe lo que dirá tu camisa (tu nombre o apodo)." }, { status: 400 });
   }
-  if (personalizado === "nombre_numero" && !numero) {
+  if (campos.numero && !numero) {
     return NextResponse.json({ error: "Escribe tu número." }, { status: 400 });
   }
 
@@ -51,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       talla,
       cantidad,
       token,
-      ...(personalizado !== "ninguno" ? { texto, numero: personalizado === "nombre_numero" ? numero : null } : {}),
+      ...(campos.nombre || campos.numero ? { texto: campos.nombre ? texto : null, numero: campos.numero ? numero : null } : {}),
     })
     .select("id")
     .single();

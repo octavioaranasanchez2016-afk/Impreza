@@ -2,7 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildInvoiceLines, calculateOrderTotal, techniquesText } from "@/lib/pricing";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
-import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
+import { DesignZone, OrderItemInput, PaymentMethod, ProductCategory, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
 import { describeNameStyle, parseNameStyle } from "@/lib/group-names";
 import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
   // Pedido armado desde una lista de tallas: la lista queda unida al pedido (y cerrada),
   // así el taller ve en el panel quién lleva qué talla. Si falla, el pedido sigue igual.
   let listaPersonas = 0;
+  let listaCategory: ProductCategory | undefined;
   const nameStyle = parseNameStyle(body.personalizacion);
   if (typeof body.listaId === "string" && UUID.test(body.listaId)) {
     const link = (withStyle: boolean) =>
@@ -196,13 +197,13 @@ export async function POST(req: NextRequest) {
         .update({ order_id: order.id, cerrada: true, ...(withStyle && nameStyle ? { estilo: nameStyle } : {}) })
         .eq("id", body.listaId!)
         .is("order_id", null)
-        .select("id");
+        .select("id, product_id");
     let { data: linked, error: listError } = await link(true);
     // Sin la columna "estilo" (falta la parte nueva de listas.sql): la lista se une igual
     // y el estilo de los nombres queda en las notas del pedido para que el taller lo vea.
     if (listError?.code === "PGRST204" && nameStyle) {
       ({ data: linked, error: listError } = await link(false));
-      const nota = `Nombre de cada persona: ${describeNameStyle(nameStyle)}`;
+      const nota = `Cada camisa personalizada: ${describeNameStyle(nameStyle)}`;
       await supabase
         .from("orders")
         .update({ notas: body.notas ? `${body.notas}\n\n${nota}` : nota })
@@ -210,6 +211,7 @@ export async function POST(req: NextRequest) {
     }
     if (listError) console.error("No se pudo unir la lista de tallas al pedido:", listError.message);
     if (linked?.length) {
+      listaCategory = getProductById(linked[0].product_id as string)?.category;
       const { count } = await supabase
         .from("listas_tallas_personas")
         .select("id", { count: "exact", head: true })
@@ -285,7 +287,7 @@ export async function POST(req: NextRequest) {
             : 0,
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
         listaPersonas,
-        nombresEstilo: listaPersonas && nameStyle ? describeNameStyle(nameStyle) : undefined,
+        nombresEstilo: listaPersonas && nameStyle ? describeNameStyle(nameStyle, listaCategory) : undefined,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({
