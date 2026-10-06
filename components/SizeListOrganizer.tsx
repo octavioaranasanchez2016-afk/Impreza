@@ -90,7 +90,7 @@ export function SizeListOrganizer({
               {closed ? " · lista cerrada" : ""}
             </p>
           </div>
-          {total > 0 && (
+          {total > 0 && orderHref && (
             <Link
               href={orderHref}
               className="rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90"

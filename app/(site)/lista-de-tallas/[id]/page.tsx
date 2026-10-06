@@ -47,6 +47,7 @@ export default async function ListaPage({
 
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
   if (list.color) order.set("color", list.color);
+  order.set("lista", list.id);
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-12 md:px-6 md:py-14">
@@ -60,6 +61,26 @@ export default async function ListaPage({
         {list.organizador ? ` · Organiza ${list.organizador}` : ""}
       </p>
 
+      {list.order_id && (
+        <div className="mt-6 rounded-brand border-2 border-ink bg-white p-5">
+          <p className="font-semibold text-ink">
+            {isOrganizer ? "Ya hiciste el pedido con esta lista" : "Esta lista ya se convirtió en pedido"} · #
+            {list.order_id.slice(0, 8).toUpperCase()}
+          </p>
+          <p className="mt-1 text-sm text-ink-soft">
+            Las tallas y los nombres de todos llegaron con el pedido, para que cada quien reciba la suya.
+          </p>
+          {isOrganizer && (
+            <Link
+              href={`/pedido/${list.order_id}/confirmacion`}
+              className="mt-3 inline-block rounded-brand bg-ink px-4 py-2 text-sm font-semibold text-paper hover:opacity-80"
+            >
+              Ver cómo va el pedido →
+            </Link>
+          )}
+        </div>
+      )}
+
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
         {isOrganizer ? (
           <SizeListOrganizer
@@ -69,7 +90,7 @@ export default async function ListaPage({
             sizes={sizes}
             entries={entries}
             closed={list.cerrada}
-            orderHref={`/pedido?${order.toString()}`}
+            orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
             baseUrl={siteUrl()}
           />
         ) : (

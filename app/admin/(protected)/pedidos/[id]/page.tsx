@@ -5,6 +5,7 @@ import { createClient, createServiceClient } from "@/lib/supabase/server";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
+import { OrderSizeList } from "@/components/admin/OrderSizeList";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
@@ -41,7 +42,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
 
   // Los buckets son privados: URLs firmadas de corta duración, solo para el admin.
   const service = createServiceClient();
-  const [disenosConUrl, comprobanteSigned, previousReceipts] = await Promise.all([
+  const [disenosConUrl, comprobanteSigned, previousReceipts, groupList] = await Promise.all([
     Promise.all(
       disenos.map(async (d) => {
         if (d.tipo !== "imagen" || !d.path) return { ...d, signedUrl: null as string | null };
@@ -69,6 +70,20 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
           })
         )
       ),
+    // Lista de tallas del grupo con la que se armó el pedido (null si no hay o falta listas.sql).
+    service
+      .from("listas_tallas")
+      .select("id, nombre, organizador")
+      .eq("order_id", id)
+      .maybeSingle()
+      .then(async ({ data: list }) => {
+        if (!list) return null;
+        const { data: people } = await service
+          .from("listas_tallas_personas")
+          .select("nombre, talla, cantidad")
+          .eq("lista_id", list.id);
+        return { nombre: list.nombre as string, organizador: list.organizador as string | null, entries: people ?? [] };
+      }),
   ]);
 
   const shortId = order.id.slice(0, 8).toUpperCase();
@@ -242,6 +257,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               billing={factura}
             />
           </div>
+
+          {groupList && <OrderSizeList nombre={groupList.nombre} organizador={groupList.organizador} entries={groupList.entries} />}
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start print:static">

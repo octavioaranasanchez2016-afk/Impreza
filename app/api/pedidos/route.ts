@@ -41,6 +41,7 @@ interface CreateOrderBody {
   paymentMethod: PaymentMethod;
   comprobantePath: string;
   orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
+  listaId?: string; // si el pedido se armó desde una lista de tallas del grupo
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga", "manga-izq", "manga-der", "etiqueta"];
@@ -182,6 +183,26 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // Pedido armado desde una lista de tallas: la lista queda unida al pedido (y cerrada),
+  // así el taller ve en el panel quién lleva qué talla. Si falla, el pedido sigue igual.
+  let listaPersonas = 0;
+  if (typeof body.listaId === "string" && UUID.test(body.listaId)) {
+    const { data: linked, error: listError } = await supabase
+      .from("listas_tallas")
+      .update({ order_id: order.id, cerrada: true })
+      .eq("id", body.listaId)
+      .is("order_id", null)
+      .select("id");
+    if (listError) console.error("No se pudo unir la lista de tallas al pedido:", listError.message);
+    if (linked?.length) {
+      const { count } = await supabase
+        .from("listas_tallas_personas")
+        .select("id", { count: "exact", head: true })
+        .eq("lista_id", body.listaId);
+      listaPersonas = count ?? 0;
+    }
+  }
+
   let itemRows: Record<string, unknown>[] = body.items.map((item) => ({
     order_id: order.id,
     product_id: item.productId,
@@ -248,6 +269,7 @@ export async function POST(req: NextRequest) {
             ? body.items.filter((i) => !isGroup(i.diseno)).reduce((sum, i) => sum + i.quantity, 0)
             : 0,
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
+        listaPersonas,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({

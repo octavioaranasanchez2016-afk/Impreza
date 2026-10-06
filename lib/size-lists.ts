@@ -15,6 +15,7 @@ export interface SizeList {
   product_id: string;
   color: string | null;
   cerrada: boolean;
+  order_id?: string | null; // el pedido que se hizo con esta lista
   created_at: string;
 }
 

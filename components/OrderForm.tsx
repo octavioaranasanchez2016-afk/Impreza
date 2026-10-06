@@ -201,6 +201,8 @@ export function OrderForm() {
   const quoteQuantity =
     (listTotal || Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0)))) || null;
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
+  // La lista de tallas de donde viene el pedido: al confirmarlo, queda unida a él.
+  const urlListaId = UUID_RE.test(searchParams.get("lista") ?? "") ? searchParams.get("lista") : null;
   const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
   const startFabric = urlFabricOption?.id ?? defaultFabricFor(preProduct, startTechnique);
 
@@ -812,6 +814,7 @@ export function OrderForm() {
           paymentMethod: "transferencia",
           comprobantePath,
           orderId: pendingOrderId,
+          listaId: urlListaId,
         }),
       });
 

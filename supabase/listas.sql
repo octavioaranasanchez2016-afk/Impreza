@@ -10,8 +10,11 @@ create table if not exists listas_tallas (
   product_id text not null,
   color text,                       -- si el grupo ya eligió color
   cerrada boolean not null default false,
+  order_id uuid references orders(id) on delete set null,  -- el pedido que se hizo con esta lista
   created_at timestamptz not null default now()
 );
+
+create index if not exists listas_tallas_order_idx on listas_tallas (order_id);
 
 create table if not exists listas_tallas_personas (
   id uuid primary key default gen_random_uuid(),
