@@ -3,7 +3,7 @@
 -- cada persona se anota con su nombre y su talla. Todo se lee y se escribe desde el
 -- servidor (service role): no hay políticas para el navegador.
 create table if not exists listas_tallas (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   clave text not null,              -- llave secreta del organizador (va en su enlace)
   nombre text not null,             -- "Promoción 2026 — Colegio La Salle"
   organizador text,
@@ -14,7 +14,7 @@ create table if not exists listas_tallas (
 );
 
 create table if not exists listas_tallas_personas (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   lista_id uuid not null references listas_tallas(id) on delete cascade,
   nombre text not null,
   talla text not null,
@@ -27,3 +27,6 @@ create index if not exists listas_tallas_personas_lista_idx on listas_tallas_per
 
 alter table listas_tallas enable row level security;
 alter table listas_tallas_personas enable row level security;
+
+-- Que Supabase vea las tablas nuevas de inmediato.
+notify pgrst, 'reload schema';
