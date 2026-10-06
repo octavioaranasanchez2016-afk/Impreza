@@ -1,0 +1,65 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createServiceClient } from "@/lib/supabase/server";
+import { MAX_PERSONAS, cleanName, listSizes, newSecret } from "@/lib/size-lists";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Una persona se anota en la lista con su nombre y su talla. Devuelve un token
+// para que, desde el mismo teléfono, pueda quitar su registro si se equivocó.
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  if (!UUID.test(id)) return NextResponse.json({ error: "Lista no válida." }, { status: 400 });
+  const body = await req.json().catch(() => null);
+  const nombre = cleanName(body?.nombre);
+  const talla = typeof body?.talla === "string" ? body.talla : "";
+  const cantidad = Number(body?.cantidad ?? 1);
+
+  const service = createServiceClient();
+  const { data: list } = await service
+    .from("listas_tallas")
+    .select("id, product_id, color, cerrada")
+    .eq("id", id)
+    .maybeSingle();
+  if (!list) return NextResponse.json({ error: "No encontramos esta lista." }, { status: 404 });
+  if (list.cerrada) return NextResponse.json({ error: "El organizador ya cerró esta lista." }, { status: 409 });
+  if (nombre.length < 2) return NextResponse.json({ error: "Escribe tu nombre." }, { status: 400 });
+  if (!listSizes(list.product_id, list.color).includes(talla)) return NextResponse.json({ error: "Elige tu talla." }, { status: 400 });
+  if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20) {
+    return NextResponse.json({ error: "La cantidad va de 1 a 20." }, { status: 400 });
+  }
+
+  const { count } = await service.from("listas_tallas_personas").select("id", { count: "exact", head: true }).eq("lista_id", id);
+  if ((count ?? 0) >= MAX_PERSONAS) return NextResponse.json({ error: "Esta lista ya está llena." }, { status: 409 });
+
+  const token = newSecret();
+  const { data, error } = await service
+    .from("listas_tallas_personas")
+    .insert({ lista_id: id, nombre, talla, cantidad, token })
+    .select("id")
+    .single();
+  if (error || !data) return NextResponse.json({ error: "No se pudo guardar. Intenta de nuevo." }, { status: 500 });
+  return NextResponse.json({ id: data.id, token });
+}
+
+// Quitar un registro: el organizador (con su clave) o la misma persona (con su token).
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json().catch(() => null);
+  const personaId = typeof body?.personaId === "string" ? body.personaId : "";
+  const clave = typeof body?.clave === "string" ? body.clave : "";
+  const token = typeof body?.token === "string" ? body.token : "";
+  if (!UUID.test(id) || !UUID.test(personaId)) return NextResponse.json({ error: "Registro no válido." }, { status: 400 });
+
+  const service = createServiceClient();
+  const [{ data: list }, { data: persona }] = await Promise.all([
+    service.from("listas_tallas").select("clave").eq("id", id).maybeSingle(),
+    service.from("listas_tallas_personas").select("token").eq("id", personaId).eq("lista_id", id).maybeSingle(),
+  ]);
+  if (!list || !persona) return NextResponse.json({ error: "No encontramos ese registro." }, { status: 404 });
+  const allowed = (clave && clave === list.clave) || (token && token === persona.token);
+  if (!allowed) return NextResponse.json({ error: "No puedes quitar este registro." }, { status: 403 });
+
+  const { error } = await service.from("listas_tallas_personas").delete().eq("id", personaId);
+  if (error) return NextResponse.json({ error: "No se pudo quitar." }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

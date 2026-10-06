@@ -80,6 +80,16 @@ export function OccasionLanding(props: OccasionLandingProps) {
               {example.discountPct ? `, con ${Math.round(example.discountPct * 100)}% de descuento` : ""}.
             </p>
           </div>
+          <Link
+            href="/lista-de-tallas"
+            className="mt-4 flex items-center justify-between gap-3 rounded-brand border border-black/10 bg-white p-4 hover:border-ink"
+          >
+            <span>
+              <span className="block text-sm font-semibold text-ink">¿Hay que juntar las tallas del grupo?</span>
+              <span className="block text-xs text-ink-soft">Crea una lista, compártela por WhatsApp y cada quien anota la suya.</span>
+            </span>
+            <span className="shrink-0 text-sm font-semibold text-ink">Crear lista →</span>
+          </Link>
         </div>
         <QuickQuote start={props.start} />
       </section>

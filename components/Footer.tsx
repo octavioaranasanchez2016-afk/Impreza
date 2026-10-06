@@ -41,6 +41,9 @@ export function Footer() {
             <Link href="/camisas-para-equipos" className="block hover:text-paper">
               Camisas para equipos
             </Link>
+            <Link href="/lista-de-tallas" className="block hover:text-paper">
+              Lista de tallas para grupos
+            </Link>
             <Link href="/seguimiento" className="block hover:text-paper">
               Rastrear pedido
             </Link>

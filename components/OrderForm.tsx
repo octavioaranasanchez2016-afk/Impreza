@@ -98,7 +98,19 @@ function addLabel(pieces: number): string {
 // Pedido que viene del cotizador: cuántas piezas lleva de las que cotizó. Las que ya
 // están en el pedido (inCart) y las que están en las tallas sin agregar (pending)
 // se cuentan por separado, para que el botón diga el número correcto.
-function QuoteProgress({ target, inCart, pending, multiSize }: { target: number; inCart: number; pending: number; multiSize: boolean }) {
+function QuoteProgress({
+  target,
+  inCart,
+  pending,
+  multiSize,
+  source = "cotización",
+}: {
+  target: number;
+  inCart: number;
+  pending: number;
+  multiSize: boolean;
+  source?: "cotización" | "lista";
+}) {
   const current = inCart + pending;
   const added = inCart >= target;
   const done = current >= target;
@@ -107,10 +119,10 @@ function QuoteProgress({ target, inCart, pending, multiSize }: { target: number;
     <div className={`rounded-brand border p-3 ${done ? "border-ink bg-ink text-paper" : "border-black/10 bg-paper-soft"}`}>
       <p className="text-sm font-semibold">
         {added
-          ? `✓ Ya agregaste las ${target} piezas de tu cotización`
+          ? `✓ Ya agregaste las ${target} piezas de tu ${source}`
           : done
           ? `✓ Tus ${target} piezas están listas`
-          : `Tu cotización: ${target} piezas · llevas ${current}`}
+          : `Tu ${source}: ${target} piezas · llevas ${current}`}
       </p>
       {done && (
         <p className="mt-1 text-[11px] text-paper/70">
@@ -118,7 +130,7 @@ function QuoteProgress({ target, inCart, pending, multiSize }: { target: number;
             ? pending > 0
               ? `Si quieres más, toca «${addLabel(pending)}»; si no, sigue con tus datos.`
               : "Sigue con tus datos aquí abajo."
-            : `${multiSize ? "Las repartimos en tallas típicas: cámbialas según tu grupo y toca" : "Toca"} «${addLabel(pending)}».`}
+            : `${multiSize ? (source === "lista" ? "Son las tallas de tu lista: revisa y toca" : "Las repartimos en tallas típicas: cámbialas según tu grupo y toca") : "Toca"} «${addLabel(pending)}».`}
         </p>
       )}
       {!done && (
@@ -135,6 +147,18 @@ function QuoteProgress({ target, inCart, pending, multiSize }: { target: number;
       )}
     </div>
   );
+}
+
+// "S:5,M:11,L:9" → { S: 5, M: 11, L: 9 }. Null si no viene o no tiene nada válido.
+function parseSizesParam(value: string | null): Record<string, number> | null {
+  if (!value) return null;
+  const out: Record<string, number> = {};
+  for (const part of value.split(",")) {
+    const [size, n] = part.split(":");
+    const qty = Math.round(Number(n));
+    if (size && /^[A-Za-zÁÉÍÓÚáéíóúñÑ]{1,12}$/.test(size) && qty > 0 && qty <= 9999) out[size] = (out[size] ?? 0) + qty;
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // Reparto típico de tallas para un grupo (más M y L), para que un pedido que viene
@@ -170,7 +194,12 @@ export function OrderForm() {
   const urlFabricOption = preProduct?.fabrics?.find(
     (f) => f.id === searchParams.get("tela") && (!urlTechnique || f.techniques.includes(urlTechnique))
   );
-  const quoteQuantity = Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0))) || null;
+  // Desde una lista de tallas llegan las cantidades exactas por talla (?tallas=S:5,M:11).
+  const listSizesParam = parseSizesParam(searchParams.get("tallas"));
+  const listTotal = listSizesParam ? Object.values(listSizesParam).reduce((a, b) => a + b, 0) : 0;
+  const quoteSource: "cotización" | "lista" = listSizesParam ? "lista" : "cotización";
+  const quoteQuantity =
+    (listTotal || Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0)))) || null;
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
   const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
   const startFabric = urlFabricOption?.id ?? defaultFabricFor(preProduct, startTechnique);
@@ -193,6 +222,7 @@ export function OrderForm() {
   const [sizeQty, setSizeQty] = useState<Record<string, number>>(() => {
     const sizes = preVariant?.sizes ?? [];
     if (!quoteQuantity) return initialSizeQty(sizes);
+    if (listSizesParam) return listSizesParam;
     return sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : typicalSizes(quoteQuantity, sizes);
   });
 
@@ -994,6 +1024,7 @@ export function OrderForm() {
                   inCart={items.reduce((sum, i) => sum + i.quantity, 0)}
                   pending={pendingTotal}
                   multiSize={availableSizes.length > 1}
+                  source={quoteSource}
                 />
               )}
 
