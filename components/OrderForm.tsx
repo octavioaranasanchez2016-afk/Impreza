@@ -51,6 +51,8 @@ import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
+import { GroupNamesSection } from "./GroupNamesSection";
+import { NameStyle, Personalizado, parseExamples } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { getZonesForCategory, isDarkColor } from "./GarmentShape";
 
@@ -201,6 +203,13 @@ export function OrderForm() {
   const quoteQuantity =
     (listTotal || Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0)))) || null;
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
+  // Lista con nombres en las camisas (?personal=nombre|nombre_numero&ejemplos=CHEPE~10|...):
+  // el diseñador muestra el apartado "Nombre de cada persona".
+  const urlPersonal: Personalizado | null =
+    searchParams.get("personal") === "nombre" || searchParams.get("personal") === "nombre_numero"
+      ? (searchParams.get("personal") as Personalizado)
+      : null;
+  const nameExamples = parseExamples(searchParams.get("ejemplos"));
   // La lista de tallas de donde viene el pedido: al confirmarlo, queda unida a él.
   const urlListaId = UUID_RE.test(searchParams.get("lista") ?? "") ? searchParams.get("lista") : null;
   const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
@@ -228,6 +237,12 @@ export function OrderForm() {
     return sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : typicalSizes(quoteQuantity, sizes);
   });
 
+  // Dónde y cómo va el nombre de cada persona (solo pedidos de grupo con nombres).
+  const [nameStyle, setNameStyle] = useState<NameStyle>(() => ({
+    ubicacion: "espalda-arriba",
+    fuente: "display",
+    color: isDarkColor(preVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111",
+  }));
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
@@ -815,6 +830,7 @@ export function OrderForm() {
           comprobantePath,
           orderId: pendingOrderId,
           listaId: urlListaId,
+          personalizacion: urlListaId && urlPersonal ? nameStyle : null,
         }),
       });
 
@@ -1187,6 +1203,19 @@ export function OrderForm() {
               )}
             </div>
           </div>
+
+          {urlPersonal && selectedProduct && (
+            <div className="mt-6">
+              <GroupNamesSection
+                category={selectedProduct.category}
+                colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
+                personalizado={urlPersonal}
+                examples={nameExamples}
+                style={nameStyle}
+                onChange={setNameStyle}
+              />
+            </div>
+          )}
         </section>
 
         <section id="datos" className="scroll-mt-28">

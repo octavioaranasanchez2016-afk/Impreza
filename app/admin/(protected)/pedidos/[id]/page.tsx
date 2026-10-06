@@ -6,6 +6,7 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
+import { describeNameStyle, parseNameStyle } from "@/lib/group-names";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
@@ -73,16 +74,25 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
     // Lista de tallas del grupo con la que se armó el pedido (null si no hay o falta listas.sql).
     service
       .from("listas_tallas")
-      .select("id, nombre, organizador")
+      .select("*")
       .eq("order_id", id)
       .maybeSingle()
       .then(async ({ data: list }) => {
         if (!list) return null;
-        const { data: people } = await service
-          .from("listas_tallas_personas")
-          .select("nombre, talla, cantidad")
-          .eq("lista_id", list.id);
-        return { nombre: list.nombre as string, organizador: list.organizador as string | null, entries: people ?? [] };
+        const { data: people } = await service.from("listas_tallas_personas").select("*").eq("lista_id", list.id);
+        const style = parseNameStyle(list.estilo);
+        return {
+          nombre: list.nombre as string,
+          organizador: list.organizador as string | null,
+          estilo: style ? describeNameStyle(style) : null,
+          entries: (people ?? []).map((p) => ({
+            nombre: p.nombre as string,
+            talla: p.talla as string,
+            cantidad: p.cantidad as number,
+            texto: (p.texto as string | null) ?? null,
+            numero: (p.numero as string | null) ?? null,
+          })),
+        };
       }),
   ]);
 
@@ -258,7 +268,14 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             />
           </div>
 
-          {groupList && <OrderSizeList nombre={groupList.nombre} organizador={groupList.organizador} entries={groupList.entries} />}
+          {groupList && (
+            <OrderSizeList
+              nombre={groupList.nombre}
+              organizador={groupList.organizador}
+              entries={groupList.entries}
+              nombresEstilo={groupList.estilo}
+            />
+          )}
         </div>
 
         <div className="space-y-6 lg:sticky lg:top-20 lg:self-start print:static">

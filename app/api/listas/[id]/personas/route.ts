@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_PERSONAS, cleanName, listSizes, newSecret } from "@/lib/size-lists";
+import { cleanNumero, cleanTexto } from "@/lib/group-names";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -13,11 +14,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const nombre = cleanName(body?.nombre);
   const talla = typeof body?.talla === "string" ? body.talla : "";
   const cantidad = Number(body?.cantidad ?? 1);
+  const texto = cleanTexto(body?.texto);
+  const numero = cleanNumero(body?.numero);
 
   const service = createServiceClient();
   const { data: list } = await service
     .from("listas_tallas")
-    .select("id, product_id, color, cerrada")
+    .select("*")
     .eq("id", id)
     .maybeSingle();
   if (!list) return NextResponse.json({ error: "No encontramos esta lista." }, { status: 404 });
@@ -27,6 +30,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20) {
     return NextResponse.json({ error: "La cantidad va de 1 a 20." }, { status: 400 });
   }
+  // Si cada camisa lleva nombre (y número), no se puede anotar sin ellos.
+  const personalizado = (list.personalizado as string | undefined) ?? "ninguno";
+  if (personalizado !== "ninguno" && !texto) {
+    return NextResponse.json({ error: "Escribe lo que dirá tu camisa (tu nombre o apodo)." }, { status: 400 });
+  }
+  if (personalizado === "nombre_numero" && !numero) {
+    return NextResponse.json({ error: "Escribe tu número." }, { status: 400 });
+  }
 
   const { count } = await service.from("listas_tallas_personas").select("id", { count: "exact", head: true }).eq("lista_id", id);
   if ((count ?? 0) >= MAX_PERSONAS) return NextResponse.json({ error: "Esta lista ya está llena." }, { status: 409 });
@@ -34,7 +45,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const token = newSecret();
   const { data, error } = await service
     .from("listas_tallas_personas")
-    .insert({ lista_id: id, nombre, talla, cantidad, token })
+    .insert({
+      lista_id: id,
+      nombre,
+      talla,
+      cantidad,
+      token,
+      ...(personalizado !== "ninguno" ? { texto, numero: personalizado === "nombre_numero" ? numero : null } : {}),
+    })
     .select("id")
     .single();
   if (error || !data) return NextResponse.json({ error: "No se pudo guardar. Intenta de nuevo." }, { status: 500 });

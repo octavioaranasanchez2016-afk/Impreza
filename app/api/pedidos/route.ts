@@ -4,6 +4,7 @@ import { buildInvoiceLines, calculateOrderTotal, techniquesText } from "@/lib/pr
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
+import { describeNameStyle, parseNameStyle } from "@/lib/group-names";
 import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 
@@ -42,6 +43,7 @@ interface CreateOrderBody {
   comprobantePath: string;
   orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
   listaId?: string; // si el pedido se armó desde una lista de tallas del grupo
+  personalizacion?: unknown; // dónde y cómo va el nombre de cada persona (camisas de grupo)
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga", "manga-izq", "manga-der", "etiqueta"];
@@ -186,13 +188,26 @@ export async function POST(req: NextRequest) {
   // Pedido armado desde una lista de tallas: la lista queda unida al pedido (y cerrada),
   // así el taller ve en el panel quién lleva qué talla. Si falla, el pedido sigue igual.
   let listaPersonas = 0;
+  const nameStyle = parseNameStyle(body.personalizacion);
   if (typeof body.listaId === "string" && UUID.test(body.listaId)) {
-    const { data: linked, error: listError } = await supabase
-      .from("listas_tallas")
-      .update({ order_id: order.id, cerrada: true })
-      .eq("id", body.listaId)
-      .is("order_id", null)
-      .select("id");
+    const link = (withStyle: boolean) =>
+      supabase
+        .from("listas_tallas")
+        .update({ order_id: order.id, cerrada: true, ...(withStyle && nameStyle ? { estilo: nameStyle } : {}) })
+        .eq("id", body.listaId!)
+        .is("order_id", null)
+        .select("id");
+    let { data: linked, error: listError } = await link(true);
+    // Sin la columna "estilo" (falta la parte nueva de listas.sql): la lista se une igual
+    // y el estilo de los nombres queda en las notas del pedido para que el taller lo vea.
+    if (listError?.code === "PGRST204" && nameStyle) {
+      ({ data: linked, error: listError } = await link(false));
+      const nota = `Nombre de cada persona: ${describeNameStyle(nameStyle)}`;
+      await supabase
+        .from("orders")
+        .update({ notas: body.notas ? `${body.notas}\n\n${nota}` : nota })
+        .eq("id", order.id);
+    }
     if (listError) console.error("No se pudo unir la lista de tallas al pedido:", listError.message);
     if (linked?.length) {
       const { count } = await supabase
@@ -270,6 +285,7 @@ export async function POST(req: NextRequest) {
             : 0,
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
         listaPersonas,
+        nombresEstilo: listaPersonas && nameStyle ? describeNameStyle(nameStyle) : undefined,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({

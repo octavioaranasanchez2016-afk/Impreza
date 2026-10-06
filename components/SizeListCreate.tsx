@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PRODUCTS, getProductById } from "@/lib/catalog";
+import { PERSONALIZADO_OPTIONS, Personalizado } from "@/lib/group-names";
 
 // Las listas que este teléfono creó, para volver a ellas sin buscar el enlace.
 export const MY_LISTS_KEY = "impreza-mis-listas";
@@ -28,6 +29,7 @@ export function SizeListCreate() {
   const [organizador, setOrganizador] = useState("");
   const [productId, setProductId] = useState(PRODUCTS[0].id);
   const [color, setColor] = useState("");
+  const [personalizado, setPersonalizado] = useState<Personalizado>("nombre");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [myLists, setMyLists] = useState<MyList[]>([]);
@@ -41,7 +43,7 @@ export function SizeListCreate() {
     const res = await fetch("/api/listas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, organizador, productId, color: color || null }),
+      body: JSON.stringify({ nombre, organizador, productId, color: color || null, personalizado }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -111,6 +113,32 @@ export function SizeListCreate() {
           </select>
         </label>
       </div>
+
+      <fieldset className="mt-4">
+        <legend className="text-xs font-semibold text-ink-soft">¿Cada camisa lleva el nombre de su dueño?</legend>
+        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+          {PERSONALIZADO_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              onClick={() => setPersonalizado(o.value)}
+              aria-pressed={personalizado === o.value}
+              className={`rounded-brand border px-3 py-2.5 text-left transition-colors ${
+                personalizado === o.value ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+              }`}
+            >
+              <span className="block text-sm font-semibold">{o.label}</span>
+              <span className={`block text-[11px] ${personalizado === o.value ? "text-paper/70" : "text-ink-soft"}`}>{o.hint}</span>
+            </button>
+          ))}
+        </div>
+        {personalizado !== "ninguno" && (
+          <p className="mt-2 text-[11px] text-ink-muted">
+            Cada quien escribe {personalizado === "nombre_numero" ? "su nombre y su número" : "su nombre o apodo"} tal como quiere
+            que salga en su camisa. Tú no tienes que pasarlo a mano.
+          </p>
+        )}
+      </fieldset>
 
       {error && <p className="mt-3 rounded-brand bg-red-50 p-3 text-sm text-red-700">{error}</p>}
 

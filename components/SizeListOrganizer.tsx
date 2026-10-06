@@ -10,6 +10,8 @@ interface Entry {
   nombre: string;
   talla: string;
   cantidad: number;
+  texto?: string | null;
+  numero?: string | null;
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -44,6 +46,7 @@ export function SizeListOrganizer({
   closed,
   orderHref,
   baseUrl,
+  hasNames = false,
 }: {
   listId: string;
   clave: string;
@@ -52,7 +55,8 @@ export function SizeListOrganizer({
   entries: Entry[];
   closed: boolean;
   orderHref: string;
-  baseUrl: string; // dirección oficial del sitio, para que el enlace compartido sea el bueno
+  baseUrl: string;
+  hasNames?: boolean; // cada camisa lleva nombre // dirección oficial del sitio, para que el enlace compartido sea el bueno
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -63,6 +67,20 @@ export function SizeListOrganizer({
   const counts = new Map<string, number>(sizes.map((s) => [s, 0]));
   for (const e of entries) counts.set(e.talla, (counts.get(e.talla) ?? 0) + e.cantidad);
   const total = entries.reduce((sum, e) => sum + e.cantidad, 0);
+
+  // Números repetidos (equipos): el organizador lo ve sin tener que revisar uno por uno.
+  const byNumber = new Map<string, string[]>();
+  for (const e of entries) if (e.numero) byNumber.set(e.numero, [...(byNumber.get(e.numero) ?? []), e.nombre]);
+  const repeated = [...byNumber].filter(([, names]) => names.length > 1);
+
+  // La lista en texto, para pegarla en el chat o guardarla.
+  const listText = [
+    `${listName} — ${total} pieza${total === 1 ? "" : "s"}`,
+    ...entries.map(
+      (e, i) =>
+        `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${e.texto ? ` — «${e.texto}»` : ""}${e.numero ? ` #${e.numero}` : ""}`
+    ),
+  ].join("\n");
 
   async function call(method: "PATCH" | "DELETE", url: string, body: object) {
     setError(null);
@@ -114,14 +132,19 @@ export function SizeListOrganizer({
         <p className="mt-1 text-xs text-ink-soft">Cada quien abre el enlace, escribe su nombre y elige su talla. No necesitan cuenta.</p>
         <div className="mt-3 flex flex-wrap gap-2">
           <a
-            href={shareWhatsAppUrl(`Anota tu talla para «${listName}» aquí, solo toma un minuto: ${shareUrl}`)}
+            href={shareWhatsAppUrl(
+              entries.length > 0
+                ? `Ya somos ${entries.length} anotados para «${listName}». Si te falta, anota tu talla${hasNames ? " y lo que dirá tu camisa" : ""} aquí, solo toma un minuto: ${shareUrl}`
+                : `Anota tu talla${hasNames ? " y lo que dirá tu camisa" : ""} para «${listName}» aquí, solo toma un minuto: ${shareUrl}`
+            )}
             target="_blank"
             rel="noopener noreferrer"
             className="rounded-brand bg-[#25D366] px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
           >
-            Enviar por WhatsApp
+            {entries.length > 0 ? "Recordar al grupo por WhatsApp" : "Enviar por WhatsApp"}
           </a>
           <CopyButton text={shareUrl} label="Copiar enlace" />
+          {entries.length > 0 && <CopyButton text={listText} label="Copiar la lista" />}
         </div>
         <div className="mt-4 rounded-brand bg-paper-soft p-3 text-xs text-ink-soft">
           <span className="font-semibold text-ink">Guarda tu enlace de organizador:</span> con él vuelves a ver y manejar la
@@ -145,13 +168,26 @@ export function SizeListOrganizer({
             {closed ? "Volver a abrir la lista" : "Cerrar la lista"}
           </button>
         </div>
+        {repeated.length > 0 && (
+          <p className="mt-3 rounded-brand bg-amber-50 px-3 py-2 text-xs text-ink">
+            <span className="font-semibold">Números repetidos:</span>{" "}
+            {repeated.map(([n, names]) => `#${n} (${names.join(", ")})`).join(" · ")}
+          </p>
+        )}
         {entries.length === 0 ? (
           <p className="mt-3 text-sm text-ink-soft">Todavía nadie. Comparte el enlace y aquí van a ir apareciendo.</p>
         ) : (
           <ul className="mt-3 divide-y divide-black/5">
             {entries.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                <span className="min-w-0 truncate text-ink">{e.nombre}</span>
+                <span className="min-w-0 text-ink">
+                  <span className="block truncate">{e.nombre}</span>
+                  {(e.texto || e.numero) && (
+                    <span className="block truncate text-xs text-ink-soft">
+                      Dirá «{e.texto}»{e.numero ? ` · #${e.numero}` : ""}
+                    </span>
+                  )}
+                </span>
                 <span className="flex shrink-0 items-center gap-3">
                   <span className="font-semibold text-ink">
                     {e.talla}

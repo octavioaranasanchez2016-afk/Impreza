@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { createServiceClient } from "./supabase/server";
 import { getProductById } from "./catalog";
+import { Personalizado } from "./group-names";
 
 // Listas de tallas para grupos (ver supabase/listas.sql). Solo se usan desde el
 // servidor: la lista se abre con su id (difícil de adivinar) y el organizador la
@@ -16,6 +17,8 @@ export interface SizeList {
   color: string | null;
   cerrada: boolean;
   order_id?: string | null; // el pedido que se hizo con esta lista
+  personalizado?: Personalizado | null; // si cada camisa lleva nombre (y número)
+  estilo?: unknown; // dónde y cómo va el nombre, elegido en el diseñador
   created_at: string;
 }
 
@@ -24,6 +27,8 @@ export interface SizeListEntry {
   nombre: string;
   talla: string;
   cantidad: number;
+  texto?: string | null; // lo que dirá su camisa
+  numero?: string | null;
   created_at: string;
 }
 
@@ -45,21 +50,38 @@ export function listSizes(productId: string, color: string | null): string[] {
   return all.sort((a, b) => (order.indexOf(a) + 1 || 99) - (order.indexOf(b) + 1 || 99));
 }
 
+// Una columna o tabla que todavía no existe en Supabase (falta correr listas.sql).
+export function isMissingSchema(error: { code?: string; message?: string } | null): boolean {
+  return Boolean(
+    error && (error.code === "42P01" || error.code === "PGRST204" || error.code === "PGRST205" || /does not exist|schema cache/i.test(error.message ?? ""))
+  );
+}
+
 // missing: las tablas todavía no existen (falta correr el SQL).
 export async function loadSizeList(
   id: string
 ): Promise<{ list: SizeList; clave: string; entries: SizeListEntry[] } | { missing: true } | null> {
   const service = createServiceClient();
   const { data: list, error } = await service.from("listas_tallas").select("*").eq("id", id).maybeSingle();
-  if (error) return error.code === "42P01" || /does not exist|schema cache/i.test(error.message) ? { missing: true } : null;
+  if (error) return isMissingSchema(error) ? { missing: true } : null;
   if (!list) return null;
-  const { data: entries } = await service
+  // "*": las columnas texto y número pueden no existir todavía.
+  const { data: rows } = await service
     .from("listas_tallas_personas")
-    .select("id, nombre, talla, cantidad, created_at")
+    .select("*")
     .eq("lista_id", id)
     .order("created_at", { ascending: true });
+  const entries = (rows ?? []).map((r) => ({
+    id: r.id as string,
+    nombre: r.nombre as string,
+    talla: r.talla as string,
+    cantidad: r.cantidad as number,
+    texto: (r.texto as string | null) ?? null,
+    numero: (r.numero as string | null) ?? null,
+    created_at: r.created_at as string,
+  }));
   const { clave, ...rest } = list as SizeList & { clave: string };
-  return { list: rest, clave, entries: (entries ?? []) as SizeListEntry[] };
+  return { list: rest, clave, entries };
 }
 
 // "S:5,M:11,L:9": para pasarle las tallas al diseñador.

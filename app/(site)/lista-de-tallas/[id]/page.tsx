@@ -5,6 +5,7 @@ import { listSizes, loadSizeList, sizesParam } from "@/lib/size-lists";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
+import { Personalizado, examplesParam } from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -44,10 +45,18 @@ export default async function ListaPage({
   const sizes = listSizes(list.product_id, list.color);
   const isOrganizer = Boolean(clave) && clave === result.clave;
   const total = entries.reduce((sum, e) => sum + e.cantidad, 0);
+  const personalizado: Personalizado =
+    list.personalizado === "nombre" || list.personalizado === "nombre_numero" ? list.personalizado : "ninguno";
+  const colorHex = product.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF";
 
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
   if (list.color) order.set("color", list.color);
   order.set("lista", list.id);
+  // Camisas con nombre: el diseñador abre el apartado de nombres con ejemplos del grupo.
+  if (personalizado !== "ninguno") {
+    order.set("personal", personalizado);
+    order.set("ejemplos", examplesParam(entries));
+  }
 
   return (
     <section className="mx-auto max-w-5xl px-4 py-12 md:px-6 md:py-14">
@@ -92,6 +101,7 @@ export default async function ListaPage({
             closed={list.cerrada}
             orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
             baseUrl={siteUrl()}
+            hasNames={personalizado !== "ninguno"}
           />
         ) : (
           <div className="rounded-brand border border-black/10 bg-white p-5">
@@ -105,7 +115,10 @@ export default async function ListaPage({
               <ul className="mt-3 divide-y divide-black/5">
                 {entries.map((e) => (
                   <li key={e.id} className="flex justify-between gap-3 py-2 text-sm">
-                    <span className="min-w-0 truncate text-ink">{e.nombre}</span>
+                    <span className="min-w-0 truncate text-ink">
+                      {e.nombre}
+                      {e.texto ? <span className="text-ink-soft"> · «{e.texto}»{e.numero ? ` #${e.numero}` : ""}</span> : null}
+                    </span>
                     <span className="shrink-0 font-semibold text-ink">
                       {e.talla}
                       {e.cantidad > 1 ? ` × ${e.cantidad}` : ""}
@@ -126,6 +139,8 @@ export default async function ListaPage({
             productName={product.name}
             title={isOrganizer ? "Anotar a alguien" : "Anótate"}
             forOthers={isOrganizer}
+            personalizado={personalizado}
+            colorHex={colorHex}
           />
           <p className="mt-3 text-center text-xs text-ink-soft">
             Las camisas las hace{" "}

@@ -6,17 +6,23 @@ export interface OrderSizeListEntry {
   nombre: string;
   talla: string;
   cantidad: number;
+  texto?: string | null; // lo que dice su camisa
+  numero?: string | null;
 }
 
 export function OrderSizeList({
   nombre,
   organizador,
   entries,
+  nombresEstilo,
 }: {
   nombre: string;
   organizador: string | null;
   entries: OrderSizeListEntry[];
+  nombresEstilo?: string | null; // "Espalda, arriba · letra Colegial · blanco"
 }) {
+  const withText = entries.some((e) => e.texto);
+  const withNumber = entries.some((e) => e.numero);
   const rank = (t: string) => (SIZE_ORDER.indexOf(t) + 1 || 99);
   const sorted = [...entries].sort((a, b) => rank(a.talla) - rank(b.talla) || a.nombre.localeCompare(b.nombre, "es"));
   const counts = new Map<string, number>();
@@ -39,11 +45,19 @@ export function OrderSizeList({
           </span>
         ))}
       </p>
+      {withText && (
+        <p className="mt-3 rounded-brand border-2 border-ink px-3 py-2 text-sm text-ink">
+          <span className="font-semibold">Cada camisa lleva su nombre</span>
+          {nombresEstilo ? `: ${nombresEstilo}` : " (el estilo no quedó guardado; pregúntalo al cliente)"}
+        </p>
+      )}
       <table className="mt-3 w-full text-sm">
         <thead>
           <tr className="text-left text-xs text-ink-muted">
             <th className="pb-2 font-medium">Nombre</th>
             <th className="pb-2 font-medium">Talla</th>
+            {withText && <th className="pb-2 font-medium">Dice la camisa</th>}
+            {withNumber && <th className="pb-2 font-medium">Número</th>}
             <th className="pb-2 text-right font-medium">Piezas</th>
           </tr>
         </thead>
@@ -52,6 +66,8 @@ export function OrderSizeList({
             <tr key={`${e.nombre}-${i}`} className="border-t border-black/5">
               <td className="py-1.5 text-ink">{e.nombre}</td>
               <td className="py-1.5 font-semibold text-ink">{e.talla}</td>
+              {withText && <td className="py-1.5 font-semibold text-ink">{e.texto ?? "—"}</td>}
+              {withNumber && <td className="py-1.5 font-semibold text-ink">{e.numero ?? "—"}</td>}
               <td className="py-1.5 text-right text-ink">{e.cantidad}</td>
             </tr>
           ))}
