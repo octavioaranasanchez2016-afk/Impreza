@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ProductCategory } from "@/lib/types";
 import { FONT_OPTIONS } from "@/lib/design";
 import { NAME_COLORS, NAME_FONTS, NameStyle, Personalizado, camposDe, fitLugares } from "@/lib/group-names";
+import { GroupDesignPreview } from "@/lib/group-design";
 import { LugaresPicker } from "./LugaresPicker";
 import { NamePreview } from "./NamePreview";
 
@@ -18,6 +19,8 @@ export function GroupNamesSection({
   examples,
   style,
   onChange,
+  designs,
+  intro,
 }: {
   category: ProductCategory;
   colorHex: string;
@@ -25,6 +28,8 @@ export function GroupNamesSection({
   examples: { texto: string; numero: string }[];
   style: NameStyle;
   onChange: (style: NameStyle) => void;
+  designs?: GroupDesignPreview; // lo que está en el diseñador, para verlo junto con los nombres
+  intro?: string; // en vez de la explicación de siempre
 }) {
   const [shown, setShown] = useState(0);
   const campos = camposDe(personalizado);
@@ -39,8 +44,8 @@ export function GroupNamesSection({
         {campos.nombre ? "Nombre de cada persona" : "Número de cada persona"}
       </p>
       <p className="mt-1 text-sm text-ink-soft">
-        Cada camisa lleva {what} que escribió su dueño en la lista. Aquí puedes cambiar dónde va, la letra y el color:
-        nosotros lo ponemos en cada una.
+        {intro ??
+          `Cada camisa lleva ${what} que escribió su dueño en la lista. Aquí puedes cambiar dónde va, la letra y el color: nosotros lo ponemos en cada una.`}
       </p>
 
       <div className="mt-4 grid gap-5 md:grid-cols-2">
@@ -105,6 +110,7 @@ export function GroupNamesSection({
           texto={campos.nombre ? sample.texto : ""}
           numero={campos.numero ? sample.numero : undefined}
           style={{ ...style, lugares }}
+          designs={designs}
         />
         {examples.length > 1 && (
           <div className="mt-3 flex flex-wrap justify-center gap-1">

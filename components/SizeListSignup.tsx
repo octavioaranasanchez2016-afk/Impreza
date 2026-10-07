@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { ProductCategory } from "@/lib/types";
 import { SizeChartButton } from "./SizeChartButton";
 import { NamePreview } from "./NamePreview";
-import { Lugares, MAX_NUMERO, MAX_TEXTO, camposDe, personalizadoDe } from "@/lib/group-names";
+import { Lugares, MAX_NUMERO, MAX_TEXTO, NameStyle, camposDe, personalizadoDe } from "@/lib/group-names";
+import { GroupDesignPreview } from "@/lib/group-design";
 
 // Los registros que este teléfono hizo en la lista, para poder quitarlos.
 interface Mine {
@@ -47,6 +48,8 @@ export function SizeListSignup({
   forOthers = false,
   lugares = {},
   colorHex = "#FFFFFF",
+  designs = {},
+  nameStyle,
 }: {
   listId: string;
   sizes: string[];
@@ -57,6 +60,8 @@ export function SizeListSignup({
   forOthers?: boolean; // el organizador anota a otra persona
   lugares?: Lugares; // qué lleva cada camisa y dónde (vacío: todas iguales)
   colorHex?: string; // color de la camisa, para la vista previa
+  designs?: GroupDesignPreview; // el diseño del grupo, si el organizador ya lo hizo
+  nameStyle?: Pick<NameStyle, "fuente" | "color">; // letra y color de los nombres, si ya los eligió
 }) {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
@@ -67,6 +72,7 @@ export function SizeListSignup({
   const campos = camposDe(personalizadoDe(lugares));
   const withName = campos.nombre;
   const withNumber = campos.numero;
+  const hasDesign = Object.keys(designs).length > 0;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [mine, setMine] = useState<Mine[]>([]);
@@ -142,6 +148,28 @@ export function SizeListSignup({
 
       <p className="font-display text-3xl uppercase leading-none tracking-wide text-ink">{title}</p>
 
+      {(hasDesign || withName || withNumber) && (
+        <div className="mt-4">
+          <NamePreview
+            category={category}
+            colorHex={colorHex}
+            texto={withName ? texto.trim() : ""}
+            numero={withNumber ? numero : undefined}
+            style={{ lugares, ...nameStyle }}
+            designs={designs}
+          />
+          <p className="mt-1.5 text-center text-[11px] text-ink-muted">
+            {hasDesign
+              ? withName || withNumber
+                ? forOthers
+                  ? "Así va a quedar su camisa: lo que escribas abajo aparece aquí."
+                  : "Así va a quedar tu camisa: escribe abajo lo que dirá y míralo aquí."
+                : "Así va a quedar la camisa del grupo."
+              : "Así se vería (el diseño lo hace el organizador)."}
+          </p>
+        </div>
+      )}
+
       <label className="mt-4 block">
         <span className="text-xs font-semibold text-ink-soft">{forOthers ? "Nombre" : "Tu nombre"}</span>
         <input
@@ -187,16 +215,6 @@ export function SizeListSignup({
                 />
               </label>
             )}
-          </div>
-          <div className="mt-3">
-            <NamePreview
-              category={category}
-              colorHex={colorHex}
-              texto={withName ? texto.trim() : ""}
-              numero={withNumber ? numero : undefined}
-              style={{ lugares }}
-            />
-            <p className="mt-1 text-center text-[10px] text-ink-muted">Así se vería (la letra y el color los elige el organizador)</p>
           </div>
         </div>
       )}

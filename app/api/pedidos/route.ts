@@ -191,10 +191,13 @@ export async function POST(req: NextRequest) {
   let listaCategory: ProductCategory | undefined;
   const nameStyle = parseNameStyle(body.personalizacion);
   if (typeof body.listaId === "string" && UUID.test(body.listaId)) {
+    // El estilo de los nombres se suma a lo que ya tenía la lista (su diseño del grupo).
+    const { data: current } = await supabase.from("listas_tallas").select("*").eq("id", body.listaId).maybeSingle();
+    const saved = current?.estilo && typeof current.estilo === "object" ? current.estilo : {};
     const link = (withStyle: boolean) =>
       supabase
         .from("listas_tallas")
-        .update({ order_id: order.id, cerrada: true, ...(withStyle && nameStyle ? { estilo: nameStyle } : {}) })
+        .update({ order_id: order.id, cerrada: true, ...(withStyle && nameStyle ? { estilo: { ...saved, ...nameStyle } } : {}) })
         .eq("id", body.listaId!)
         .is("order_id", null)
         .select("id, product_id");

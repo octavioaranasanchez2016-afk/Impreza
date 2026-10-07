@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { createServiceClient } from "./supabase/server";
 import { getProductById } from "./catalog";
 import { Personalizado } from "./group-names";
+import { GroupDesign, parseGroupDesign } from "./group-design";
 
 // Listas de tallas para grupos (ver supabase/listas.sql). Solo se usan desde el
 // servidor: la lista se abre con su id (difícil de adivinar) y el organizador la
@@ -89,4 +90,20 @@ export function sizesParam(entries: SizeListEntry[]): string {
   const counts = new Map<string, number>();
   for (const e of entries) counts.set(e.talla, (counts.get(e.talla) ?? 0) + e.cantidad);
   return [...counts].map(([talla, n]) => `${talla}:${n}`).join(",");
+}
+
+// El diseño del grupo guardado en la lista, con URLs firmadas para ver sus imágenes
+// (el bucket es privado). null si la lista no tiene diseño.
+export async function loadGroupDesign(list: SizeList): Promise<GroupDesign | null> {
+  const estilo = list.estilo && typeof list.estilo === "object" ? (list.estilo as Record<string, unknown>) : {};
+  const design = parseGroupDesign(estilo.diseno, list.product_id, list.id);
+  if (!design) return null;
+  const paths = design.zonas.flatMap((z) => (z.tipo === "imagen" ? [z.path] : []));
+  if (paths.length === 0) return design;
+  const { data } = await createServiceClient().storage.from("disenos").createSignedUrls(paths, 60 * 60 * 6);
+  const urls = new Map((data ?? []).map((d) => [d.path, d.signedUrl]));
+  return {
+    ...design,
+    zonas: design.zonas.map((z) => (z.tipo === "imagen" ? { ...z, url: urls.get(z.path) ?? undefined } : z)),
+  };
 }

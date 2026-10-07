@@ -13,7 +13,8 @@ import { buildInvoiceLines, calculateOrderTotal, getUnitPrice, mainTechnique } f
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-import { DesignContent } from "@/lib/design";
+import { DesignContent, FontFamilyKey } from "@/lib/design";
+import { GroupDesign, groupImagePath } from "@/lib/group-design";
 import {
   LineDesign,
   LineDesigns,
@@ -52,9 +53,18 @@ import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
 import { GroupNamesSection } from "./GroupNamesSection";
-import { NameStyle, Personalizado, fitLugares, parseExamples, parseLugaresParam, parsePersonalizado } from "@/lib/group-names";
+import {
+  NameStyle,
+  Personalizado,
+  defaultLugares,
+  fitLugares,
+  parseExamples,
+  parseLugares,
+  parseLugaresParam,
+  parsePersonalizado,
+} from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
-import { getZonesForCategory, isDarkColor } from "./GarmentShape";
+import { ZONE_NAME, getZonesForCategory, isDarkColor } from "./GarmentShape";
 
 interface CartLine extends OrderItemInput {
   key: string;
@@ -184,9 +194,21 @@ function initialSizeQty(sizes: string[]): Record<string, number> {
   return sizes.length === 1 ? { [sizes[0]]: 1 } : {};
 }
 
-export function OrderForm() {
+// El diseño de una lista de tallas, que el organizador hace antes de compartirla:
+// el diseñador sin tallas, carrito ni pago, con un botón para guardarlo en la lista.
+export interface ListDesignMode {
+  listId: string;
+  clave: string;
+  nombre: string;
+  personas: number; // cuántos ya se anotaron: con 0 todavía se puede cambiar qué lleva cada camisa
+}
+
+export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; query?: string } = {}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const urlParams = useSearchParams();
+  // En la página de diseño de una lista, los datos llegan del servidor en vez de la URL.
+  const searchParams = useMemo(() => (query !== undefined ? new URLSearchParams(query) : urlParams), [query, urlParams]);
+  const designMode = Boolean(listDesign);
   const preselected = searchParams.get("producto") ?? PRODUCTS[0].id;
   // Desde el cotizador de "Por mayor" llegan también la técnica, la tela, cuántas
   // piezas y una nota (?tecnica=&tela=&cantidad=&nota=), y el pedido arranca armado.
@@ -237,6 +259,14 @@ export function OrderForm() {
   });
 
   // Dónde y cómo va el nombre de cada persona (solo pedidos de grupo con nombres).
+  // Al diseñar una lista sin nadie anotado se pueden activar los nombres o cambiar qué
+  // lleva cada camisa; después, solo acomodar lo que ya escribieron.
+  const [namesOn, setNamesOn] = useState(Boolean(urlPersonal));
+  const namesPersonal: Personalizado | null = !namesOn
+    ? null
+    : listDesign?.personas === 0
+      ? "nombre_numero"
+      : urlPersonal;
   const [nameStyle, setNameStyle] = useState<NameStyle>(() => ({
     lugares: urlPersonal ? fitLugares(urlLugares, urlPersonal, getProductById(preselected)?.category ?? "camisa") : {},
     fuente: "display",
@@ -338,6 +368,11 @@ export function OrderForm() {
   const urlProduct = searchParams.get("producto");
 
   useEffect(() => {
+    // El diseño de una lista no es un pedido: no se recupera ni se guarda como borrador.
+    if (designMode) {
+      setDraftReady(true);
+      return;
+    }
     let cancelled = false;
     (async () => {
       const draft = loadDraft();
@@ -427,7 +462,7 @@ export function OrderForm() {
   }, []);
 
   useEffect(() => {
-    if (!draftReady) return;
+    if (!draftReady || designMode) return;
     const designs: Partial<Record<DesignZone, DraftDesign>> = {};
     for (const [zone, c] of Object.entries(zoneContent) as [DesignZone, DesignContent][]) {
       designs[zone] = toDraftDesign(c);
@@ -477,7 +512,7 @@ export function OrderForm() {
   // Las imágenes (del diseñador y de cada línea) solo se vuelven a guardar cuando
   // cambia algún archivo, no al moverlas.
   useEffect(() => {
-    if (!draftReady) return;
+    if (!draftReady || designMode) return;
     const files: Record<string, File> = {};
     const collect = (c: DesignContent | undefined) => {
       if (c?.kind === "imagen") files[imageKey(c.file)] = c.file;
@@ -489,6 +524,158 @@ export function OrderForm() {
     savedImageKeys.current = keys;
     void saveDraftImages(files);
   }, [draftReady, zoneContent, items]);
+
+  // El diseño que el organizador guardó en la lista: se carga en el diseñador para
+  // cambiarlo (página de diseño de la lista) o para hacer el pedido sin volver a
+  // diseñar. En el pedido se carga una sola vez por pestaña, para no pisar lo que ya cambiaron.
+  const listImagePaths = useRef(new Map<string, string>()); // imagen → dónde está guardada
+  const [listDesignState, setListDesignState] = useState<"cargando" | "listo" | "error" | null>(null);
+  useEffect(() => {
+    if (!draftReady || !urlListaId) return;
+    const loadedKey = `impreza-lista-diseno-${urlListaId}`;
+    if (!designMode) {
+      try {
+        if (sessionStorage.getItem(loadedKey)) return;
+      } catch {
+        // Sin almacenamiento: se carga cada vez.
+      }
+    }
+    let cancelled = false;
+    (async () => {
+      setListDesignState("cargando");
+      try {
+        const res = await fetch(`/api/listas/${urlListaId}/diseno`);
+        if (!res.ok) throw new Error();
+        const data: {
+          diseno: GroupDesign | null;
+          nombres: { lugares: unknown; fuente?: FontFamilyKey; color?: string } | null;
+        } = await res.json();
+        const content: ZoneContentMap = {};
+        const transforms: ZoneTransformMap = {};
+        for (const z of data.diseno?.zonas ?? []) {
+          transforms[z.zona] = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+          if (z.tipo === "texto") {
+            content[z.zona] = { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
+          } else if (z.url) {
+            const imageRes = await fetch(z.url);
+            if (!imageRes.ok) throw new Error();
+            const file = new File([await imageRes.blob()], `diseno-${z.zona}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+            listImagePaths.current.set(imageKey(file), z.path);
+            content[z.zona] = {
+              kind: "imagen",
+              file,
+              previewUrl: URL.createObjectURL(file),
+              width: z.anchoPx,
+              height: z.altoPx,
+              fill: z.ajuste === "llenar",
+            };
+          }
+        }
+        if (cancelled) return;
+        if (data.diseno) {
+          setZoneContent(content);
+          setZoneTransform(transforms);
+          setActiveZone((Object.keys(content) as DesignZone[])[0] ?? "frente");
+          setTechnique(data.diseno.tecnica);
+          setFabric(data.diseno.tela ?? defaultFabricFor(getProductById(preselected), data.diseno.tecnica));
+        }
+        const nombres = data.nombres;
+        if (nombres) {
+          setNameStyle((prev) => ({
+            lugares: parseLugares(nombres.lugares),
+            fuente: nombres.fuente ?? prev.fuente,
+            color: nombres.color ?? prev.color,
+          }));
+        }
+        try {
+          sessionStorage.setItem(loadedKey, "1");
+        } catch {
+          // Sin almacenamiento: se vuelve a cargar al recargar la página.
+        }
+        setListDesignState(data.diseno ? "listo" : null);
+      } catch {
+        if (!cancelled) setListDesignState("error");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // Solo cuando termina de recuperar el borrador.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady]);
+
+  // Para empezar rápido: el nombre de la lista y sus partes ("Promoción 2026 — Colegio
+  // La Salle" da también "Promoción 2026" y "Colegio La Salle"), listos como texto.
+  const textIdeas = listDesign
+    ? [...new Set([listDesign.nombre, ...listDesign.nombre.split(/\s+[—–-]\s+|\s*[|·,]\s*/)].map((t) => t.trim()))]
+        .filter((t) => t.length >= 3 && t.length <= 40)
+        .slice(0, 4)
+    : [];
+
+  // Guarda en la lista lo que está en el diseñador (y cómo van los nombres) y vuelve a ella.
+  const [savingDesign, setSavingDesign] = useState(false);
+  async function saveListDesign() {
+    if (!listDesign || !selectedProduct) return;
+    setSavingDesign(true);
+    setError(null);
+    try {
+      const supabase = createClient();
+      const zonas = [];
+      for (const zone of zonesWithContent) {
+        const { content, transform } = zonePreviews[zone]!;
+        const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
+        if (content.kind === "imagen") {
+          let path = listImagePaths.current.get(imageKey(content.file));
+          if (!path) {
+            path = groupImagePath(listDesign.listId, zone);
+            const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
+              contentType: "image/jpeg",
+            });
+            if (uploadError) throw new Error(`No se pudo subir la imagen (${zone}): ${uploadError.message}`);
+            listImagePaths.current.set(imageKey(content.file), path);
+          }
+          zonas.push({
+            zona: zone,
+            tipo: "imagen",
+            path,
+            ajuste: content.fill ? "llenar" : "completa",
+            anchoPx: content.width,
+            altoPx: content.height,
+            ...placement,
+          });
+        } else {
+          zonas.push({
+            zona: zone,
+            tipo: "texto",
+            texto: content.texto.trim(),
+            color: content.color,
+            fuente: content.fontFamily,
+            ...(content.outline ? { contorno: content.outline } : {}),
+            ...placement,
+          });
+        }
+      }
+      const res = await fetch(`/api/listas/${listDesign.listId}/diseno`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clave: listDesign.clave,
+          diseno: { tecnica: technique, tela: fabric, color, zonas },
+          nombres: namesPersonal
+            ? { ...nameStyle, lugares: fitLugares(nameStyle.lugares, namesPersonal, selectedProduct.category) }
+            : null,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "No se pudo guardar el diseño. Intenta de nuevo.");
+      }
+      router.push(`/lista-de-tallas/${listDesign.listId}?clave=${encodeURIComponent(listDesign.clave)}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Ocurrió un error inesperado.");
+      setSavingDesign(false);
+    }
+  }
 
   function startOver() {
     clearDraft();
@@ -863,8 +1050,29 @@ export function OrderForm() {
   }
 
   return (
-    <div className="grid gap-10 lg:grid-cols-[1fr_320px]">
+    <div className={designMode ? "" : "grid gap-10 lg:grid-cols-[1fr_320px]"}>
       <div className="min-w-0 space-y-10">
+        {listDesignState === "cargando" && (
+          <p className="rounded-brand bg-paper-soft px-4 py-3 text-sm text-ink-soft" aria-live="polite">
+            Cargando el diseño de la lista…
+          </p>
+        )}
+        {listDesignState === "listo" && !designMode && (
+          <div className="flex items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3 text-sm">
+            <p className="text-ink">
+              <span className="font-semibold">Ya pusimos el diseño de tu lista.</span>{" "}
+              <span className="text-ink-soft">Revísalo, agrega tus piezas y confirma.</span>
+            </p>
+            <button type="button" onClick={() => setListDesignState(null)} className="shrink-0 text-xs font-semibold text-ink hover:underline">
+              Cerrar
+            </button>
+          </div>
+        )}
+        {listDesignState === "error" && (
+          <p className="rounded-brand bg-red-50 px-4 py-3 text-sm text-red-700">
+            No se pudo cargar el diseño de la lista. Recarga la página para intentarlo de nuevo.
+          </p>
+        )}
         {restored && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3 text-sm">
             <p className="text-ink">
@@ -891,12 +1099,20 @@ export function OrderForm() {
         )}
 
         <section id="diseno" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">1. Diseña tu producto</h2>
+          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">
+            {designMode ? "Diseño del grupo" : "1. Diseña tu producto"}
+          </h2>
 
           <div className="mt-3 grid gap-6 lg:grid-cols-[260px_1fr]">
             <div className="order-2 space-y-5 self-start rounded-brand border border-black/10 bg-white p-5 lg:order-1">
               <Field label="Producto">
-                <select value={productId} onChange={(e) => handleProductChange(e.target.value)} className="input">
+                <select
+                  value={productId}
+                  onChange={(e) => handleProductChange(e.target.value)}
+                  disabled={designMode}
+                  title={designMode ? "La prenda se eligió al crear la lista" : undefined}
+                  className="input disabled:opacity-60"
+                >
                   {PRODUCTS.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.name}
@@ -1049,144 +1265,178 @@ export function OrderForm() {
                 />
               )}
 
-              {availableSizes.length > 1 ? (
-                <div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-ink-soft">Cantidad por talla</p>
-                    {selectedProduct && <SizeChartButton category={selectedProduct.category} productName={selectedProduct.name} />}
-                  </div>
-                  <p className="mb-2 text-[11px] text-ink-muted">Toca tu talla o escribe cuántas quieres de cada una.</p>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {availableSizes.map((s) => (
-                      <div key={s} className="min-w-0">
-                        <button
-                          type="button"
-                          onClick={() => pickSize(s)}
-                          aria-pressed={size === s}
-                          className={`w-full rounded-t-brand border px-1 py-1 text-xs font-semibold transition-colors ${
-                            size === s ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
-                          }`}
-                        >
-                          {s}
-                        </button>
-                        <input
-                          type="number"
-                          min={0}
-                          inputMode="numeric"
-                          aria-label={`Cantidad talla ${s}`}
-                          value={sizeQty[s] ? sizeQty[s] : ""}
-                          placeholder="0"
-                          onFocus={() => setSize(s)}
-                          onChange={(e) => setQtyFor(s, Number(e.target.value))}
-                          className="w-full rounded-b-brand border border-t-0 border-black/15 bg-white px-1 py-1.5 text-center text-sm font-semibold text-ink outline-none [appearance:textfield] placeholder:font-normal placeholder:text-ink-muted focus:border-ink [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                        />
+              {!designMode && (
+                <>
+                  {availableSizes.length > 1 ? (
+                    <div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium text-ink-soft">Cantidad por talla</p>
+                        {selectedProduct && <SizeChartButton category={selectedProduct.category} productName={selectedProduct.name} />}
                       </div>
-                    ))}
-                  </div>
-                </div>
-              ) : (
-                <Field label={`Cantidad${availableSizes[0] ? ` (talla ${availableSizes[0].toLowerCase()})` : ""}`}>
-                  <input
-                    type="number"
-                    min={1}
-                    inputMode="numeric"
-                    value={sizeQty[availableSizes[0]] || ""}
-                    onChange={(e) => setQtyFor(availableSizes[0], Number(e.target.value))}
-                    className="input"
-                  />
-                </Field>
-              )}
-
-              <button
-                type="button"
-                onClick={addItem}
-                disabled={pendingTotal === 0}
-                className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                + {addLabel(pendingTotal)}
-              </button>
-              <p className="text-[11px] text-ink-muted">
-                Cada producto se guarda con el diseño, la técnica y la tela que ves en ese momento. Para pedir el mismo
-                diseño en otra técnica, cámbiala y vuelve a agregar.
-              </p>
-
-              {items.length > 0 && (
-                <ul className="divide-y divide-black/5 rounded-brand border border-black/10">
-                  {items.map((item, i) => {
-                    const product = getProductById(item.productId);
-                    const designs = lineDesigns[i];
-                    const thumbZone = (Object.keys(designs) as DesignZone[])[0] ?? "frente";
-                    const thumb = designs[thumbZone];
-                    const colorHex = product?.variants.find((v) => v.color === item.color)?.colorHex ?? "#FFFFFF";
-                    const currentKey = product ? currentKeyFor(product.category) : "";
-                    const canApply = Boolean(currentKey) && currentKey !== lineKeys[i];
-                    const canShow = hasAnyDesign(item.designs) && currentKey !== designKey(item.designs);
-                    return (
-                      <li key={item.key} className="flex gap-2.5 px-3 py-2 text-xs">
-                        {product && (
-                          <div className="pointer-events-none w-12 shrink-0 overflow-hidden rounded border border-black/10">
-                            <DesignMockup
-                              category={product.category}
-                              zone={thumbZone}
-                              color={colorHex}
-                              size={item.size}
-                              content={thumb?.content ?? null}
-                              transform={thumb?.transform ?? defaultTransform(product.category, thumbZone)}
-                              interactive={false}
-                              compact
-                            />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <p className="text-ink">
-                            <span className="font-semibold">{item.quantity}×</span> {product?.name} — {item.color} —{" "}
-                            {item.size}
-                            {getFabric(item.productId, item.fabric) && ` · ${getFabric(item.productId, item.fabric)!.name}`}
-                            {` · ${TECHNIQUE_LABEL[item.technique ?? technique]}`}
-                          </p>
-                          <p className={lineKeys[i] ? "text-ink-soft" : "font-medium text-yellow-700"}>
-                            {lineKeys[i]
-                              ? `${labelDesigns ? designLabel(i) : "Con diseño"}${
-                                  hasAnyDesign(item.designs) ? "" : " (el que estás diseñando)"
-                                }`
-                              : "Sin diseño"}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
-                            {canApply && (
-                              <button
-                                type="button"
-                                onClick={() => applyCurrentDesign(item.key)}
-                                className="font-semibold text-ink underline"
-                              >
-                                Ponerle el diseño actual
-                              </button>
-                            )}
-                            {canShow && (
-                              <button
-                                type="button"
-                                onClick={() => showLineDesign(item)}
-                                className="font-semibold text-ink-soft hover:text-ink hover:underline"
-                              >
-                                Ver su diseño
-                              </button>
-                            )}
+                      <p className="mb-2 text-[11px] text-ink-muted">Toca tu talla o escribe cuántas quieres de cada una.</p>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {availableSizes.map((s) => (
+                          <div key={s} className="min-w-0">
                             <button
                               type="button"
-                              onClick={() => removeItem(item.key)}
-                              className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                              onClick={() => pickSize(s)}
+                              aria-pressed={size === s}
+                              className={`w-full rounded-t-brand border px-1 py-1 text-xs font-semibold transition-colors ${
+                                size === s ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                              }`}
                             >
-                              Quitar
+                              {s}
                             </button>
+                            <input
+                              type="number"
+                              min={0}
+                              inputMode="numeric"
+                              aria-label={`Cantidad talla ${s}`}
+                              value={sizeQty[s] ? sizeQty[s] : ""}
+                              placeholder="0"
+                              onFocus={() => setSize(s)}
+                              onChange={(e) => setQtyFor(s, Number(e.target.value))}
+                              className="w-full rounded-b-brand border border-t-0 border-black/15 bg-white px-1 py-1.5 text-center text-sm font-semibold text-ink outline-none [appearance:textfield] placeholder:font-normal placeholder:text-ink-muted focus:border-ink [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            />
                           </div>
-                        </div>
-                      </li>
-                    );
-                  })}
-                </ul>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <Field label={`Cantidad${availableSizes[0] ? ` (talla ${availableSizes[0].toLowerCase()})` : ""}`}>
+                      <input
+                        type="number"
+                        min={1}
+                        inputMode="numeric"
+                        value={sizeQty[availableSizes[0]] || ""}
+                        onChange={(e) => setQtyFor(availableSizes[0], Number(e.target.value))}
+                        className="input"
+                      />
+                    </Field>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    disabled={pendingTotal === 0}
+                    className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    + {addLabel(pendingTotal)}
+                  </button>
+                  <p className="text-[11px] text-ink-muted">
+                    Cada producto se guarda con el diseño, la técnica y la tela que ves en ese momento. Para pedir el mismo
+                    diseño en otra técnica, cámbiala y vuelve a agregar.
+                  </p>
+
+                  {items.length > 0 && (
+                    <ul className="divide-y divide-black/5 rounded-brand border border-black/10">
+                      {items.map((item, i) => {
+                        const product = getProductById(item.productId);
+                        const designs = lineDesigns[i];
+                        const thumbZone = (Object.keys(designs) as DesignZone[])[0] ?? "frente";
+                        const thumb = designs[thumbZone];
+                        const colorHex = product?.variants.find((v) => v.color === item.color)?.colorHex ?? "#FFFFFF";
+                        const currentKey = product ? currentKeyFor(product.category) : "";
+                        const canApply = Boolean(currentKey) && currentKey !== lineKeys[i];
+                        const canShow = hasAnyDesign(item.designs) && currentKey !== designKey(item.designs);
+                        return (
+                          <li key={item.key} className="flex gap-2.5 px-3 py-2 text-xs">
+                            {product && (
+                              <div className="pointer-events-none w-12 shrink-0 overflow-hidden rounded border border-black/10">
+                                <DesignMockup
+                                  category={product.category}
+                                  zone={thumbZone}
+                                  color={colorHex}
+                                  size={item.size}
+                                  content={thumb?.content ?? null}
+                                  transform={thumb?.transform ?? defaultTransform(product.category, thumbZone)}
+                                  interactive={false}
+                                  compact
+                                />
+                              </div>
+                            )}
+                            <div className="min-w-0 flex-1">
+                              <p className="text-ink">
+                                <span className="font-semibold">{item.quantity}×</span> {product?.name} — {item.color} —{" "}
+                                {item.size}
+                                {getFabric(item.productId, item.fabric) && ` · ${getFabric(item.productId, item.fabric)!.name}`}
+                                {` · ${TECHNIQUE_LABEL[item.technique ?? technique]}`}
+                              </p>
+                              <p className={lineKeys[i] ? "text-ink-soft" : "font-medium text-yellow-700"}>
+                                {lineKeys[i]
+                                  ? `${labelDesigns ? designLabel(i) : "Con diseño"}${
+                                      hasAnyDesign(item.designs) ? "" : " (el que estás diseñando)"
+                                    }`
+                                  : "Sin diseño"}
+                              </p>
+                              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                                {canApply && (
+                                  <button
+                                    type="button"
+                                    onClick={() => applyCurrentDesign(item.key)}
+                                    className="font-semibold text-ink underline"
+                                  >
+                                    Ponerle el diseño actual
+                                  </button>
+                                )}
+                                {canShow && (
+                                  <button
+                                    type="button"
+                                    onClick={() => showLineDesign(item)}
+                                    className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                                  >
+                                    Ver su diseño
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => removeItem(item.key)}
+                                  className="font-semibold text-ink-soft hover:text-ink hover:underline"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
               )}
             </div>
 
             <div className="order-1 min-w-0 lg:order-2">
+              {designMode && !currentContent && textIdeas.length > 0 && (
+                <div className="mb-3 rounded-brand bg-paper-soft p-3">
+                  <p className="text-xs font-semibold text-ink-soft">
+                    Para empezar rápido, toca un texto y se pone en {ZONE_NAME[currentZone]}:
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {textIdeas.map((idea) => (
+                      <button
+                        key={idea}
+                        type="button"
+                        onClick={() =>
+                          handleContentChange(
+                            {
+                              kind: "texto",
+                              texto: idea,
+                              color: isDarkColor(selectedVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111",
+                              fontFamily: "colegial",
+                              outline: null,
+                            },
+                            true
+                          )
+                        }
+                        className="rounded-full border border-black/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink hover:border-ink"
+                      >
+                        {idea}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {selectedProduct && (
                 <DesignCanvas
                   category={selectedProduct.category}
@@ -1206,261 +1456,322 @@ export function OrderForm() {
             </div>
           </div>
 
-          {urlPersonal && selectedProduct && (
+          {namesPersonal && selectedProduct && (
             <div className="mt-6">
               <GroupNamesSection
                 category={selectedProduct.category}
                 colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
-                personalizado={urlPersonal}
+                personalizado={namesPersonal}
                 examples={nameExamples}
                 style={nameStyle}
                 onChange={setNameStyle}
+                designs={zonePreviews}
+                intro={
+                  designMode
+                    ? listDesign!.personas === 0
+                      ? "Elige qué lleva cada camisa y dónde, la letra y el color. Cada quien escribe lo suyo al anotarse y ve su camisa así, con su nombre."
+                      : "Ya hay gente anotada con lo que escribió. Aquí acomodas dónde va, la letra y el color; cada quien lo ve en su camisa."
+                    : undefined
+                }
               />
+              {designMode && listDesign!.personas === 0 && (
+                <button
+                  type="button"
+                  onClick={() => setNamesOn(false)}
+                  className="mt-2 text-xs font-semibold text-ink-soft hover:text-ink hover:underline"
+                >
+                  Quitar los nombres: todas las camisas iguales
+                </button>
+              )}
             </div>
           )}
-        </section>
+          {designMode && !namesPersonal && listDesign!.personas === 0 && selectedProduct && (
+            <button
+              type="button"
+              onClick={() => {
+                setNameStyle((prev) => ({ ...prev, lugares: defaultLugares("nombre", selectedProduct.category) }));
+                setNamesOn(true);
+              }}
+              className="mt-6 w-full rounded-brand border-2 border-dashed border-black/20 px-4 py-4 text-left hover:border-ink"
+            >
+              <span className="block text-sm font-semibold text-ink">+ Agregar el nombre o número de cada persona</span>
+              <span className="block text-xs text-ink-soft">Cada quien lo escribe al anotarse y lo ve en su camisa.</span>
+            </button>
+          )}
 
-        <section id="datos" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">2. Tus datos</h2>
-          <div className="mt-3 grid gap-3 sm:grid-cols-2">
-            <Field label="Nombre completo *">
-              <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
-            </Field>
-            <Field label="Teléfono / WhatsApp *">
-              <input
-                value={clienteTelefono}
-                onChange={(e) => setClienteTelefono(e.target.value)}
-                className="input"
-                placeholder="Ej. 8888 8888"
-                inputMode="tel"
-              />
-            </Field>
-            <Field label="Correo (opcional, recomendado)">
-              <input
-                type="email"
-                value={clienteEmail}
-                onChange={(e) => setClienteEmail(e.target.value)}
-                className="input"
-                placeholder="correo@ejemplo.com"
-                inputMode="email"
-                autoComplete="email"
-              />
-              {emailInvalid ? (
-                <span className="mt-1 block text-xs font-medium text-red-600">
-                  Revisa tu correo: parece incompleto. Si prefieres, déjalo vacío.
-                </span>
-              ) : (
-                <span className="mt-1 block text-xs text-ink-muted">
-                  Para seguir de cerca tu orden: te avisamos por correo cuando verifiquemos tu pago, cuando entre a
-                  producción y cuando esté lista.
-                </span>
-              )}
-            </Field>
-            <Field label="Notas para el taller (opcional)">
-              <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. es un regalo, empacar aparte" />
-            </Field>
-          </div>
-
-          <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
-            <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-ink">
-              <input
-                id="factura-ruc"
-                type="checkbox"
-                checked={wantsRuc}
-                onChange={(e) => setWantsRuc(e.target.checked)}
-                className="h-4 w-4 accent-ink"
-              />
-              Necesito factura con RUC (empresas y negocios)
-            </label>
-            {wantsRuc && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                <Field label="Nombre o razón social *">
-                  <input
-                    id="factura-razon-social"
-                    value={billing.razonSocial}
-                    onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
-                    className="input"
-                    placeholder="Ej. Distribuidora Ejemplo, S.A."
-                    maxLength={120}
-                  />
-                </Field>
-                <Field label="Número RUC *">
-                  <input
-                    id="factura-ruc-numero"
-                    value={billing.ruc}
-                    onChange={(e) => setBilling({ ...billing, ruc: e.target.value })}
-                    className="input font-mono uppercase"
-                    placeholder="Ej. J0310000000000"
-                    maxLength={24}
-                  />
-                </Field>
-                <p className="text-xs text-ink-soft sm:col-span-2">Te entregamos la factura con RUC junto con tu pedido.</p>
-              </div>
-            )}
-          </div>
-        </section>
-
-        <section id="entrega" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Entrega</h2>
-          <p className="mt-1 text-sm text-ink-soft">¿Cómo quieres recibir tu pedido?</p>
-          <div className="mt-3">
-            <ShippingForm key={formKey} value={shipping} onChange={setShipping} />
-          </div>
-        </section>
-
-        <section id="factura" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Tu factura</h2>
-          <div className="mt-3">
-            {items.length > 0 ? (
-              <>
-                <Invoice
-                  lines={invoiceLines}
-                  pricing={pricing}
-                  technique={technique}
-                  clienteNombre={clienteNombre}
-                  shipping={shipping}
-                  billing={wantsRuc ? billing : null}
-                />
-                <ProformaPrint>
-                  <Invoice
-                    title="Proforma"
-                    lines={invoiceLines}
-                    pricing={pricing}
-                    technique={technique}
-                    clienteNombre={clienteNombre}
-                    shipping={shipping}
-                    billing={wantsRuc ? billing : null}
-                  />
-                </ProformaPrint>
-              </>
-            ) : (
-              <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
-                Agrega al menos un producto (paso 1) para ver tu factura.
+          {designMode && (
+            <div className="mt-6 rounded-brand bg-ink p-5 text-paper">
+              <p className="font-display text-3xl uppercase leading-none tracking-wide">¿Listo?</p>
+              <p className="mt-2 text-sm text-paper/75">
+                Al guardarlo, cada persona de la lista ve su camisa con este diseño{namesPersonal ? " y con su nombre" : ""}{" "}
+                antes de anotarse. Lo puedes cambiar cuando quieras, y al hacer el pedido ya va a estar listo en el
+                diseñador: no hay que volver a hacerlo.
               </p>
-            )}
-          </div>
-        </section>
-
-        <section id="pago" className="scroll-mt-28">
-          <h2 className="font-display text-3xl uppercase tracking-wide text-ink">5. Pago</h2>
-          <p className="mt-1 text-sm text-ink-soft">
-            Por ahora el pago es por transferencia: tu pedido queda confirmado cuando adjuntas el comprobante. Muy pronto
-            también podrás pagar con tarjeta.
-          </p>
-          <div className="mt-3">
-            <PaymentMethods />
-          </div>
-
-          <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
-            <OrderCodeBox code={orderCode} />
-            <BankDetails totalCordobas={pricing.total} />
-
-            <div>
-              <p className="text-sm font-medium text-ink">Comprobante de transferencia *</p>
-              <p className="text-xs text-ink-muted">Foto o captura de pantalla (JPG o PNG)</p>
-              <label className="mt-2 flex cursor-pointer items-center gap-4 rounded-brand border-2 border-dashed border-black/15 p-4 transition-colors hover:border-ink">
-                {comprobantePreview ? (
-                  <img src={comprobantePreview} alt="Comprobante" className="h-20 w-20 rounded object-cover" />
-                ) : (
-                  <span className="flex h-20 w-20 items-center justify-center rounded bg-paper-soft text-2xl text-ink-muted">+</span>
-                )}
-                <span className="text-sm">
-                  <span className="font-semibold text-ink">{comprobante ? comprobante.name : "Adjuntar comprobante"}</span>
-                  <span className="block text-xs text-ink-soft">{comprobante ? "Toca para cambiarlo" : "Toca para elegir el archivo"}</span>
-                </span>
-                <input
-                  type="file"
-                  accept={ACCEPTED_RECEIPT_TYPES.join(",")}
-                  className="hidden"
-                  onChange={(e) => {
-                    handleComprobante(e.target.files?.[0]);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {comprobanteError && <p className="mt-2 text-sm font-medium text-red-600">{comprobanteError}</p>}
-            </div>
-          </div>
-        </section>
-
-        <div id="confirmar" className="scroll-mt-28 space-y-3">
-          {error && <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
-            className="w-full rounded-brand bg-ink px-6 py-4 text-base font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
-          </button>
-          {/* Piezas escritas en las tallas pero sin agregar: no entran al pedido si confirma así. */}
-          {items.length > 0 && pendingTotal > 0 && !submitting && (
-            <div className="flex flex-wrap items-center justify-center gap-2 rounded-brand border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs text-ink">
-              <span>
-                Tienes {pendingTotal} pieza{pendingTotal === 1 ? "" : "s"} en las tallas del paso 1 que todavía no están en tu pedido.
-              </span>
+              {error && <p className="mt-3 rounded-brand bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
               <button
                 type="button"
-                onClick={addItem}
-                className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
+                onClick={saveListDesign}
+                disabled={savingDesign || (zonesWithContent.length === 0 && !namesPersonal)}
+                className="mt-4 w-full rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40"
               >
-                + {addLabel(pendingTotal)}
+                {savingDesign ? "Guardando…" : "Guardar el diseño de la lista"}
               </button>
+              {zonesWithContent.length === 0 && (
+                <p className="mt-2 text-center text-[11px] text-paper/60">
+                  Sube una imagen o escribe un texto en el diseñador de arriba.
+                </p>
+              )}
             </div>
           )}
-          {missing.length > 0 && !submitting && (
-            <div className="text-center text-xs text-ink-soft">
-              <p>Para confirmar falta:</p>
-              {/* Cada cosa lleva a su sección; las piezas sin agregar se agregan desde aquí mismo. */}
-              <div className="mt-2 flex flex-wrap justify-center gap-1.5">
-                {missingSteps.map((m) =>
-                  m.section === "diseno" && items.length === 0 && pendingTotal > 0 ? (
-                    <button
-                      key={m.label}
-                      type="button"
-                      onClick={addItem}
-                      className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
-                    >
-                      + {addLabel(pendingTotal)}
-                    </button>
+        </section>
+
+        {!designMode && (
+          <>
+            <section id="datos" className="scroll-mt-28">
+              <h2 className="font-display text-3xl uppercase tracking-wide text-ink">2. Tus datos</h2>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <Field label="Nombre completo *">
+                  <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
+                </Field>
+                <Field label="Teléfono / WhatsApp *">
+                  <input
+                    value={clienteTelefono}
+                    onChange={(e) => setClienteTelefono(e.target.value)}
+                    className="input"
+                    placeholder="Ej. 8888 8888"
+                    inputMode="tel"
+                  />
+                </Field>
+                <Field label="Correo (opcional, recomendado)">
+                  <input
+                    type="email"
+                    value={clienteEmail}
+                    onChange={(e) => setClienteEmail(e.target.value)}
+                    className="input"
+                    placeholder="correo@ejemplo.com"
+                    inputMode="email"
+                    autoComplete="email"
+                  />
+                  {emailInvalid ? (
+                    <span className="mt-1 block text-xs font-medium text-red-600">
+                      Revisa tu correo: parece incompleto. Si prefieres, déjalo vacío.
+                    </span>
                   ) : (
-                    <a
-                      key={m.label}
-                      href={`#${m.section}`}
-                      className="rounded-full border border-black/15 bg-white px-3 py-1.5 font-medium text-ink hover:border-ink"
-                    >
-                      {m.label}
-                    </a>
-                  )
+                    <span className="mt-1 block text-xs text-ink-muted">
+                      Para seguir de cerca tu orden: te avisamos por correo cuando verifiquemos tu pago, cuando entre a
+                      producción y cuando esté lista.
+                    </span>
+                  )}
+                </Field>
+                <Field label="Notas para el taller (opcional)">
+                  <input value={notas} onChange={(e) => setNotas(e.target.value)} className="input" placeholder="Ej. es un regalo, empacar aparte" />
+                </Field>
+              </div>
+
+              <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
+                <label className="flex cursor-pointer items-center gap-3 text-sm font-medium text-ink">
+                  <input
+                    id="factura-ruc"
+                    type="checkbox"
+                    checked={wantsRuc}
+                    onChange={(e) => setWantsRuc(e.target.checked)}
+                    className="h-4 w-4 accent-ink"
+                  />
+                  Necesito factura con RUC (empresas y negocios)
+                </label>
+                {wantsRuc && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Field label="Nombre o razón social *">
+                      <input
+                        id="factura-razon-social"
+                        value={billing.razonSocial}
+                        onChange={(e) => setBilling({ ...billing, razonSocial: e.target.value })}
+                        className="input"
+                        placeholder="Ej. Distribuidora Ejemplo, S.A."
+                        maxLength={120}
+                      />
+                    </Field>
+                    <Field label="Número RUC *">
+                      <input
+                        id="factura-ruc-numero"
+                        value={billing.ruc}
+                        onChange={(e) => setBilling({ ...billing, ruc: e.target.value })}
+                        className="input font-mono uppercase"
+                        placeholder="Ej. J0310000000000"
+                        maxLength={24}
+                      />
+                    </Field>
+                    <p className="text-xs text-ink-soft sm:col-span-2">Te entregamos la factura con RUC junto con tu pedido.</p>
+                  </div>
                 )}
               </div>
+            </section>
+
+            <section id="entrega" className="scroll-mt-28">
+              <h2 className="font-display text-3xl uppercase tracking-wide text-ink">3. Entrega</h2>
+              <p className="mt-1 text-sm text-ink-soft">¿Cómo quieres recibir tu pedido?</p>
+              <div className="mt-3">
+                <ShippingForm key={formKey} value={shipping} onChange={setShipping} />
+              </div>
+            </section>
+
+            <section id="factura" className="scroll-mt-28">
+              <h2 className="font-display text-3xl uppercase tracking-wide text-ink">4. Tu factura</h2>
+              <div className="mt-3">
+                {items.length > 0 ? (
+                  <>
+                    <Invoice
+                      lines={invoiceLines}
+                      pricing={pricing}
+                      technique={technique}
+                      clienteNombre={clienteNombre}
+                      shipping={shipping}
+                      billing={wantsRuc ? billing : null}
+                    />
+                    <ProformaPrint>
+                      <Invoice
+                        title="Proforma"
+                        lines={invoiceLines}
+                        pricing={pricing}
+                        technique={technique}
+                        clienteNombre={clienteNombre}
+                        shipping={shipping}
+                        billing={wantsRuc ? billing : null}
+                      />
+                    </ProformaPrint>
+                  </>
+                ) : (
+                  <p className="rounded-brand border border-dashed border-black/15 p-5 text-sm text-ink-soft">
+                    Agrega al menos un producto (paso 1) para ver tu factura.
+                  </p>
+                )}
+              </div>
+            </section>
+
+            <section id="pago" className="scroll-mt-28">
+              <h2 className="font-display text-3xl uppercase tracking-wide text-ink">5. Pago</h2>
+              <p className="mt-1 text-sm text-ink-soft">
+                Por ahora el pago es por transferencia: tu pedido queda confirmado cuando adjuntas el comprobante. Muy pronto
+                también podrás pagar con tarjeta.
+              </p>
+              <div className="mt-3">
+                <PaymentMethods />
+              </div>
+
+              <div className="mt-3 space-y-4 rounded-brand border border-black/10 bg-white p-5">
+                <OrderCodeBox code={orderCode} />
+                <BankDetails totalCordobas={pricing.total} />
+
+                <div>
+                  <p className="text-sm font-medium text-ink">Comprobante de transferencia *</p>
+                  <p className="text-xs text-ink-muted">Foto o captura de pantalla (JPG o PNG)</p>
+                  <label className="mt-2 flex cursor-pointer items-center gap-4 rounded-brand border-2 border-dashed border-black/15 p-4 transition-colors hover:border-ink">
+                    {comprobantePreview ? (
+                      <img src={comprobantePreview} alt="Comprobante" className="h-20 w-20 rounded object-cover" />
+                    ) : (
+                      <span className="flex h-20 w-20 items-center justify-center rounded bg-paper-soft text-2xl text-ink-muted">+</span>
+                    )}
+                    <span className="text-sm">
+                      <span className="font-semibold text-ink">{comprobante ? comprobante.name : "Adjuntar comprobante"}</span>
+                      <span className="block text-xs text-ink-soft">{comprobante ? "Toca para cambiarlo" : "Toca para elegir el archivo"}</span>
+                    </span>
+                    <input
+                      type="file"
+                      accept={ACCEPTED_RECEIPT_TYPES.join(",")}
+                      className="hidden"
+                      onChange={(e) => {
+                        handleComprobante(e.target.files?.[0]);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {comprobanteError && <p className="mt-2 text-sm font-medium text-red-600">{comprobanteError}</p>}
+                </div>
+              </div>
+            </section>
+
+            <div id="confirmar" className="scroll-mt-28 space-y-3">
+              {error && <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
+              <button
+                type="button"
+                disabled={!canSubmit}
+                onClick={handleSubmit}
+                className="w-full rounded-brand bg-ink px-6 py-4 text-base font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
+              </button>
+              {/* Piezas escritas en las tallas pero sin agregar: no entran al pedido si confirma así. */}
+              {items.length > 0 && pendingTotal > 0 && !submitting && (
+                <div className="flex flex-wrap items-center justify-center gap-2 rounded-brand border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs text-ink">
+                  <span>
+                    Tienes {pendingTotal} pieza{pendingTotal === 1 ? "" : "s"} en las tallas del paso 1 que todavía no están en tu pedido.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={addItem}
+                    className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
+                  >
+                    + {addLabel(pendingTotal)}
+                  </button>
+                </div>
+              )}
+              {missing.length > 0 && !submitting && (
+                <div className="text-center text-xs text-ink-soft">
+                  <p>Para confirmar falta:</p>
+                  {/* Cada cosa lleva a su sección; las piezas sin agregar se agregan desde aquí mismo. */}
+                  <div className="mt-2 flex flex-wrap justify-center gap-1.5">
+                    {missingSteps.map((m) =>
+                      m.section === "diseno" && items.length === 0 && pendingTotal > 0 ? (
+                        <button
+                          key={m.label}
+                          type="button"
+                          onClick={addItem}
+                          className="rounded-full bg-ink px-3 py-1.5 font-semibold text-paper hover:opacity-80"
+                        >
+                          + {addLabel(pendingTotal)}
+                        </button>
+                      ) : (
+                        <a
+                          key={m.label}
+                          href={`#${m.section}`}
+                          className="rounded-full border border-black/15 bg-white px-3 py-1.5 font-medium text-ink hover:border-ink"
+                        >
+                          {m.label}
+                        </a>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+              <p className="text-center text-[11px] text-ink-muted">
+                Tus datos solo se usan para hacer y entregar tu pedido.{" "}
+                <a href="/privacidad" target="_blank" className="underline hover:text-ink">
+                  Privacidad
+                </a>
+              </p>
+              <p className="rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
+                Pide hoy y tu pedido estará listo aproximadamente el{" "}
+                <span className="font-semibold">{formatReadyDate(estimateReadyDate())}</span>
+                <span className="block text-xs text-ink-soft">
+                  {PRODUCTION_BUSINESS_DAYS} días hábiles, contados desde que verificamos tu pago.
+                </span>
+              </p>
             </div>
-          )}
-          <p className="text-center text-[11px] text-ink-muted">
-            Tus datos solo se usan para hacer y entregar tu pedido.{" "}
-            <a href="/privacidad" target="_blank" className="underline hover:text-ink">
-              Privacidad
-            </a>
-          </p>
-          <p className="rounded-brand bg-paper-soft px-4 py-3 text-center text-sm text-ink">
-            Pide hoy y tu pedido estará listo aproximadamente el{" "}
-            <span className="font-semibold">{formatReadyDate(estimateReadyDate())}</span>
-            <span className="block text-xs text-ink-soft">
-              {PRODUCTION_BUSINESS_DAYS} días hábiles, contados desde que verificamos tu pago.
-            </span>
-          </p>
-        </div>
+          </>
+        )}
       </div>
 
-      <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
-        <PricingSummary
-          pricing={pricing}
-          pending={pendingTotal}
-          unitPrice={unitPriceForBar}
-          onQuickAdd={(n) => setQtyFor(size, (sizeQty[size] ?? 0) + n)}
-          quickAddLabel={`en talla ${size}`}
-        />
-      </div>
+      {!designMode && (
+        <div className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+          <PricingSummary
+            pricing={pricing}
+            pending={pendingTotal}
+            unitPrice={unitPriceForBar}
+            onQuickAdd={(n) => setQtyFor(size, (sizeQty[size] ?? 0) + n)}
+            quickAddLabel={`en talla ${size}`}
+          />
+        </div>
+      )}
 
       {showMobileBar && (
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-paper/95 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.06)] backdrop-blur lg:hidden">

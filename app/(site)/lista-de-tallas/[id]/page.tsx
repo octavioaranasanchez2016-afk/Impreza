@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
-import { listSizes, loadSizeList, sizesParam } from "@/lib/size-lists";
+import { listSizes, loadGroupDesign, loadSizeList, sizesParam } from "@/lib/size-lists";
+import { groupDesignPreview } from "@/lib/group-design";
+import { GroupDesignCard } from "@/components/GroupDesignCard";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
-import { camposDe, describeLugares, examplesParam, lugaresDeLista, lugaresParam, parsePersonalizado } from "@/lib/group-names";
+import {
+  camposDe,
+  describeLugares,
+  examplesParam,
+  lugaresDeLista,
+  lugaresParam,
+  parseNameStyle,
+  parsePersonalizado,
+} from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -49,10 +59,22 @@ export default async function ListaPage({
   // Qué lleva cada camisa y dónde (lo eligió el organizador al crear la lista).
   const lugares = lugaresDeLista(personalizado, list.estilo, product.category);
   const colorHex = product.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF";
+  // El diseño del grupo (si el organizador ya lo hizo) y la letra y el color de los
+  // nombres: todos los ven en su camisa antes de anotarse.
+  const design = await loadGroupDesign(list);
+  const designs = groupDesignPreview(design);
+  const savedStyle = parseNameStyle(list.estilo, personalizado);
+  const nameStyle = savedStyle ? { fuente: savedStyle.fuente, color: savedStyle.color } : undefined;
+  const designHref = `/lista-de-tallas/${list.id}/diseno?clave=${encodeURIComponent(clave ?? "")}`;
 
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
   if (list.color) order.set("color", list.color);
   order.set("lista", list.id);
+  // Con el diseño del grupo, el diseñador abre ya con su técnica y tela (y lo carga).
+  if (design) {
+    order.set("tecnica", design.tecnica);
+    if (design.tela) order.set("tela", design.tela);
+  }
   // Camisas personalizadas: el diseñador abre el apartado de nombres con los lugares
   // que eligió el organizador y ejemplos del grupo.
   if (personalizado !== "ninguno") {
@@ -100,17 +122,34 @@ export default async function ListaPage({
 
       <div className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_1fr] lg:items-start">
         {isOrganizer ? (
-          <SizeListOrganizer
-            listId={list.id}
-            clave={clave!}
-            listName={list.nombre}
-            sizes={sizes}
-            entries={entries}
-            closed={list.cerrada}
-            orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
-            baseUrl={siteUrl()}
-            campos={camposDe(personalizado)}
-          />
+          <div className="space-y-4">
+            <GroupDesignCard
+              designHref={designHref}
+              designs={designs}
+              category={product.category}
+              colorHex={colorHex}
+              lugares={lugares}
+              nameStyle={nameStyle}
+              sample={{
+                texto: entries.find((e) => e.texto)?.texto ?? "CHEPE",
+                numero: entries.find((e) => e.numero)?.numero ?? "10",
+              }}
+              listName={list.nombre}
+              shareUrl={`${siteUrl()}/lista-de-tallas/${list.id}`}
+              ordered={Boolean(list.order_id)}
+            />
+            <SizeListOrganizer
+              listId={list.id}
+              clave={clave!}
+              listName={list.nombre}
+              sizes={sizes}
+              entries={entries}
+              closed={list.cerrada}
+              orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
+              baseUrl={siteUrl()}
+              campos={camposDe(personalizado)}
+            />
+          </div>
         ) : (
           <div className="rounded-brand border border-black/10 bg-white p-5">
             <p className="font-semibold text-ink">
@@ -144,7 +183,8 @@ export default async function ListaPage({
           </div>
         )}
 
-        <div className="lg:sticky lg:top-24">
+        {/* En el celular, quien llega por el enlace ve primero su camisa y cómo anotarse. */}
+        <div className={`lg:sticky lg:top-24 ${isOrganizer ? "" : "order-first lg:order-none"}`}>
           <SizeListSignup
             listId={list.id}
             sizes={sizes}
@@ -155,6 +195,8 @@ export default async function ListaPage({
             forOthers={isOrganizer}
             lugares={lugares}
             colorHex={colorHex}
+            designs={designs}
+            nameStyle={nameStyle}
           />
           <p className="mt-3 text-center text-xs text-ink-soft">
             Las camisas las hace{" "}
