@@ -7,6 +7,7 @@ import {
   fitLugares,
   lugaresDeLista,
   parseLugares,
+  parseNameChoice,
   parseNameStyle,
   parsePersonalizado,
   personalizadoDe,
@@ -38,6 +39,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
         : {
             lugares: lugaresDeLista(personalizado, list.estilo, product.category),
             ...(style ? { fuente: style.fuente, color: style.color } : {}),
+            eligen: parseNameChoice(list.estilo),
           },
   });
 }
@@ -83,6 +85,22 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     if (anotados === 0) personalizado = personalizadoDe(fitted);
     const style = parseNameStyle({ ...body.nombres, lugares: fitted }, personalizado);
     if (personalizado !== "ninguno") Object.assign(estilo, style ?? { lugares: fitted });
+    // Que cada quien elija el color o la letra de su nombre: se guarda en cada persona,
+    // así que la columna tiene que existir antes de ofrecerlo.
+    const eligen = parseNameChoice({ eligen: body.nombres.eligen });
+    if (eligen.color || eligen.fuente) {
+      const { error: columnError } = await service.from("listas_tallas_personas").select("estilo").limit(1);
+      if (columnError) {
+        return NextResponse.json(
+          {
+            error:
+              "Para que cada quien elija su color o su letra falta activar una parte en Supabase (la última línea de supabase/listas.sql). Guárdalo sin esa opción por ahora.",
+          },
+          { status: 503 }
+        );
+      }
+    }
+    estilo.eligen = eligen;
   } else if (anotados === 0) {
     personalizado = "ninguno";
   }
@@ -90,6 +108,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     delete estilo.lugares;
     delete estilo.fuente;
     delete estilo.color;
+    delete estilo.eligen;
   }
   if (diseno) estilo.diseno = diseno;
   else delete estilo.diseno;

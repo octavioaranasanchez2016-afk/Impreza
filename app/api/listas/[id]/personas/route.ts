@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_PERSONAS, cleanName, listSizes, newSecret } from "@/lib/size-lists";
-import { camposDe, cleanNumero, cleanTexto, parsePersonalizado } from "@/lib/group-names";
+import { camposDe, cleanNumero, cleanTexto, parseNameChoice, parsePersonStyle, parsePersonalizado } from "@/lib/group-names";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -42,19 +42,31 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { count } = await service.from("listas_tallas_personas").select("id", { count: "exact", head: true }).eq("lista_id", id);
   if ((count ?? 0) >= MAX_PERSONAS) return NextResponse.json({ error: "Esta lista ya está llena." }, { status: 409 });
 
+  // La letra y el color de su nombre, solo lo que el organizador deja elegir.
+  const eligen = parseNameChoice(list.estilo);
+  const chosen = parsePersonStyle(body?.estilo);
+  const estilo = {
+    ...(eligen.fuente && chosen.fuente ? { fuente: chosen.fuente } : {}),
+    ...(eligen.color && chosen.color ? { color: chosen.color } : {}),
+  };
+
   const token = newSecret();
-  const { data, error } = await service
-    .from("listas_tallas_personas")
-    .insert({
-      lista_id: id,
-      nombre,
-      talla,
-      cantidad,
-      token,
-      ...(campos.nombre || campos.numero ? { texto: campos.nombre ? texto : null, numero: campos.numero ? numero : null } : {}),
-    })
-    .select("id")
-    .single();
+  const row: Record<string, unknown> = {
+    lista_id: id,
+    nombre,
+    talla,
+    cantidad,
+    token,
+    ...(campos.nombre || campos.numero ? { texto: campos.nombre ? texto : null, numero: campos.numero ? numero : null } : {}),
+    ...(Object.keys(estilo).length > 0 ? { estilo } : {}),
+  };
+  let { data, error } = await service.from("listas_tallas_personas").insert(row).select("id").single();
+  // Sin la columna "estilo" (falta la última línea de listas.sql) se anota igual, con
+  // la letra y el color de todos.
+  if (error?.code === "PGRST204" && row.estilo) {
+    delete row.estilo;
+    ({ data, error } = await service.from("listas_tallas_personas").insert(row).select("id").single());
+  }
   if (error || !data) return NextResponse.json({ error: "No se pudo guardar. Intenta de nuevo." }, { status: 500 });
   return NextResponse.json({ id: data.id, token });
 }

@@ -5,7 +5,18 @@ import { useRouter } from "next/navigation";
 import { ProductCategory } from "@/lib/types";
 import { SizeChartButton } from "./SizeChartButton";
 import { NamePreview } from "./NamePreview";
-import { Lugares, MAX_NUMERO, MAX_TEXTO, NameStyle, camposDe, personalizadoDe } from "@/lib/group-names";
+import {
+  Lugares,
+  MAX_NUMERO,
+  MAX_TEXTO,
+  NAME_COLORS,
+  NAME_FONTS,
+  NameChoice,
+  NameStyle,
+  camposDe,
+  personalizadoDe,
+} from "@/lib/group-names";
+import { FONT_OPTIONS } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
 
 // Los registros que este teléfono hizo en la lista, para poder quitarlos.
@@ -50,6 +61,7 @@ export function SizeListSignup({
   colorHex = "#FFFFFF",
   designs = {},
   nameStyle,
+  eligen = { color: false, fuente: false },
 }: {
   listId: string;
   sizes: string[];
@@ -62,6 +74,7 @@ export function SizeListSignup({
   colorHex?: string; // color de la camisa, para la vista previa
   designs?: GroupDesignPreview; // el diseño del grupo, si el organizador ya lo hizo
   nameStyle?: Pick<NameStyle, "fuente" | "color">; // letra y color de los nombres, si ya los eligió
+  eligen?: NameChoice; // lo que el organizador deja que cada quien elija para su nombre
 }) {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
@@ -69,6 +82,9 @@ export function SizeListSignup({
   const [cantidad, setCantidad] = useState(1);
   const [texto, setTexto] = useState("");
   const [numero, setNumero] = useState("");
+  // La letra y el color de su nombre, si el organizador lo deja elegir (si no, los de todos).
+  const [miFuente, setMiFuente] = useState(nameStyle?.fuente);
+  const [miColor, setMiColor] = useState(nameStyle?.color);
   const campos = camposDe(personalizadoDe(lugares));
   const withName = campos.nombre;
   const withNumber = campos.numero;
@@ -86,7 +102,14 @@ export function SizeListSignup({
     const res = await fetch(`/api/listas/${listId}/personas`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, talla, cantidad, texto, numero }),
+      body: JSON.stringify({
+        nombre,
+        talla,
+        cantidad,
+        texto,
+        numero,
+        estilo: { ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) },
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setSending(false);
@@ -155,7 +178,12 @@ export function SizeListSignup({
             colorHex={colorHex}
             texto={withName ? texto.trim() : ""}
             numero={withNumber ? numero : undefined}
-            style={{ lugares, ...nameStyle }}
+            style={{
+              lugares,
+              ...nameStyle,
+              ...(eligen.fuente && miFuente ? { fuente: miFuente } : {}),
+              ...(eligen.color && miColor ? { color: miColor } : {}),
+            }}
             designs={designs}
           />
           <p className="mt-1.5 text-center text-[11px] text-ink-muted">
@@ -216,6 +244,57 @@ export function SizeListSignup({
               </label>
             )}
           </div>
+        </div>
+      )}
+
+      {(withName || withNumber) && (eligen.fuente || eligen.color) && (
+        <div className="mt-4 space-y-3 rounded-brand bg-paper-soft p-3">
+          {eligen.fuente && (
+            <div>
+              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Letra de su nombre" : "Letra de tu nombre"}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {NAME_FONTS.map((fuente) => {
+                  const option = FONT_OPTIONS.find((o) => o.value === fuente);
+                  return (
+                    <button
+                      key={fuente}
+                      type="button"
+                      onClick={() => setMiFuente(fuente)}
+                      aria-pressed={miFuente === fuente}
+                      title={option?.label}
+                      className={`h-9 rounded-brand border px-3 text-sm transition-colors ${
+                        miFuente === fuente ? "border-ink bg-ink text-paper" : "border-black/15 bg-white text-ink hover:border-ink"
+                      }`}
+                      style={{ fontFamily: option?.cssVar, fontWeight: option?.weight }}
+                    >
+                      {(texto.trim() || numero || "Nombre").slice(0, 8)}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {eligen.color && (
+            <div>
+              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Color de su nombre" : "Color de tu nombre"}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {NAME_COLORS.map((c) => (
+                  <button
+                    key={c.hex}
+                    type="button"
+                    onClick={() => setMiColor(c.hex)}
+                    aria-label={c.name}
+                    aria-pressed={miColor === c.hex}
+                    title={c.name}
+                    className={`h-8 w-8 rounded-full border-2 transition-transform ${
+                      miColor === c.hex ? "scale-110 border-ink" : "border-black/10"
+                    }`}
+                    style={{ backgroundColor: c.hex }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

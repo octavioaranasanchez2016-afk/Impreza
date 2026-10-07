@@ -13,6 +13,7 @@ import {
   examplesParam,
   lugaresDeLista,
   lugaresParam,
+  parseNameChoice,
   parseNameStyle,
   parsePersonalizado,
 } from "@/lib/group-names";
@@ -197,6 +198,7 @@ export default async function ListaPage({
             colorHex={colorHex}
             designs={designs}
             nameStyle={nameStyle}
+            eligen={parseNameChoice(list.estilo)}
           />
           <p className="mt-3 text-center text-xs text-ink-soft">
             Las camisas las hace{" "}

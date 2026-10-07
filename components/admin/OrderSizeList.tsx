@@ -8,6 +8,7 @@ export interface OrderSizeListEntry {
   cantidad: number;
   texto?: string | null; // lo que dice su camisa
   numero?: string | null;
+  propio?: string | null; // la letra y el color que eligió, si se podía ("Colegial, dorado")
 }
 
 export function OrderSizeList({
@@ -23,6 +24,7 @@ export function OrderSizeList({
 }) {
   const withText = entries.some((e) => e.texto);
   const withNumber = entries.some((e) => e.numero);
+  const withOwn = entries.some((e) => e.propio);
   const rank = (t: string) => (SIZE_ORDER.indexOf(t) + 1 || 99);
   const sorted = [...entries].sort((a, b) => rank(a.talla) - rank(b.talla) || a.nombre.localeCompare(b.nombre, "es"));
   const counts = new Map<string, number>();
@@ -58,6 +60,7 @@ export function OrderSizeList({
             <th className="pb-2 font-medium">Talla</th>
             {withText && <th className="pb-2 font-medium">Dice la camisa</th>}
             {withNumber && <th className="pb-2 font-medium">Número</th>}
+            {withOwn && <th className="pb-2 font-medium">Letra y color</th>}
             <th className="pb-2 text-right font-medium">Piezas</th>
           </tr>
         </thead>
@@ -68,6 +71,7 @@ export function OrderSizeList({
               <td className="py-1.5 font-semibold text-ink">{e.talla}</td>
               {withText && <td className="py-1.5 font-semibold text-ink">{e.texto ?? "—"}</td>}
               {withNumber && <td className="py-1.5 font-semibold text-ink">{e.numero ?? "—"}</td>}
+              {withOwn && <td className="py-1.5 text-ink">{e.propio ?? "—"}</td>}
               <td className="py-1.5 text-right text-ink">{e.cantidad}</td>
             </tr>
           ))}

@@ -46,6 +46,69 @@ function textLayout(lugar: Lugar, lleva: Lleva, box: { y: number; w: number; h: 
   };
 }
 
+// El nombre y/o número de una persona en un lugar de la prenda, para ponerlo encima
+// de la vista de esa zona (en % de la vista, como el diseño).
+export function NameOverlay({
+  category,
+  lugar,
+  lleva,
+  colorHex,
+  texto,
+  numero,
+  style,
+  sampleNumber = "10",
+}: {
+  category: ProductCategory;
+  lugar: Lugar;
+  lleva: Lleva;
+  colorHex: string;
+  texto: string;
+  numero?: string;
+  style?: Partial<Pick<NameStyle, "fuente" | "color">>;
+  sampleNumber?: string; // lo que se ve mientras la persona no escribe su número
+}) {
+  const ink = style?.color ?? (isDarkColor(colorHex) ? "#FFFFFF" : "#111111");
+  const font = FONT_OPTIONS.find((f) => f.value === (style?.fuente ?? "display"));
+  const textStyle = { fontFamily: font?.cssVar ?? "var(--font-display)", fontWeight: font?.weight ?? 700 };
+  const name = texto || "TU NOMBRE";
+  const num = numero || sampleNumber;
+  const box = boxFor(category, lugar);
+  const t: { nameY?: number; nameSize?: number; numberY?: number; numberSize?: number } = textLayout(lugar, lleva, box, name.length, num.length);
+  const x = box.x + box.w / 2;
+  return (
+    <svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
+      {t.nameY !== undefined && (
+        <text
+          x={x}
+          y={t.nameY}
+          fontSize={t.nameSize}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={ink}
+          style={textStyle}
+          opacity={texto ? 1 : 0.45}
+        >
+          {name}
+        </text>
+      )}
+      {t.numberY !== undefined && (
+        <text
+          x={x}
+          y={t.numberY}
+          fontSize={t.numberSize}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          fill={ink}
+          style={textStyle}
+          opacity={numero ? 1 : 0.45}
+        >
+          {num}
+        </text>
+      )}
+    </svg>
+  );
+}
+
 export function NamePreview({
   category,
   colorHex,
@@ -68,11 +131,6 @@ export function NamePreview({
   const llevaEn = (lugar: Lugar) => (lugaresFor(category).includes(lugar) ? lugares[lugar] : undefined);
   const views = VIEWS.filter((v) => zones.includes(v.zone) && (llevaEn(v.lugar) || designs[v.zone]));
   if (views.length === 0) return null;
-  const ink = style?.color ?? (isDarkColor(colorHex) ? "#FFFFFF" : "#111111");
-  const font = FONT_OPTIONS.find((f) => f.value === (style?.fuente ?? "display"));
-  const textStyle = { fontFamily: font?.cssVar ?? "var(--font-display)", fontWeight: font?.weight ?? 700 };
-  const name = texto || "TU NOMBRE";
-  const num = numero || sampleNumber;
   const cols = views.length; // una fila: hasta 4 vistas
 
   return (
@@ -83,17 +141,15 @@ export function NamePreview({
         const box = boxFor(category, lugar);
         // Solo se acerca el pecho si no hay diseño en el frente (si no, se cortaría).
         const zoom = lleva && !design ? box.zoom : 1;
-        const t: { nameY?: number; nameSize?: number; numberY?: number; numberSize?: number } = lleva
-          ? textLayout(lugar, lleva, box, name.length, num.length)
-          : {};
-        const originX = box.x + box.w / 2;
-        const originY = box.y + box.h / 2;
         return (
           <figure key={zone}>
             <div className="relative overflow-hidden rounded-brand">
               <div
-                className="relative"
-                style={zoom > 1 ? { transform: `scale(${zoom})`, transformOrigin: `${originX}% ${originY}%` } : undefined}
+                style={
+                  zoom > 1
+                    ? { transform: `scale(${zoom})`, transformOrigin: `${box.x + box.w / 2}% ${box.y + box.h / 2}%` }
+                    : undefined
+                }
               >
                 <DesignMockup
                   category={category}
@@ -103,39 +159,21 @@ export function NamePreview({
                   transform={design?.transform ?? defaultTransform(category, zone)}
                   interactive={false}
                   compact
+                  overlay={
+                    lleva && (
+                      <NameOverlay
+                        category={category}
+                        lugar={lugar}
+                        lleva={lleva}
+                        colorHex={colorHex}
+                        texto={texto}
+                        numero={numero}
+                        style={style}
+                        sampleNumber={sampleNumber}
+                      />
+                    )
+                  }
                 />
-                {lleva && (
-                  <svg viewBox="0 0 100 100" className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden>
-                    {t.nameY !== undefined && (
-                      <text
-                        x={originX}
-                        y={t.nameY}
-                        fontSize={t.nameSize}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill={ink}
-                        style={textStyle}
-                        opacity={texto ? 1 : 0.45}
-                      >
-                        {name}
-                      </text>
-                    )}
-                    {t.numberY !== undefined && (
-                      <text
-                        x={originX}
-                        y={t.numberY}
-                        fontSize={t.numberSize}
-                        textAnchor="middle"
-                        dominantBaseline="middle"
-                        fill={ink}
-                        style={textStyle}
-                        opacity={numero ? 1 : 0.45}
-                      >
-                        {num}
-                      </text>
-                    )}
-                  </svg>
-                )}
               </div>
             </div>
             <figcaption className="mt-1 text-center text-[10px] font-semibold text-ink-soft">

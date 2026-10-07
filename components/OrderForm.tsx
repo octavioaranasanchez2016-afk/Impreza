@@ -52,12 +52,16 @@ import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
-import { GroupNamesSection } from "./GroupNamesSection";
+import { GroupNamesControls } from "./GroupNamesControls";
+import { NameOverlay } from "./NamePreview";
 import {
   NameStyle,
   Personalizado,
-  defaultLugares,
+  NameChoice,
+  camposDe,
   fitLugares,
+  lugarDeZona,
+  parseNameChoice,
   parseExamples,
   parseLugares,
   parseLugaresParam,
@@ -258,15 +262,21 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     return sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : typicalSizes(quoteQuantity, sizes);
   });
 
+  // Camisas de grupo: lo que se puede poner de cada persona. Al diseñar una lista donde
+  // nadie se ha anotado, todo (el organizador decide); si no, lo que ya escribieron.
+  const freeNames = designMode && listDesign!.personas === 0;
+  const nameCampos = freeNames
+    ? { nombre: true, numero: true }
+    : urlPersonal
+      ? camposDe(urlPersonal)
+      : { nombre: false, numero: false };
+  const withNames = nameCampos.nombre || nameCampos.numero;
+  // Lo que el organizador deja que cada quien elija para su nombre, y con qué nombre
+  // del grupo se ve el ejemplo sobre la prenda.
+  const [nameChoice, setNameChoice] = useState<NameChoice>({ color: false, fuente: false });
+  const [shownExample, setShownExample] = useState(0);
+  const nameSample = nameExamples[shownExample] ?? { texto: "CHEPE", numero: "10" };
   // Dónde y cómo va el nombre de cada persona (solo pedidos de grupo con nombres).
-  // Al diseñar una lista sin nadie anotado se pueden activar los nombres o cambiar qué
-  // lleva cada camisa; después, solo acomodar lo que ya escribieron.
-  const [namesOn, setNamesOn] = useState(Boolean(urlPersonal));
-  const namesPersonal: Personalizado | null = !namesOn
-    ? null
-    : listDesign?.personas === 0
-      ? "nombre_numero"
-      : urlPersonal;
   const [nameStyle, setNameStyle] = useState<NameStyle>(() => ({
     lugares: urlPersonal ? fitLugares(urlLugares, urlPersonal, getProductById(preselected)?.category ?? "camisa") : {},
     fuente: "display",
@@ -306,6 +316,30 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   };
 
   const zones = selectedProduct ? getZonesForCategory(selectedProduct.category) : (["frente"] as DesignZone[]);
+  const nameLugares =
+    !withNames || !selectedProduct
+      ? {}
+      : freeNames
+        ? parseLugares(nameStyle.lugares, selectedProduct.category)
+        : fitLugares(nameStyle.lugares, urlPersonal!, selectedProduct.category);
+  const namesActive = Object.keys(nameLugares).length > 0;
+  // El nombre de ejemplo encima de cada lado de la prenda, junto al diseño.
+  function nameOverlay(zone: DesignZone) {
+    const lugar = lugarDeZona(zone);
+    const lleva = lugar ? nameLugares[lugar] : undefined;
+    if (!selectedProduct || !lugar || !lleva) return null;
+    return (
+      <NameOverlay
+        category={selectedProduct.category}
+        lugar={lugar}
+        lleva={lleva}
+        colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
+        texto={nameSample.texto || "CHEPE"}
+        numero={nameSample.numero || "10"}
+        style={nameStyle}
+      />
+    );
+  }
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
   const [zoneContent, setZoneContent] = useState<ZoneContentMap>({});
   const [zoneTransform, setZoneTransform] = useState<ZoneTransformMap>({});
@@ -548,7 +582,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         if (!res.ok) throw new Error();
         const data: {
           diseno: GroupDesign | null;
-          nombres: { lugares: unknown; fuente?: FontFamilyKey; color?: string } | null;
+          nombres: { lugares: unknown; fuente?: FontFamilyKey; color?: string; eligen?: unknown } | null;
         } = await res.json();
         const content: ZoneContentMap = {};
         const transforms: ZoneTransformMap = {};
@@ -586,6 +620,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             fuente: nombres.fuente ?? prev.fuente,
             color: nombres.color ?? prev.color,
           }));
+          setNameChoice(parseNameChoice({ eligen: nombres.eligen }));
         }
         try {
           sessionStorage.setItem(loadedKey, "1");
@@ -661,9 +696,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         body: JSON.stringify({
           clave: listDesign.clave,
           diseno: { tecnica: technique, tela: fabric, color, zonas },
-          nombres: namesPersonal
-            ? { ...nameStyle, lugares: fitLugares(nameStyle.lugares, namesPersonal, selectedProduct.category) }
-            : null,
+          nombres: namesActive ? { ...nameStyle, lugares: nameLugares, eligen: nameChoice } : null,
         }),
       });
       if (!res.ok) {
@@ -1018,7 +1051,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           listaId: urlListaId,
           personalizacion:
             urlListaId && urlPersonal
-              ? { ...nameStyle, lugares: fitLugares(nameStyle.lugares, urlPersonal, selectedProduct?.category ?? "camisa") }
+              ? { ...nameStyle, lugares: nameLugares }
               : null,
         }),
       });
@@ -1451,59 +1484,35 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   transform={currentTransform}
                   onTransformChange={handleTransformChange}
                   technique={technique}
-                />
+                  zoneOverlay={withNames ? nameOverlay : undefined}
+                >
+                  {withNames && (
+                    <GroupNamesControls
+                      category={selectedProduct.category}
+                      zone={currentZone}
+                      onZoneChange={setActiveZone}
+                      campos={nameCampos}
+                      style={{ ...nameStyle, lugares: nameLugares }}
+                      onChange={setNameStyle}
+                      keepOne={!freeNames}
+                      choice={designMode ? nameChoice : undefined}
+                      onChoiceChange={setNameChoice}
+                      examples={nameExamples}
+                      shown={shownExample}
+                      onShow={setShownExample}
+                    />
+                  )}
+                </DesignCanvas>
               )}
             </div>
           </div>
 
-          {namesPersonal && selectedProduct && (
-            <div className="mt-6">
-              <GroupNamesSection
-                category={selectedProduct.category}
-                colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
-                personalizado={namesPersonal}
-                examples={nameExamples}
-                style={nameStyle}
-                onChange={setNameStyle}
-                designs={zonePreviews}
-                intro={
-                  designMode
-                    ? listDesign!.personas === 0
-                      ? "Elige qué lleva cada camisa y dónde, la letra y el color. Cada quien escribe lo suyo al anotarse y ve su camisa así, con su nombre."
-                      : "Ya hay gente anotada con lo que escribió. Aquí acomodas dónde va, la letra y el color; cada quien lo ve en su camisa."
-                    : undefined
-                }
-              />
-              {designMode && listDesign!.personas === 0 && (
-                <button
-                  type="button"
-                  onClick={() => setNamesOn(false)}
-                  className="mt-2 text-xs font-semibold text-ink-soft hover:text-ink hover:underline"
-                >
-                  Quitar los nombres: todas las camisas iguales
-                </button>
-              )}
-            </div>
-          )}
-          {designMode && !namesPersonal && listDesign!.personas === 0 && selectedProduct && (
-            <button
-              type="button"
-              onClick={() => {
-                setNameStyle((prev) => ({ ...prev, lugares: defaultLugares("nombre", selectedProduct.category) }));
-                setNamesOn(true);
-              }}
-              className="mt-6 w-full rounded-brand border-2 border-dashed border-black/20 px-4 py-4 text-left hover:border-ink"
-            >
-              <span className="block text-sm font-semibold text-ink">+ Agregar el nombre o número de cada persona</span>
-              <span className="block text-xs text-ink-soft">Cada quien lo escribe al anotarse y lo ve en su camisa.</span>
-            </button>
-          )}
 
           {designMode && (
             <div className="mt-6 rounded-brand bg-ink p-5 text-paper">
               <p className="font-display text-3xl uppercase leading-none tracking-wide">¿Listo?</p>
               <p className="mt-2 text-sm text-paper/75">
-                Al guardarlo, cada persona de la lista ve su camisa con este diseño{namesPersonal ? " y con su nombre" : ""}{" "}
+                Al guardarlo, cada persona de la lista ve su camisa con este diseño{namesActive ? " y con su nombre" : ""}{" "}
                 antes de anotarse. Lo puedes cambiar cuando quieras, y al hacer el pedido ya va a estar listo en el
                 diseñador: no hay que volver a hacerlo.
               </p>
@@ -1511,7 +1520,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
               <button
                 type="button"
                 onClick={saveListDesign}
-                disabled={savingDesign || (zonesWithContent.length === 0 && !namesPersonal)}
+                disabled={savingDesign || (zonesWithContent.length === 0 && !namesActive)}
                 className="mt-4 w-full rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40"
               >
                 {savingDesign ? "Guardando…" : "Guardar el diseño de la lista"}

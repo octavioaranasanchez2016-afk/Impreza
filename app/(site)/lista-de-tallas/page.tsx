@@ -9,9 +9,9 @@ export const metadata = {
 
 const STEPS: [string, string][] = [
   ["Crea la lista", "Ponle nombre al grupo y elige la prenda. Toma menos de un minuto."],
-  ["Compártela", "Manda el enlace al chat del grupo. Cada quien escribe su nombre y toca su talla."],
-  ["Mira el resumen", "Ves en vivo cuántas S, M, L… van, y quién falta. Quitas a quien se equivocó."],
-  ["Arma el pedido", "Con un botón, las tallas pasan al diseñador con las cantidades exactas."],
+  ["Haz el diseño", "Pones el diseño del grupo y, si quieres, dónde va el nombre o número de cada quien."],
+  ["Compártela", "Manda el enlace al chat. Cada quien ve su camisa con su nombre, lo escribe y toca su talla."],
+  ["Arma el pedido", "Con un botón pasan el diseño, las tallas y los nombres. No hay que repetir nada."],
 ];
 
 export default function ListaDeTallasPage() {

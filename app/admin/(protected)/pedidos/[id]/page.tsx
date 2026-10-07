@@ -6,7 +6,16 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
-import { describeLugares, describeNameStyle, lugaresDeLista, parseNameStyle, parsePersonalizado } from "@/lib/group-names";
+import {
+  describeLugares,
+  describeNameStyle,
+  describePersonStyle,
+  lugaresDeLista,
+  parseNameChoice,
+  parseNameStyle,
+  parsePersonStyle,
+  parsePersonalizado,
+} from "@/lib/group-names";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
@@ -85,8 +94,11 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
         const personalizado = parsePersonalizado(list.personalizado);
         const category = getProductById(list.product_id as string)?.category;
         const style = parseNameStyle(list.estilo, personalizado);
+        // Si cada quien eligió su letra o su color, eso va en la tabla, persona por persona.
+        const eligen = parseNameChoice(list.estilo);
+        const propio = [eligen.fuente && "la letra", eligen.color && "el color"].filter(Boolean).join(" y ");
         const estilo = style
-          ? describeNameStyle(style, category)
+          ? `${describeNameStyle(style, category)}${propio ? ` (${propio}: lo eligió cada quien, ver tabla)` : ""}`
           : personalizado !== "ninguno" && category
             ? `${describeLugares(lugaresDeLista(personalizado, list.estilo, category), category)} (la letra y el color no quedaron guardados; pregúntalos al cliente)`
             : null;
@@ -100,6 +112,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
             cantidad: p.cantidad as number,
             texto: (p.texto as string | null) ?? null,
             numero: (p.numero as string | null) ?? null,
+            propio: describePersonStyle(parsePersonStyle(p.estilo)) || null,
           })),
         };
       }),

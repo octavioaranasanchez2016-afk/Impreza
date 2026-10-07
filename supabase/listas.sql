@@ -43,5 +43,9 @@ alter table listas_tallas add column if not exists estilo jsonb;
 alter table listas_tallas_personas add column if not exists texto text;
 alter table listas_tallas_personas add column if not exists numero text;
 
+-- Si el organizador deja que cada quien elija la letra o el color de su nombre
+-- (estilo.eligen de la lista), lo que eligió cada persona (2026-10-07).
+alter table listas_tallas_personas add column if not exists estilo jsonb;
+
 -- Que Supabase vea las tablas nuevas de inmediato.
 notify pgrst, 'reload schema';

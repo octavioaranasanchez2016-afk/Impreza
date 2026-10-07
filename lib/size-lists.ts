@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { createServiceClient } from "./supabase/server";
 import { getProductById } from "./catalog";
-import { Personalizado } from "./group-names";
+import { NameStyle, Personalizado, parsePersonStyle } from "./group-names";
 import { GroupDesign, parseGroupDesign } from "./group-design";
 
 // Listas de tallas para grupos (ver supabase/listas.sql). Solo se usan desde el
@@ -30,6 +30,7 @@ export interface SizeListEntry {
   cantidad: number;
   texto?: string | null; // lo que dirá su camisa
   numero?: string | null;
+  estilo?: Partial<Pick<NameStyle, "fuente" | "color">>; // la letra y el color que eligió, si se podía
   created_at: string;
 }
 
@@ -79,6 +80,7 @@ export async function loadSizeList(
     cantidad: r.cantidad as number,
     texto: (r.texto as string | null) ?? null,
     numero: (r.numero as string | null) ?? null,
+    estilo: parsePersonStyle(r.estilo),
     created_at: r.created_at as string,
   }));
   const { clave, ...rest } = list as SizeList & { clave: string };

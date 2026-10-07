@@ -44,7 +44,7 @@ const LUGARES_POR_PRENDA: Record<ProductCategory, Lugar[]> = {
   gorra: ["pecho"],
 };
 
-const LLEVA_LABEL: Record<Lleva, string> = { nombre: "nombre", numero: "número", ambos: "nombre y número" };
+export const LLEVA_LABEL: Record<Lleva, string> = { nombre: "nombre", numero: "número", ambos: "nombre y número" };
 
 export function lugaresFor(category: ProductCategory): Lugar[] {
   return LUGARES_POR_PRENDA[category];
@@ -178,6 +178,43 @@ export function parseNameStyle(value: unknown, personalizado: Personalizado = "n
   const fuente = NAME_FONTS.find((f) => f === v.fuente);
   const color = typeof v.color === "string" && /^#[0-9A-F]{6}$/i.test(v.color) ? v.color.toUpperCase() : null;
   return Object.keys(lugares).length > 0 && fuente && color ? { lugares, fuente, color } : null;
+}
+
+// El lugar de cada lado de la prenda (la etiqueta no lleva nombres).
+export function lugarDeZona(zone: DesignZone): Lugar | null {
+  return LUGARES.find((l) => l.zone === zone)?.value ?? null;
+}
+
+// Lo que el organizador deja que cada quien elija para su propio nombre al anotarse
+// (guardado en listas_tallas.estilo.eligen).
+export interface NameChoice {
+  color: boolean;
+  fuente: boolean;
+}
+
+export function parseNameChoice(estilo: unknown): NameChoice {
+  const e = estilo && typeof estilo === "object" ? (estilo as Record<string, unknown>).eligen : null;
+  const v = e && typeof e === "object" ? (e as Record<string, unknown>) : {};
+  return { color: v.color === true, fuente: v.fuente === true };
+}
+
+// La letra y el color que eligió una persona para su nombre (listas_tallas_personas.estilo).
+export function parsePersonStyle(value: unknown): Partial<Pick<NameStyle, "fuente" | "color">> {
+  if (!value || typeof value !== "object") return {};
+  const v = value as Record<string, unknown>;
+  const fuente = NAME_FONTS.find((f) => f === v.fuente);
+  const color = NAME_COLORS.find((c) => c.hex === v.color)?.hex;
+  return { ...(fuente ? { fuente } : {}), ...(color ? { color } : {}) };
+}
+
+// "Colegial, dorado": cómo quiso su nombre una persona, para el panel.
+export function describePersonStyle(style: Partial<Pick<NameStyle, "fuente" | "color">>): string {
+  return [
+    style.fuente ? FONT_OPTIONS.find((f) => f.value === style.fuente)?.label : null,
+    style.color ? NAME_COLORS.find((c) => c.hex === style.color)?.name.toLowerCase() : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 }
 
 // "Espalda: nombre y número · Manga izquierda: número · letra Colegial · blanco":

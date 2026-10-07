@@ -87,6 +87,7 @@ export function DesignMockup({
   showPlacement = false,
   compact = false,
   onSizeCm,
+  overlay,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -102,6 +103,8 @@ export function DesignMockup({
   compact?: boolean;
   // Avisa el tamaño real del diseño (sin girar), para escribir las medidas en cm.
   onSizeCm?: (size: { w: number; h: number } | null) => void;
+  // Algo que va encima de todo y no se toca (el nombre de cada persona en camisas de grupo).
+  overlay?: React.ReactNode;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -352,6 +355,8 @@ export function DesignMockup({
               )}
             </div>
           )}
+
+          {overlay && <div className="pointer-events-none absolute inset-0">{overlay}</div>}
         </div>
 
         {interactive && (

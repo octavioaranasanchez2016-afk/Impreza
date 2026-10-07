@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shareWhatsAppUrl } from "@/lib/whatsapp";
+import { NameStyle, describePersonStyle } from "@/lib/group-names";
 
 interface Entry {
   id: string;
@@ -12,6 +13,7 @@ interface Entry {
   cantidad: number;
   texto?: string | null;
   numero?: string | null;
+  estilo?: Partial<Pick<NameStyle, "fuente" | "color">>; // la letra y el color que eligió
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -87,7 +89,9 @@ export function SizeListOrganizer({
     `${listName} — ${total} pieza${total === 1 ? "" : "s"}`,
     ...entries.map(
       (e, i) =>
-        `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${e.texto ? ` — «${e.texto}»` : ""}${e.numero ? ` #${e.numero}` : ""}`
+        `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${e.texto ? ` — «${e.texto}»` : ""}${e.numero ? ` #${e.numero}` : ""}${
+          e.estilo && describePersonStyle(e.estilo) ? ` (${describePersonStyle(e.estilo)})` : ""
+        }`
     ),
   ].join("\n");
 
@@ -195,6 +199,7 @@ export function SizeListOrganizer({
                     <span className="block truncate text-xs text-ink-soft">
                       {e.texto ? `Dirá «${e.texto}»` : "Número"}
                       {e.numero ? `${e.texto ? " · " : " "}#${e.numero}` : ""}
+                      {e.estilo && describePersonStyle(e.estilo) ? ` · ${describePersonStyle(e.estilo)}` : ""}
                     </span>
                   )}
                 </span>

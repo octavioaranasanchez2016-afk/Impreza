@@ -110,6 +110,8 @@ export function DesignCanvas({
   transform,
   onTransformChange,
   technique,
+  zoneOverlay,
+  children,
 }: {
   technique?: Technique;
   category: ProductCategory;
@@ -124,6 +126,10 @@ export function DesignCanvas({
   onContentChange: (content: DesignContent | null, resetTransform: boolean) => void;
   transform: DesignTransform;
   onTransformChange: (t: DesignTransform) => void;
+  // Camisas de grupo: el nombre de cada persona encima de cada zona, y sus opciones
+  // debajo de las de la zona (ver GroupNamesControls).
+  zoneOverlay?: (zone: DesignZone) => React.ReactNode;
+  children?: React.ReactNode;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
@@ -261,6 +267,7 @@ export function DesignCanvas({
         transform={transform}
         onTransformChange={onTransformChange}
         onSizeCm={setSizeCm}
+        overlay={zoneOverlay?.(zone)}
       />
 
       {zones.length > 1 && (
@@ -291,6 +298,7 @@ export function DesignCanvas({
                     transform={preview?.transform ?? defaultTransform(category, z)}
                     interactive={false}
                     compact
+                    overlay={zoneOverlay?.(z)}
                   />
                 </div>
                 <span className={`mt-1 block text-[11px] ${active ? "font-bold text-ink" : "font-medium text-ink-soft"}`}>
@@ -605,6 +613,8 @@ export function DesignCanvas({
           </div>
         )}
       </div>
+
+      {children}
 
       <input
         ref={fileRef}
