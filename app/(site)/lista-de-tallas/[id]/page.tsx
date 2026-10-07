@@ -1,22 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
-import { listSizes, loadGroupDesign, loadSizeList, sizesParam } from "@/lib/size-lists";
+import { exampleEntryId, listPersonal, listSizes, loadGroupDesign, loadSizeList, sizesParam } from "@/lib/size-lists";
 import { groupDesignPreview } from "@/lib/group-design";
 import { GroupDesignCard } from "@/components/GroupDesignCard";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
-import {
-  camposDe,
-  describeLugares,
-  examplesParam,
-  lugaresDeLista,
-  lugaresParam,
-  parseNameChoice,
-  parseNameStyle,
-  parsePersonalizado,
-} from "@/lib/group-names";
+import { camposPedidos, describePersonal } from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -56,16 +47,13 @@ export default async function ListaPage({
   const sizes = listSizes(list.product_id, list.color);
   const isOrganizer = Boolean(clave) && clave === result.clave;
   const total = entries.reduce((sum, e) => sum + e.cantidad, 0);
-  const personalizado = parsePersonalizado(list.personalizado);
-  // Qué lleva cada camisa y dónde (lo eligió el organizador al crear la lista).
-  const lugares = lugaresDeLista(personalizado, list.estilo, product.category);
+  // La camisa de ejemplo: el diseño de todos y lo que pone cada quien (si el
+  // organizador ya la hizo). Todos la ven antes de anotarse.
+  const personal = listPersonal(list);
   const colorHex = product.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF";
-  // El diseño del grupo (si el organizador ya lo hizo) y la letra y el color de los
-  // nombres: todos los ven en su camisa antes de anotarse.
   const design = await loadGroupDesign(list);
   const designs = groupDesignPreview(design);
-  const savedStyle = parseNameStyle(list.estilo, personalizado);
-  const nameStyle = savedStyle ? { fuente: savedStyle.fuente, color: savedStyle.color } : undefined;
+  const ejemploId = exampleEntryId(list);
   const designHref = `/lista-de-tallas/${list.id}/diseno?clave=${encodeURIComponent(clave ?? "")}`;
 
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
@@ -75,13 +63,6 @@ export default async function ListaPage({
   if (design) {
     order.set("tecnica", design.tecnica);
     if (design.tela) order.set("tela", design.tela);
-  }
-  // Camisas personalizadas: el diseñador abre el apartado de nombres con los lugares
-  // que eligió el organizador y ejemplos del grupo.
-  if (personalizado !== "ninguno") {
-    order.set("personal", personalizado);
-    order.set("lugares", lugaresParam(lugares));
-    order.set("ejemplos", examplesParam(entries));
   }
 
   return (
@@ -95,9 +76,9 @@ export default async function ListaPage({
         {list.color ? ` · ${list.color}` : ""}
         {list.organizador ? ` · Organiza ${list.organizador}` : ""}
       </p>
-      {personalizado !== "ninguno" && (
-        <p className="mt-2 inline-block rounded-full bg-paper-soft px-3 py-1 text-xs text-ink">
-          <span className="font-semibold">Cada camisa lleva</span> · {describeLugares(lugares, product.category)}
+      {personal && (
+        <p className="mt-2 inline-block rounded-brand bg-paper-soft px-3 py-1 text-xs text-ink">
+          <span className="font-semibold">Cada quien pone lo suyo</span> · {describePersonal(personal)}
         </p>
       )}
 
@@ -129,12 +110,7 @@ export default async function ListaPage({
               designs={designs}
               category={product.category}
               colorHex={colorHex}
-              lugares={lugares}
-              nameStyle={nameStyle}
-              sample={{
-                texto: entries.find((e) => e.texto)?.texto ?? "CHEPE",
-                numero: entries.find((e) => e.numero)?.numero ?? "10",
-              }}
+              personal={personal}
               listName={list.nombre}
               shareUrl={`${siteUrl()}/lista-de-tallas/${list.id}`}
               ordered={Boolean(list.order_id)}
@@ -148,7 +124,9 @@ export default async function ListaPage({
               closed={list.cerrada}
               orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
               baseUrl={siteUrl()}
-              campos={camposDe(personalizado)}
+              campos={camposPedidos(personal)}
+              etiqueta={personal?.etiqueta}
+              ejemploId={ejemploId}
             />
           </div>
         ) : (
@@ -165,11 +143,13 @@ export default async function ListaPage({
                   <li key={e.id} className="flex justify-between gap-3 py-2 text-sm">
                     <span className="min-w-0 truncate text-ink">
                       {e.nombre}
-                      {e.texto || e.numero ? (
+                      {e.id === ejemploId ? <span className="text-ink-soft"> · organiza</span> : null}
+                      {e.texto || e.numero || e.estilo?.extra ? (
                         <span className="text-ink-soft">
                           {" "}
-                          · {e.texto ? `«${e.texto}»` : ""}
-                          {e.numero ? `${e.texto ? " " : ""}#${e.numero}` : ""}
+                          · {[e.texto && `«${e.texto}»`, e.numero && `#${e.numero}`, e.estilo?.extra && `«${e.estilo.extra}»`]
+                            .filter(Boolean)
+                            .join(" ")}
                         </span>
                       ) : null}
                     </span>
@@ -194,11 +174,9 @@ export default async function ListaPage({
             productName={product.name}
             title={isOrganizer ? "Anotar a alguien" : "Anótate"}
             forOthers={isOrganizer}
-            lugares={lugares}
             colorHex={colorHex}
             designs={designs}
-            nameStyle={nameStyle}
-            eligen={parseNameChoice(list.estilo)}
+            personal={personal}
           />
           <p className="mt-3 text-center text-xs text-ink-soft">
             Las camisas las hace{" "}

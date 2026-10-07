@@ -1,20 +1,62 @@
-import { FONT_OPTIONS, FontFamilyKey } from "./design";
-import { DesignZone, ProductCategory } from "./types";
+import { FONT_OPTIONS, FontFamilyKey, MockupTextContent } from "./design";
+import { DesignTransform, DesignZone, ProductCategory } from "./types";
+import { getPrintArea, getZonesForCategory } from "@/components/GarmentShape";
 
-// Camisas de grupo donde cada una lleva el nombre y/o el número de su dueño. El
-// organizador elige al crear la lista qué va en cada lugar (pecho, espalda, mangas);
-// cada persona escribe lo suyo al anotarse, y en el diseñador se eligen la letra y
-// el color. Este archivo no usa nada del servidor.
+// Camisas de grupo con lo de cada persona. El organizador hace una camisa de ejemplo
+// (la suya): lo que es igual en todas es el diseño del grupo (ver group-design.ts), y
+// además marca "lo que pone cada quien": textos que cada persona llena al anotarse —su
+// nombre o apodo, su número u otro texto— cada uno en su lugar de la prenda, con su
+// letra, color y tamaño. Se guarda en listas_tallas.estilo. Este archivo no usa nada
+// del servidor.
 
-// Lo que cada persona tiene que escribir al anotarse (columna listas_tallas.personalizado).
-export type Personalizado = "ninguno" | "nombre" | "numero" | "nombre_numero";
+export type Campo = "nombre" | "numero" | "texto";
 
-export function parsePersonalizado(value: unknown): Personalizado {
-  return value === "nombre" || value === "numero" || value === "nombre_numero" ? value : "ninguno";
+export const CAMPOS: { value: Campo; label: string; add: string }[] = [
+  { value: "nombre", label: "Nombre o apodo", add: "Su nombre o apodo" },
+  { value: "numero", label: "Número", add: "Su número" },
+  { value: "texto", label: "Otro texto", add: "Otro texto" },
+];
+
+export const campoLabel = (campo: Campo) => CAMPOS.find((c) => c.value === campo)!.label;
+
+// Un texto de cada persona en un lugar de la prenda (como un texto del diseñador).
+export interface PersonalField {
+  zona: DesignZone;
+  campo: Campo;
+  color: string;
+  fuente: FontFamilyKey;
+  contorno?: string;
+  posX: number;
+  posY: number;
+  escala: number;
+  rotacion: number;
+}
+
+// Lo que dice la camisa de ejemplo en cada campo (la del organizador).
+export interface Ejemplos {
+  nombre: string;
+  numero: string;
+  texto: string;
+}
+
+// Lo que el organizador deja que cada quien elija para sus textos al anotarse.
+export interface NameChoice {
+  color: boolean;
+  fuente: boolean;
+}
+
+export interface GroupPersonal {
+  campos: PersonalField[];
+  ejemplos: Ejemplos;
+  etiqueta: string; // lo que se le pide a cada quien en "otro texto" ("Tu frase")
+  eligen: NameChoice;
 }
 
 export const MAX_TEXTO = 16;
 export const MAX_NUMERO = 3;
+export const MAX_EXTRA = 24;
+export const MAX_CAMPOS = 8;
+export const DEFAULT_ETIQUETA = "Tu frase";
 
 export function cleanTexto(value: unknown): string {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, MAX_TEXTO) : "";
@@ -24,131 +66,186 @@ export function cleanNumero(value: unknown): string {
   return typeof value === "string" ? value.replace(/\D/g, "").slice(0, MAX_NUMERO) : "";
 }
 
-// Dónde puede ir lo de cada persona, y qué lleva cada lugar.
-export type Lugar = "pecho" | "espalda" | "manga-izq" | "manga-der";
-export type Lleva = "nombre" | "numero" | "ambos";
-export type Lugares = Partial<Record<Lugar, Lleva>>;
-
-export const LUGARES: { value: Lugar; zone: DesignZone; label: string }[] = [
-  { value: "pecho", zone: "frente", label: "Pecho" },
-  { value: "espalda", zone: "espalda", label: "Espalda" },
-  { value: "manga-izq", zone: "manga-izq", label: "Manga izquierda" },
-  { value: "manga-der", zone: "manga-der", label: "Manga derecha" },
-];
-
-const LUGARES_POR_PRENDA: Record<ProductCategory, Lugar[]> = {
-  camisa: ["pecho", "espalda", "manga-izq", "manga-der"],
-  polo: ["pecho", "espalda", "manga-izq", "manga-der"],
-  hoodie: ["pecho", "espalda"],
-  tote: ["pecho"],
-  gorra: ["pecho"],
-};
-
-export const LLEVA_LABEL: Record<Lleva, string> = { nombre: "nombre", numero: "número", ambos: "nombre y número" };
-
-export function lugaresFor(category: ProductCategory): Lugar[] {
-  return LUGARES_POR_PRENDA[category];
+export function cleanExtra(value: unknown): string {
+  return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, MAX_EXTRA) : "";
 }
 
-export function lugarZone(lugar: Lugar): DesignZone {
-  return LUGARES.find((l) => l.value === lugar)!.zone;
+export function cleanCampo(campo: Campo, value: unknown): string {
+  return campo === "numero" ? cleanNumero(value) : campo === "texto" ? cleanExtra(value) : cleanTexto(value);
 }
 
-// En una gorra o un bolso no hay pecho: es el frente.
-export function lugarLabel(lugar: Lugar, category?: ProductCategory): string {
-  if (lugar === "pecho" && (category === "tote" || category === "gorra")) return "Frente";
-  return LUGARES.find((l) => l.value === lugar)!.label;
+// Columna listas_tallas.personalizado: si cada quien escribe nombre y/o número.
+export type Personalizado = "ninguno" | "nombre" | "numero" | "nombre_numero";
+
+export function parsePersonalizado(value: unknown): Personalizado {
+  return value === "nombre" || value === "numero" || value === "nombre_numero" ? value : "ninguno";
 }
 
-export const llevaNombre = (l?: Lleva) => l === "nombre" || l === "ambos";
-export const llevaNumero = (l?: Lleva) => l === "numero" || l === "ambos";
-
-// Los lugares en orden fijo (pecho, espalda, mangas).
-export function lugaresEnOrden(lugares: Lugares): [Lugar, Lleva][] {
-  return LUGARES.filter((l) => lugares[l.value]).map((l) => [l.value, lugares[l.value]!]);
+// Lo que tiene que escribir cada persona al anotarse.
+export function camposPedidos(personal: GroupPersonal | null): Record<Campo, boolean> {
+  const has = (campo: Campo) => Boolean(personal?.campos.some((f) => f.campo === campo));
+  return { nombre: has("nombre"), numero: has("numero"), texto: has("texto") };
 }
 
-// Lo que cada persona tiene que escribir según lo que va en la camisa.
-export function personalizadoDe(lugares: Lugares): Personalizado {
-  const values = Object.values(lugares);
-  const nombre = values.some(llevaNombre);
-  const numero = values.some(llevaNumero);
+export function personalizadoDe(personal: GroupPersonal | null): Personalizado {
+  const { nombre, numero } = camposPedidos(personal);
   return nombre && numero ? "nombre_numero" : nombre ? "nombre" : numero ? "numero" : "ninguno";
 }
 
-export function camposDe(personalizado: Personalizado): { nombre: boolean; numero: boolean } {
+const ZONE_TITLE: Partial<Record<DesignZone, string>> = {
+  frente: "Frente",
+  espalda: "Espalda",
+  "manga-izq": "Manga izquierda",
+  "manga-der": "Manga derecha",
+};
+
+// Los lados de la prenda donde puede ir algo de cada persona (no en la etiqueta).
+export function personalZones(category: ProductCategory): DesignZone[] {
+  return getZonesForCategory(category).filter((z) => ZONE_TITLE[z]);
+}
+
+export const zoneTitle = (zone: DesignZone) => ZONE_TITLE[zone] ?? zone;
+
+export function fieldTransform(field: PersonalField): DesignTransform {
+  return { x: field.posX, y: field.posY, scale: field.escala, rotation: field.rotacion };
+}
+
+// El texto de un campo, listo para dibujarlo sobre la prenda: con lo que escribió la
+// persona (o el ejemplo) y, si el organizador lo deja, la letra y el color que eligió.
+export function fieldContent(
+  field: PersonalField,
+  texto: string,
+  propio?: Partial<Pick<PersonalField, "fuente" | "color">>,
+  eligen?: NameChoice
+): MockupTextContent {
   return {
-    nombre: personalizado === "nombre" || personalizado === "nombre_numero",
-    numero: personalizado === "numero" || personalizado === "nombre_numero",
+    kind: "texto",
+    texto,
+    color: eligen?.color && propio?.color ? propio.color : field.color,
+    fontFamily: eligen?.fuente && propio?.fuente ? propio.fuente : field.fuente,
+    outline: field.contorno ?? null,
   };
 }
 
-// Para listas creadas antes de poder elegir lugares: todo en la espalda.
-export function defaultLugares(personalizado: Personalizado, category: ProductCategory): Lugares {
-  if (personalizado === "ninguno") return {};
-  const lugar: Lugar = lugaresFor(category).includes("espalda") ? "espalda" : "pecho";
-  return { [lugar]: personalizado === "nombre_numero" ? "ambos" : personalizado === "numero" ? "numero" : "nombre" };
+const HEX = /^#[0-9a-f]{6}$/i;
+const clamp = (n: unknown, min: number, max: number) => Math.min(max, Math.max(min, Number(n) || 0));
+
+function parseField(raw: unknown, zones: DesignZone[]): PersonalField | null {
+  if (!raw || typeof raw !== "object") return null;
+  const v = raw as Record<string, unknown>;
+  const zona = zones.find((z) => z === v.zona);
+  const campo = CAMPOS.find((c) => c.value === v.campo)?.value;
+  if (!zona || !campo) return null;
+  return {
+    zona,
+    campo,
+    color: typeof v.color === "string" && HEX.test(v.color) ? v.color : "#111111",
+    fuente: FONT_OPTIONS.find((f) => f.value === v.fuente)?.value ?? "display",
+    ...(typeof v.contorno === "string" && HEX.test(v.contorno) ? { contorno: v.contorno } : {}),
+    posX: clamp(v.posX, 0, 100),
+    posY: clamp(v.posY, 0, 100),
+    escala: clamp(v.escala, 0.05, 5),
+    rotacion: ((clamp(v.rotacion, -3600, 3600) % 360) + 360) % 360,
+  };
 }
 
-export function parseLugares(value: unknown, category?: ProductCategory): Lugares {
-  if (!value || typeof value !== "object") return {};
+function parseChoice(value: unknown): NameChoice {
+  const v = value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+  return { color: v.color === true, fuente: v.fuente === true };
+}
+
+// Revisa lo que llega del diseñador (o de la base) y deja solo lo válido para esta
+// prenda. null si nadie pone nada propio.
+export function parsePersonal(value: unknown, category: ProductCategory): GroupPersonal | null {
+  if (!value || typeof value !== "object") return null;
   const v = value as Record<string, unknown>;
-  const allowed = category ? lugaresFor(category) : LUGARES.map((l) => l.value);
-  const out: Lugares = {};
-  for (const lugar of allowed) {
-    const lleva = v[lugar];
-    if (lleva === "nombre" || lleva === "numero" || lleva === "ambos") out[lugar] = lleva;
+  const zones = personalZones(category);
+  const campos = (Array.isArray(v.campos) ? v.campos : [])
+    .map((f) => parseField(f, zones))
+    .filter((f): f is PersonalField => f !== null)
+    .slice(0, MAX_CAMPOS);
+  if (campos.length === 0) return null;
+  const e = v.ejemplos && typeof v.ejemplos === "object" ? (v.ejemplos as Record<string, unknown>) : {};
+  return {
+    campos,
+    ejemplos: { nombre: cleanTexto(e.nombre), numero: cleanNumero(e.numero), texto: cleanExtra(e.texto) },
+    etiqueta: cleanExtra(v.etiqueta) || DEFAULT_ETIQUETA,
+    eligen: parseChoice(v.eligen),
+  };
+}
+
+// --- Listas hechas antes de la camisa de ejemplo -----------------------------------
+// Guardaban qué llevaba cada lugar (estilo.lugares: {"espalda":"ambos"}) con una letra
+// y un color para todos. Se convierten a campos con las posiciones de entonces.
+
+type Lleva = "nombre" | "numero" | "ambos";
+const LEGACY_LUGAR_ZONE: Record<string, DesignZone> = {
+  pecho: "frente",
+  espalda: "espalda",
+  "manga-izq": "manga-izq",
+  "manga-der": "manga-der",
+  "espalda-arriba": "espalda",
+  "espalda-abajo": "espalda",
+};
+
+function legacyFields(zone: DesignZone, lleva: Lleva, category: ProductCategory, fuente: FontFamilyKey, color: string) {
+  const a = getPrintArea(category, zone);
+  let box = { x: a.x, y: a.y, w: a.w, h: a.h };
+  if (zone === "frente" && (category === "camisa" || category === "hoodie")) {
+    const w = a.w * 0.36;
+    box = { x: a.x + a.w * 0.82 - w / 2, y: a.y + a.h * 0.06, w, h: a.h * 0.24 };
+  }
+  const back = zone === "espalda";
+  const both = lleva === "ambos";
+  const base = { zona: zone, fuente, color, posX: box.x + box.w / 2, rotacion: 0 };
+  const out: PersonalField[] = [];
+  if (lleva !== "numero") {
+    const posY = box.y + box.h * (back ? 0.15 : both ? 0.27 : 0.5);
+    out.push({ ...base, campo: "nombre", posY, escala: (box.w * 0.9) / a.w });
+  }
+  if (lleva !== "nombre") {
+    const posY = box.y + box.h * (back ? (both ? 0.55 : 0.42) : both ? 0.68 : 0.5);
+    out.push({ ...base, campo: "numero", posY, escala: (box.w * 0.5) / a.w });
   }
   return out;
 }
 
-// Ajusta los lugares a la prenda y a lo que la gente escribió en la lista: si la
-// prenda cambió (por ejemplo a hoodie, sin mangas) o un lugar pide algo que nadie
-// escribió, se quita; si no queda nada, todo va en la espalda.
-export function fitLugares(lugares: Lugares, personalizado: Personalizado, category: ProductCategory): Lugares {
-  const campos = camposDe(personalizado);
-  const out: Lugares = {};
-  for (const [lugar, lleva] of lugaresEnOrden(parseLugares(lugares, category))) {
-    const nombre = llevaNombre(lleva) && campos.nombre;
-    const numero = llevaNumero(lleva) && campos.numero;
-    if (nombre || numero) out[lugar] = nombre && numero ? "ambos" : nombre ? "nombre" : "numero";
+// Lo de cada persona guardado en una lista (o en el pedido que se hizo con ella), en
+// el formato de ahora aunque la lista sea de antes.
+export function personalDeLista(estilo: unknown, category: ProductCategory, personalizado?: unknown): GroupPersonal | null {
+  const e = estilo && typeof estilo === "object" ? (estilo as Record<string, unknown>) : {};
+  if (Array.isArray(e.campos)) return parsePersonal(e, category);
+
+  const pide = parsePersonalizado(personalizado);
+  const fuente = FONT_OPTIONS.find((f) => f.value === e.fuente)?.value ?? "display";
+  const color = typeof e.color === "string" && HEX.test(e.color) ? e.color : "#FFFFFF";
+  const zones = personalZones(category);
+  let lugares: [DesignZone, Lleva][] = [];
+  if (e.lugares && typeof e.lugares === "object") {
+    lugares = Object.entries(e.lugares as Record<string, unknown>)
+      .filter(([lugar, lleva]) => LEGACY_LUGAR_ZONE[lugar] && (lleva === "nombre" || lleva === "numero" || lleva === "ambos"))
+      .map(([lugar, lleva]) => [LEGACY_LUGAR_ZONE[lugar], lleva as Lleva]);
+  } else if (typeof e.ubicacion === "string" && LEGACY_LUGAR_ZONE[e.ubicacion] && pide !== "ninguno") {
+    lugares = [[LEGACY_LUGAR_ZONE[e.ubicacion], pide === "nombre_numero" ? "ambos" : pide === "numero" ? "numero" : "nombre"]];
+  } else if (pide !== "ninguno") {
+    lugares = [[zones.includes("espalda") ? "espalda" : "frente", pide === "nombre_numero" ? "ambos" : pide === "numero" ? "numero" : "nombre"]];
   }
-  return Object.keys(out).length > 0 ? out : defaultLugares(personalizado, category);
+  const campos = lugares
+    .filter(([zone]) => zones.includes(zone))
+    .flatMap(([zone, lleva]) => legacyFields(zone, lleva, category, fuente, color));
+  if (campos.length === 0) return null;
+  return {
+    campos,
+    ejemplos: { nombre: "JUAN", numero: "10", texto: "" },
+    etiqueta: DEFAULT_ETIQUETA,
+    eligen: parseChoice(e.eligen),
+  };
 }
 
-// Los lugares que eligió el organizador (guardados en listas_tallas.estilo).
-export function lugaresDeLista(personalizado: Personalizado, estilo: unknown, category: ProductCategory): Lugares {
-  const saved = estilo && typeof estilo === "object" ? (estilo as Record<string, unknown>).lugares : null;
-  return fitLugares(parseLugares(saved, category), personalizado, category);
-}
+// --- Para el panel y los correos ----------------------------------------------------
 
-// "espalda:ambos,manga-izq:numero": para pasarle los lugares al diseñador.
-export function lugaresParam(lugares: Lugares): string {
-  return lugaresEnOrden(lugares)
-    .map(([lugar, lleva]) => `${lugar}:${lleva}`)
-    .join(",");
-}
-
-export function parseLugaresParam(value: string | null): Lugares {
-  if (!value) return {};
-  return parseLugares(Object.fromEntries(value.split(",").map((part) => part.split(":"))));
-}
-
-// "Espalda: nombre y número · Manga izquierda: número".
-export function describeLugares(lugares: Lugares, category?: ProductCategory): string {
-  return lugaresEnOrden(lugares)
-    .map(([lugar, lleva]) => `${lugarLabel(lugar, category)}: ${LLEVA_LABEL[lleva]}`)
-    .join(" · ");
-}
-
-// Letras que funcionan bien para nombres en camisas.
+// Letras y colores que cada persona puede elegir para sus textos, si se lo permiten.
 export const NAME_FONTS: FontFamilyKey[] = ["display", "colegial", "bloque", "script", "gotica", "sans"];
-
-export interface NameStyle {
-  lugares: Lugares;
-  fuente: FontFamilyKey;
-  color: string; // "#FFFFFF"
-}
 
 export const NAME_COLORS = [
   { name: "Blanco", hex: "#FFFFFF" },
@@ -159,89 +256,43 @@ export const NAME_COLORS = [
   { name: "Plateado", hex: "#A8A9AD" },
 ];
 
-// Los pedidos de antes guardaban un solo lugar ("ubicacion").
-const OLD_UBICACION: Record<string, Lugar> = {
-  "espalda-arriba": "espalda",
-  "espalda-abajo": "espalda",
-  "manga-izq": "manga-izq",
-  pecho: "pecho",
-};
+const fontLabel = (f: FontFamilyKey) => FONT_OPTIONS.find((o) => o.value === f)?.label ?? f;
+const colorLabel = (hex: string) => NAME_COLORS.find((c) => c.hex.toLowerCase() === hex.toLowerCase())?.name.toLowerCase() ?? hex;
 
-export function parseNameStyle(value: unknown, personalizado: Personalizado = "nombre"): NameStyle | null {
-  if (!value || typeof value !== "object") return null;
-  const v = value as Record<string, unknown>;
-  let lugares = parseLugares(v.lugares);
-  const old = typeof v.ubicacion === "string" ? OLD_UBICACION[v.ubicacion] : undefined;
-  if (Object.keys(lugares).length === 0 && old) {
-    lugares = { [old]: personalizado === "nombre_numero" ? "ambos" : personalizado === "numero" ? "numero" : "nombre" };
+// "Espalda: nombre (Colegial, blanco) y número (Impacto, blanco) · Manga izquierda: …"
+export function describePersonal(personal: GroupPersonal): string {
+  const byZone = new Map<DesignZone, string[]>();
+  for (const f of personal.campos) {
+    const what = f.campo === "texto" ? `«${personal.etiqueta}»` : campoLabel(f.campo).toLowerCase();
+    byZone.set(f.zona, [...(byZone.get(f.zona) ?? []), `${what} (${fontLabel(f.fuente)}, ${colorLabel(f.color)})`]);
   }
-  const fuente = NAME_FONTS.find((f) => f === v.fuente);
-  const color = typeof v.color === "string" && /^#[0-9A-F]{6}$/i.test(v.color) ? v.color.toUpperCase() : null;
-  return Object.keys(lugares).length > 0 && fuente && color ? { lugares, fuente, color } : null;
+  const choose = [personal.eligen.fuente && "la letra", personal.eligen.color && "el color"].filter(Boolean).join(" y ");
+  const parts = [...byZone].map(([zone, items]) => `${zoneTitle(zone)}: ${items.join(" y ")}`);
+  return `${parts.join(" · ")}${choose ? ` · ${choose} lo eligió cada quien` : ""}`;
 }
 
-// El lugar de cada lado de la prenda (la etiqueta no lleva nombres).
-export function lugarDeZona(zone: DesignZone): Lugar | null {
-  return LUGARES.find((l) => l.zone === zone)?.value ?? null;
+// La letra, el color y el otro texto de una persona (listas_tallas_personas.estilo).
+export interface PersonExtra {
+  fuente?: FontFamilyKey;
+  color?: string;
+  extra?: string;
 }
 
-// Lo que el organizador deja que cada quien elija para su propio nombre al anotarse
-// (guardado en listas_tallas.estilo.eligen).
-export interface NameChoice {
-  color: boolean;
-  fuente: boolean;
-}
-
-export function parseNameChoice(estilo: unknown): NameChoice {
-  const e = estilo && typeof estilo === "object" ? (estilo as Record<string, unknown>).eligen : null;
-  const v = e && typeof e === "object" ? (e as Record<string, unknown>) : {};
-  return { color: v.color === true, fuente: v.fuente === true };
-}
-
-// La letra y el color que eligió una persona para su nombre (listas_tallas_personas.estilo).
-export function parsePersonStyle(value: unknown): Partial<Pick<NameStyle, "fuente" | "color">> {
+export function parsePersonExtra(value: unknown): PersonExtra {
   if (!value || typeof value !== "object") return {};
   const v = value as Record<string, unknown>;
   const fuente = NAME_FONTS.find((f) => f === v.fuente);
   const color = NAME_COLORS.find((c) => c.hex === v.color)?.hex;
-  return { ...(fuente ? { fuente } : {}), ...(color ? { color } : {}) };
+  const extra = cleanExtra(v.extra);
+  return { ...(fuente ? { fuente } : {}), ...(color ? { color } : {}), ...(extra ? { extra } : {}) };
 }
 
-// "Colegial, dorado": cómo quiso su nombre una persona, para el panel.
-export function describePersonStyle(style: Partial<Pick<NameStyle, "fuente" | "color">>): string {
-  return [
-    style.fuente ? FONT_OPTIONS.find((f) => f.value === style.fuente)?.label : null,
-    style.color ? NAME_COLORS.find((c) => c.hex === style.color)?.name.toLowerCase() : null,
-  ]
-    .filter(Boolean)
-    .join(", ");
+// "Colegial, dorado": cómo quiso sus textos una persona, para el panel.
+export function describePersonStyle(style: PersonExtra): string {
+  return [style.fuente ? fontLabel(style.fuente) : null, style.color ? colorLabel(style.color) : null].filter(Boolean).join(", ");
 }
 
-// "Espalda: nombre y número · Manga izquierda: número · letra Colegial · blanco":
-// para el panel y los correos.
-export function describeNameStyle(style: NameStyle, category?: ProductCategory): string {
-  const font = FONT_OPTIONS.find((f) => f.value === style.fuente)?.label ?? style.fuente;
-  const color = NAME_COLORS.find((c) => c.hex === style.color)?.name.toLowerCase() ?? style.color;
-  return `${describeLugares(style.lugares, category)} · letra ${font} · ${color}`;
-}
-
-// Ejemplos para el diseñador: "CHEPE~10|LA FLACA~7" (máx. 5).
-export function examplesParam(entries: { texto?: string | null; numero?: string | null }[]): string {
-  return entries
-    .filter((e) => e.texto || e.numero)
-    .slice(0, 5)
-    .map((e) => `${e.texto ?? ""}~${e.numero ?? ""}`)
-    .join("|");
-}
-
-export function parseExamples(value: string | null): { texto: string; numero: string }[] {
-  if (!value) return [];
-  return value
-    .split("|")
-    .slice(0, 5)
-    .map((part) => {
-      const [texto, numero] = part.split("~");
-      return { texto: cleanTexto(texto ?? ""), numero: cleanNumero(numero ?? "") };
-    })
-    .filter((e) => e.texto || e.numero);
+// Lo que escribió una persona, campo por campo.
+export function valoresDe(entry: { texto?: string | null; numero?: string | null; estilo?: PersonExtra }): Ejemplos {
+  return { nombre: entry.texto ?? "", numero: entry.numero ?? "", texto: entry.estilo?.extra ?? "" };
 }

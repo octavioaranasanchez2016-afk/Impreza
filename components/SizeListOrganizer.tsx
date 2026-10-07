@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shareWhatsAppUrl } from "@/lib/whatsapp";
-import { NameStyle, describePersonStyle } from "@/lib/group-names";
+import { Campo, PersonExtra, describePersonStyle } from "@/lib/group-names";
 
 interface Entry {
   id: string;
@@ -13,7 +13,7 @@ interface Entry {
   cantidad: number;
   texto?: string | null;
   numero?: string | null;
-  estilo?: Partial<Pick<NameStyle, "fuente" | "color">>; // la letra y el color que eligió
+  estilo?: PersonExtra; // su otro texto, y la letra y el color que eligió
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -48,7 +48,9 @@ export function SizeListOrganizer({
   closed,
   orderHref,
   baseUrl,
-  campos = { nombre: false, numero: false },
+  campos = { nombre: false, numero: false, texto: false },
+  etiqueta,
+  ejemploId,
 }: {
   listId: string;
   clave: string;
@@ -58,20 +60,16 @@ export function SizeListOrganizer({
   closed: boolean;
   orderHref: string;
   baseUrl: string; // dirección oficial del sitio, para que el enlace compartido sea el bueno
-  campos?: { nombre: boolean; numero: boolean }; // lo que cada persona escribe para su camisa
+  campos?: Record<Campo, boolean>; // lo que cada persona escribe para su camisa
+  etiqueta?: string; // lo que se pide en "otro texto"
+  ejemploId?: string | null; // el registro del organizador (su camisa de ejemplo)
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   // "y lo que dirá tu camisa": lo que cada quien tiene que escribir, para el mensaje al grupo.
-  const extra =
-    campos.nombre && campos.numero
-      ? " y tu nombre y número para la camisa"
-      : campos.nombre
-        ? " y lo que dirá tu camisa"
-        : campos.numero
-          ? " y tu número"
-          : "";
+  const pide = [campos.nombre && "tu nombre", campos.numero && "tu número", campos.texto && etiqueta?.toLowerCase()].filter(Boolean);
+  const extra = pide.length ? ` y ${pide.join(" y ")} para la camisa` : "";
   const shareUrl = `${baseUrl}/lista-de-tallas/${listId}`;
   const organizerUrl = `${shareUrl}?clave=${encodeURIComponent(clave)}`;
 
@@ -90,8 +88,8 @@ export function SizeListOrganizer({
     ...entries.map(
       (e, i) =>
         `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${e.texto ? ` — «${e.texto}»` : ""}${e.numero ? ` #${e.numero}` : ""}${
-          e.estilo && describePersonStyle(e.estilo) ? ` (${describePersonStyle(e.estilo)})` : ""
-        }`
+          e.estilo?.extra ? ` «${e.estilo.extra}»` : ""
+        }${e.estilo && describePersonStyle(e.estilo) ? ` (${describePersonStyle(e.estilo)})` : ""}`
     ),
   ].join("\n");
 
@@ -194,11 +192,16 @@ export function SizeListOrganizer({
             {entries.map((e) => (
               <li key={e.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                 <span className="min-w-0 text-ink">
-                  <span className="block truncate">{e.nombre}</span>
-                  {(e.texto || e.numero) && (
+                  <span className="block truncate">
+                    {e.nombre}
+                    {e.id === ejemploId && <span className="text-xs text-ink-soft"> · tu camisa de ejemplo</span>}
+                  </span>
+                  {(e.texto || e.numero || e.estilo?.extra) && (
                     <span className="block truncate text-xs text-ink-soft">
-                      {e.texto ? `Dirá «${e.texto}»` : "Número"}
-                      {e.numero ? `${e.texto ? " · " : " "}#${e.numero}` : ""}
+                      Dirá{" "}
+                      {[e.texto && `«${e.texto}»`, e.numero && `#${e.numero}`, e.estilo?.extra && `«${e.estilo.extra}»`]
+                        .filter(Boolean)
+                        .join(" · ")}
                       {e.estilo && describePersonStyle(e.estilo) ? ` · ${describePersonStyle(e.estilo)}` : ""}
                     </span>
                   )}

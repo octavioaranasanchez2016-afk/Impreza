@@ -110,7 +110,11 @@ export function DesignCanvas({
   transform,
   onTransformChange,
   technique,
-  zoneOverlay,
+  layers,
+  emptyPanel,
+  panelTop,
+  contentTitle,
+  textPlaceholder = "Escribe tu texto",
   children,
 }: {
   technique?: Technique;
@@ -126,10 +130,17 @@ export function DesignCanvas({
   onContentChange: (content: DesignContent | null, resetTransform: boolean) => void;
   transform: DesignTransform;
   onTransformChange: (t: DesignTransform) => void;
-  // Camisas de grupo: el nombre de cada persona encima de cada zona, y sus opciones
-  // debajo de las de la zona (ver GroupNamesControls).
-  zoneOverlay?: (zone: DesignZone) => React.ReactNode;
-  children?: React.ReactNode;
+  // Camisas de grupo: lo que va debajo o encima de lo que se edita en cada zona (el
+  // diseño de todos y los textos de cada persona). main: la vista grande.
+  layers?: (zone: DesignZone, main: boolean) => { underlay?: React.ReactNode; overlay?: React.ReactNode };
+  // En vez de "¿Qué quieres poner…?" cuando la zona no tiene nada que editar.
+  emptyPanel?: React.ReactNode;
+  // Arriba de las opciones de la zona (para elegir qué texto se edita).
+  panelTop?: React.ReactNode;
+  // En vez de "Texto" sobre las opciones de un texto.
+  contentTitle?: string;
+  textPlaceholder?: string;
+  children?: React.ReactNode; // debajo de las opciones de la zona
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
@@ -267,7 +278,7 @@ export function DesignCanvas({
         transform={transform}
         onTransformChange={onTransformChange}
         onSizeCm={setSizeCm}
-        overlay={zoneOverlay?.(zone)}
+        {...layers?.(zone, true)}
       />
 
       {zones.length > 1 && (
@@ -298,7 +309,7 @@ export function DesignCanvas({
                     transform={preview?.transform ?? defaultTransform(category, z)}
                     interactive={false}
                     compact
-                    overlay={zoneOverlay?.(z)}
+                    {...layers?.(z, false)}
                   />
                 </div>
                 <span className={`mt-1 block text-[11px] ${active ? "font-bold text-ink" : "font-medium text-ink-soft"}`}>
@@ -336,7 +347,10 @@ export function DesignCanvas({
       </p>
 
       <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
-        {!content ? (
+        {panelTop}
+        {!content && emptyPanel ? (
+          emptyPanel
+        ) : !content ? (
           <div>
             <p className="text-sm font-semibold text-ink">¿Qué quieres poner en {ZONE_NAME[zone]}?</p>
             {zone === "etiqueta" && (
@@ -368,7 +382,7 @@ export function DesignCanvas({
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <p className="truncate text-sm font-semibold text-ink">
-                {content.kind === "imagen" ? `Imagen: ${content.file.name}` : "Texto"}
+                {content.kind === "imagen" ? `Imagen: ${content.file.name}` : contentTitle ?? "Texto"}
               </p>
               <div className="flex shrink-0 gap-3 text-xs">
                 {content.kind === "imagen" && (
@@ -392,7 +406,7 @@ export function DesignCanvas({
                   ref={textRef}
                   value={content.texto}
                   onChange={(e) => updateText({ texto: e.target.value })}
-                  placeholder="Escribe tu texto"
+                  placeholder={textPlaceholder}
                   maxLength={40}
                   className="input"
                 />

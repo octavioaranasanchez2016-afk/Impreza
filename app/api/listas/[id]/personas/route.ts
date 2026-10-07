@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { MAX_PERSONAS, cleanName, listSizes, newSecret } from "@/lib/size-lists";
-import { camposDe, cleanNumero, cleanTexto, parseNameChoice, parsePersonStyle, parsePersonalizado } from "@/lib/group-names";
+import { MAX_PERSONAS, SizeList, cleanName, listPersonal, listSizes, newSecret } from "@/lib/size-lists";
+import { camposPedidos, cleanExtra, cleanNumero, cleanTexto, parsePersonExtra } from "@/lib/group-names";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const cantidad = Number(body?.cantidad ?? 1);
   const texto = cleanTexto(body?.texto);
   const numero = cleanNumero(body?.numero);
+  const extra = cleanExtra(body?.extra);
 
   const service = createServiceClient();
   const { data: list } = await service
@@ -30,22 +31,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!Number.isInteger(cantidad) || cantidad < 1 || cantidad > 20) {
     return NextResponse.json({ error: "La cantidad va de 1 a 20." }, { status: 400 });
   }
-  // Si cada camisa lleva nombre y/o número, no se puede anotar sin ellos.
-  const campos = camposDe(parsePersonalizado(list.personalizado));
+  // Lo que pone cada quien en su camisa: no se puede anotar sin ello.
+  const personal = listPersonal(list as SizeList);
+  const campos = camposPedidos(personal);
   if (campos.nombre && !texto) {
     return NextResponse.json({ error: "Escribe lo que dirá tu camisa (tu nombre o apodo)." }, { status: 400 });
   }
   if (campos.numero && !numero) {
     return NextResponse.json({ error: "Escribe tu número." }, { status: 400 });
   }
+  if (campos.texto && !extra) {
+    return NextResponse.json({ error: `Escribe ${personal?.etiqueta.toLowerCase() ?? "tu texto"}.` }, { status: 400 });
+  }
 
   const { count } = await service.from("listas_tallas_personas").select("id", { count: "exact", head: true }).eq("lista_id", id);
   if ((count ?? 0) >= MAX_PERSONAS) return NextResponse.json({ error: "Esta lista ya está llena." }, { status: 409 });
 
-  // La letra y el color de su nombre, solo lo que el organizador deja elegir.
-  const eligen = parseNameChoice(list.estilo);
-  const chosen = parsePersonStyle(body?.estilo);
+  // Su otro texto, y la letra y el color de sus textos solo si el organizador lo deja.
+  const eligen = personal?.eligen ?? { color: false, fuente: false };
+  const chosen = parsePersonExtra(body?.estilo);
   const estilo = {
+    ...(campos.texto ? { extra } : {}),
     ...(eligen.fuente && chosen.fuente ? { fuente: chosen.fuente } : {}),
     ...(eligen.color && chosen.color ? { color: chosen.color } : {}),
   };
@@ -57,12 +63,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     talla,
     cantidad,
     token,
-    ...(campos.nombre || campos.numero ? { texto: campos.nombre ? texto : null, numero: campos.numero ? numero : null } : {}),
+    ...(campos.nombre ? { texto } : {}),
+    ...(campos.numero ? { numero } : {}),
     ...(Object.keys(estilo).length > 0 ? { estilo } : {}),
   };
   let { data, error } = await service.from("listas_tallas_personas").insert(row).select("id").single();
   // Sin la columna "estilo" (falta la última línea de listas.sql) se anota igual, con
-  // la letra y el color de todos.
+  // la letra y el color de todos (el diseño no deja pedir otro texto sin ella).
   if (error?.code === "PGRST204" && row.estilo) {
     delete row.estilo;
     ({ data, error } = await service.from("listas_tallas_personas").insert(row).select("id").single());

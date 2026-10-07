@@ -4,19 +4,17 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductCategory } from "@/lib/types";
 import { SizeChartButton } from "./SizeChartButton";
-import { NamePreview } from "./NamePreview";
+import { GroupShirtPreview } from "./GroupShirtPreview";
 import {
-  Lugares,
+  GroupPersonal,
+  MAX_EXTRA,
   MAX_NUMERO,
   MAX_TEXTO,
   NAME_COLORS,
   NAME_FONTS,
-  NameChoice,
-  NameStyle,
-  camposDe,
-  personalizadoDe,
+  camposPedidos,
 } from "@/lib/group-names";
-import { FONT_OPTIONS } from "@/lib/design";
+import { FONT_OPTIONS, FontFamilyKey } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
 
 // Los registros que este teléfono hizo en la lista, para poder quitarlos.
@@ -28,6 +26,7 @@ interface Mine {
   cantidad: number;
   texto?: string;
   numero?: string;
+  extra?: string;
 }
 
 const mineKey = (listId: string) => `impreza-lista-${listId}`;
@@ -57,11 +56,9 @@ export function SizeListSignup({
   productName,
   title = "Anótate",
   forOthers = false,
-  lugares = {},
   colorHex = "#FFFFFF",
   designs = {},
-  nameStyle,
-  eligen = { color: false, fuente: false },
+  personal = null,
 }: {
   listId: string;
   sizes: string[];
@@ -70,11 +67,9 @@ export function SizeListSignup({
   productName: string;
   title?: string;
   forOthers?: boolean; // el organizador anota a otra persona
-  lugares?: Lugares; // qué lleva cada camisa y dónde (vacío: todas iguales)
   colorHex?: string; // color de la camisa, para la vista previa
-  designs?: GroupDesignPreview; // el diseño del grupo, si el organizador ya lo hizo
-  nameStyle?: Pick<NameStyle, "fuente" | "color">; // letra y color de los nombres, si ya los eligió
-  eligen?: NameChoice; // lo que el organizador deja que cada quien elija para su nombre
+  designs?: GroupDesignPreview; // el diseño de todos, si el organizador ya lo hizo
+  personal?: GroupPersonal | null; // lo que pone cada quien en su camisa (null: todas iguales)
 }) {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
@@ -82,12 +77,16 @@ export function SizeListSignup({
   const [cantidad, setCantidad] = useState(1);
   const [texto, setTexto] = useState("");
   const [numero, setNumero] = useState("");
-  // La letra y el color de su nombre, si el organizador lo deja elegir (si no, los de todos).
-  const [miFuente, setMiFuente] = useState(nameStyle?.fuente);
-  const [miColor, setMiColor] = useState(nameStyle?.color);
-  const campos = camposDe(personalizadoDe(lugares));
+  const [extra, setExtra] = useState("");
+  // La letra y el color de sus textos, si el organizador lo deja elegir (si no, los de la camisa de ejemplo).
+  const firstField = personal?.campos[0];
+  const [miFuente, setMiFuente] = useState<FontFamilyKey | undefined>(firstField?.fuente);
+  const [miColor, setMiColor] = useState<string | undefined>(firstField?.color);
+  const eligen = personal?.eligen ?? { color: false, fuente: false };
+  const campos = camposPedidos(personal);
   const withName = campos.nombre;
   const withNumber = campos.numero;
+  const withExtra = campos.texto;
   const hasDesign = Object.keys(designs).length > 0;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,6 +107,7 @@ export function SizeListSignup({
         cantidad,
         texto,
         numero,
+        extra,
         estilo: { ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) },
       }),
     });
@@ -117,7 +117,16 @@ export function SizeListSignup({
       setError(data.error || "No se pudo guardar.");
       return;
     }
-    const entry: Mine = { id: data.id, token: data.token, nombre: nombre.trim(), talla, cantidad, texto: texto.trim(), numero };
+    const entry: Mine = {
+      id: data.id,
+      token: data.token,
+      nombre: nombre.trim(),
+      talla,
+      cantidad,
+      texto: texto.trim(),
+      numero,
+      extra: extra.trim(),
+    };
     const next = [...mine, entry];
     setMine(next);
     writeMine(listId, next);
@@ -125,6 +134,7 @@ export function SizeListSignup({
     setNombre("");
     setTexto("");
     setNumero("");
+    setExtra("");
     setCantidad(1);
     if (sizes.length > 1) setTalla("");
     router.refresh();
@@ -164,6 +174,7 @@ export function SizeListSignup({
               : justAdded.numero
                 ? `, con el número ${justAdded.numero}`
                 : ""}
+            {justAdded.extra ? ` y «${justAdded.extra}»` : ""}
             {justAdded.cantidad > 1 ? ` (${justAdded.cantidad} piezas)` : ""}. Puedes anotar a alguien más aquí abajo.
           </p>
         </div>
@@ -171,29 +182,22 @@ export function SizeListSignup({
 
       <p className="font-display text-3xl uppercase leading-none tracking-wide text-ink">{title}</p>
 
-      {(hasDesign || withName || withNumber) && (
+      {(hasDesign || personal) && (
         <div className="mt-4">
-          <NamePreview
+          <GroupShirtPreview
             category={category}
             colorHex={colorHex}
-            texto={withName ? texto.trim() : ""}
-            numero={withNumber ? numero : undefined}
-            style={{
-              lugares,
-              ...nameStyle,
-              ...(eligen.fuente && miFuente ? { fuente: miFuente } : {}),
-              ...(eligen.color && miColor ? { color: miColor } : {}),
-            }}
             designs={designs}
+            personal={personal}
+            valores={{ nombre: texto.trim(), numero, texto: extra.trim() }}
+            propio={{ ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) }}
           />
           <p className="mt-1.5 text-center text-[11px] text-ink-muted">
-            {hasDesign
-              ? withName || withNumber
-                ? forOthers
-                  ? "Así va a quedar su camisa: lo que escribas abajo aparece aquí."
-                  : "Así va a quedar tu camisa: escribe abajo lo que dirá y míralo aquí."
-                : "Así va a quedar la camisa del grupo."
-              : "Así se vería (el diseño lo hace el organizador)."}
+            {personal
+              ? forOthers
+                ? "Así va a quedar su camisa: lo que escribas abajo aparece aquí."
+                : "Así va a quedar tu camisa: escribe abajo lo tuyo y míralo aquí."
+              : "Así va a quedar la camisa del grupo."}
           </p>
         </div>
       )}
@@ -209,8 +213,8 @@ export function SizeListSignup({
         />
       </label>
 
-      {(withName || withNumber) && (
-        <div className="mt-4">
+      {(withName || withNumber || withExtra) && (
+        <div className="mt-4 space-y-3">
           <div className="flex items-start gap-3">
             {withName && (
               <label className="block min-w-0 flex-1">
@@ -244,14 +248,25 @@ export function SizeListSignup({
               </label>
             )}
           </div>
+          {withExtra && (
+            <label className="block">
+              <span className="block text-xs font-semibold text-ink-soft">{personal?.etiqueta}</span>
+              <input
+                value={extra}
+                maxLength={MAX_EXTRA}
+                onChange={(e) => setExtra(e.target.value)}
+                className="input mt-1 font-semibold"
+              />
+            </label>
+          )}
         </div>
       )}
 
-      {(withName || withNumber) && (eligen.fuente || eligen.color) && (
+      {personal && (eligen.fuente || eligen.color) && (
         <div className="mt-4 space-y-3 rounded-brand bg-paper-soft p-3">
           {eligen.fuente && (
             <div>
-              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Letra de su nombre" : "Letra de tu nombre"}</p>
+              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Letra de sus textos" : "Letra de tus textos"}</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {NAME_FONTS.map((fuente) => {
                   const option = FONT_OPTIONS.find((o) => o.value === fuente);
@@ -267,7 +282,7 @@ export function SizeListSignup({
                       }`}
                       style={{ fontFamily: option?.cssVar, fontWeight: option?.weight }}
                     >
-                      {(texto.trim() || numero || "Nombre").slice(0, 8)}
+                      {(texto.trim() || numero || extra.trim() || "Texto").slice(0, 8)}
                     </button>
                   );
                 })}
@@ -276,7 +291,7 @@ export function SizeListSignup({
           )}
           {eligen.color && (
             <div>
-              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Color de su nombre" : "Color de tu nombre"}</p>
+              <p className="text-xs font-semibold text-ink-soft">{forOthers ? "Color de sus textos" : "Color de tus textos"}</p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {NAME_COLORS.map((c) => (
                   <button
@@ -350,7 +365,14 @@ export function SizeListSignup({
       <button
         type="button"
         onClick={add}
-        disabled={sending || nombre.trim().length < 2 || !talla || (withName && !texto.trim()) || (withNumber && !numero)}
+        disabled={
+          sending ||
+          nombre.trim().length < 2 ||
+          !talla ||
+          (withName && !texto.trim()) ||
+          (withNumber && !numero) ||
+          (withExtra && !extra.trim())
+        }
         className="mt-5 w-full rounded-brand bg-ink px-5 py-3 text-sm font-semibold text-paper hover:opacity-80 disabled:opacity-40"
       >
         {sending ? "Guardando…" : !talla ? "Elige la talla" : forOthers ? `Anotar con talla ${talla}` : `Anotarme con talla ${talla}`}
@@ -366,6 +388,7 @@ export function SizeListSignup({
                   {m.nombre} · <span className="font-semibold">{m.talla}</span>
                   {m.texto ? ` · «${m.texto}»` : ""}
                   {m.numero ? ` · #${m.numero}` : ""}
+                  {m.extra ? ` · «${m.extra}»` : ""}
                   {m.cantidad > 1 ? ` × ${m.cantidad}` : ""}
                 </span>
                 <button type="button" onClick={() => remove(m)} className="text-xs font-semibold text-red-700 hover:underline">

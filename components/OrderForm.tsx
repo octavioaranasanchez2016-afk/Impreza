@@ -13,7 +13,7 @@ import { buildInvoiceLines, calculateOrderTotal, getUnitPrice, mainTechnique } f
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-import { DesignContent, FontFamilyKey } from "@/lib/design";
+import { DesignContent } from "@/lib/design";
 import { GroupDesign, groupImagePath } from "@/lib/group-design";
 import {
   LineDesign,
@@ -52,20 +52,24 @@ import { PaymentMethods } from "./PaymentMethods";
 import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
-import { GroupNamesControls } from "./GroupNamesControls";
-import { NameOverlay } from "./NamePreview";
+import { DesignLayer, PersonalLayer } from "./GroupShirtPreview";
 import {
-  NameStyle,
-  Personalizado,
-  NameChoice,
-  camposDe,
-  fitLugares,
-  lugarDeZona,
-  parseNameChoice,
-  parseExamples,
-  parseLugares,
-  parseLugaresParam,
-  parsePersonalizado,
+  CAMPOS,
+  Campo,
+  DEFAULT_ETIQUETA,
+  Ejemplos,
+  GroupPersonal,
+  MAX_EXTRA,
+  MAX_NUMERO,
+  MAX_TEXTO,
+  PersonalField,
+  campoLabel,
+  describePersonal,
+  fieldContent,
+  fieldTransform,
+  parsePersonal,
+  personalZones,
+  zoneTitle,
 } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { ZONE_NAME, getZonesForCategory, isDarkColor } from "./GarmentShape";
@@ -204,7 +208,8 @@ export interface ListDesignMode {
   listId: string;
   clave: string;
   nombre: string;
-  personas: number; // cuántos ya se anotaron: con 0 todavía se puede cambiar qué lleva cada camisa
+  organizador: string | null;
+  personas: number; // cuántos ya se anotaron (sin contar al organizador): con 0 se puede pedir de todo
 }
 
 export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; query?: string } = {}) {
@@ -229,12 +234,6 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const quoteQuantity =
     (listTotal || Math.min(9999, Math.max(0, Math.round(Number(searchParams.get("cantidad")) || 0)))) || null;
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
-  // Lista personalizada (?personal=nombre|numero|nombre_numero&lugares=espalda:ambos,...&ejemplos=CHEPE~10|...):
-  // el diseñador muestra el apartado "Nombre de cada persona" con los lugares que eligió el organizador.
-  const personalParam = parsePersonalizado(searchParams.get("personal"));
-  const urlPersonal: Personalizado | null = personalParam === "ninguno" ? null : personalParam;
-  const urlLugares = parseLugaresParam(searchParams.get("lugares"));
-  const nameExamples = parseExamples(searchParams.get("ejemplos"));
   // La lista de tallas de donde viene el pedido: al confirmarlo, queda unida a él.
   const urlListaId = UUID_RE.test(searchParams.get("lista") ?? "") ? searchParams.get("lista") : null;
   const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
@@ -262,26 +261,25 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     return sizes.length === 1 ? { [sizes[0]]: quoteQuantity } : typicalSizes(quoteQuantity, sizes);
   });
 
-  // Camisas de grupo: lo que se puede poner de cada persona. Al diseñar una lista donde
-  // nadie se ha anotado, todo (el organizador decide); si no, lo que ya escribieron.
-  const freeNames = designMode && listDesign!.personas === 0;
-  const nameCampos = freeNames
-    ? { nombre: true, numero: true }
-    : urlPersonal
-      ? camposDe(urlPersonal)
-      : { nombre: false, numero: false };
-  const withNames = nameCampos.nombre || nameCampos.numero;
-  // Lo que el organizador deja que cada quien elija para su nombre, y con qué nombre
-  // del grupo se ve el ejemplo sobre la prenda.
-  const [nameChoice, setNameChoice] = useState<NameChoice>({ color: false, fuente: false });
-  const [shownExample, setShownExample] = useState(0);
-  const nameSample = nameExamples[shownExample] ?? { texto: "CHEPE", numero: "10" };
-  // Dónde y cómo va el nombre de cada persona (solo pedidos de grupo con nombres).
-  const [nameStyle, setNameStyle] = useState<NameStyle>(() => ({
-    lugares: urlPersonal ? fitLugares(urlLugares, urlPersonal, getProductById(preselected)?.category ?? "camisa") : {},
-    fuente: "display",
-    color: isDarkColor(preVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111",
-  }));
+  // Camisas de grupo: la camisa de ejemplo tiene el diseño de todos (paso 1) y lo que
+  // pone cada quien (paso 2): sus textos, cada uno en su lugar, que cada persona cambia
+  // por lo suyo al anotarse. Se carga de la lista y solo se edita al diseñarla.
+  const [personal, setPersonal] = useState<GroupPersonal>({
+    campos: [],
+    ejemplos: { nombre: "JUAN", numero: "10", texto: "" },
+    etiqueta: DEFAULT_ETIQUETA,
+    eligen: { color: false, fuente: false },
+  });
+  const [step, setStep] = useState<"comun" | "personal">("comun");
+  // El texto de cada quien que se está editando ("nuevo": se va a agregar otro).
+  const [editingField, setEditingField] = useState<number | "nuevo" | null>(null);
+  // Pedido de una lista: con quién del grupo se ve la camisa (-1: la de ejemplo).
+  const [groupExamples, setGroupExamples] = useState<{ nombre: string; valores: Ejemplos }[]>([]);
+  const [shownExample, setShownExample] = useState(-1);
+  // Al diseñar: la camisa de ejemplo es la del organizador y se manda a hacer con las demás.
+  const [mia, setMia] = useState({ incluir: true, nombre: listDesign?.organizador ?? "", talla: "" });
+  // Con gente ya anotada solo se puede usar lo que ya escribieron.
+  const [pedidoAntes, setPedidoAntes] = useState<Record<Campo, boolean> | null>(null);
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
@@ -316,30 +314,6 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   };
 
   const zones = selectedProduct ? getZonesForCategory(selectedProduct.category) : (["frente"] as DesignZone[]);
-  const nameLugares =
-    !withNames || !selectedProduct
-      ? {}
-      : freeNames
-        ? parseLugares(nameStyle.lugares, selectedProduct.category)
-        : fitLugares(nameStyle.lugares, urlPersonal!, selectedProduct.category);
-  const namesActive = Object.keys(nameLugares).length > 0;
-  // El nombre de ejemplo encima de cada lado de la prenda, junto al diseño.
-  function nameOverlay(zone: DesignZone) {
-    const lugar = lugarDeZona(zone);
-    const lleva = lugar ? nameLugares[lugar] : undefined;
-    if (!selectedProduct || !lugar || !lleva) return null;
-    return (
-      <NameOverlay
-        category={selectedProduct.category}
-        lugar={lugar}
-        lleva={lleva}
-        colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
-        texto={nameSample.texto || "CHEPE"}
-        numero={nameSample.numero || "10"}
-        style={nameStyle}
-      />
-    );
-  }
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
   const [zoneContent, setZoneContent] = useState<ZoneContentMap>({});
   const [zoneTransform, setZoneTransform] = useState<ZoneTransformMap>({});
@@ -356,6 +330,105 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       content: zoneContent[z]!,
       transform: zoneTransform[z] ?? (selectedProduct ? defaultTransform(selectedProduct.category, z) : currentTransform),
     };
+  }
+
+  // Lo de cada quien en el lado que se está viendo, y cuál de esos textos se edita.
+  const hasPersonal = personal.campos.length > 0;
+  const personalStep = designMode && step === "personal";
+  const zoneFields = personal.campos.flatMap((f, i) => (f.zona === currentZone ? [{ field: f, index: i }] : []));
+  const activeField =
+    editingField === "nuevo"
+      ? null
+      : editingField !== null && personal.campos[editingField]?.zona === currentZone
+        ? editingField
+        : zoneFields[0]?.index ?? null;
+  const editing = activeField !== null ? personal.campos[activeField] : null;
+  const contrastInk = isDarkColor(selectedVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111";
+
+  // Lo que va debajo o encima de lo que se edita: en el paso 2 se mueve un texto de
+  // cada quien sobre el diseño de todos; en el paso 1, los textos de cada quien se ven
+  // tenues para saber dónde van.
+  function groupLayers(zone: DesignZone, main: boolean) {
+    if (!selectedProduct) return {};
+    const category = selectedProduct.category;
+    const valores = !designMode && shownExample >= 0 ? groupExamples[shownExample]?.valores : undefined;
+    const fields = hasPersonal && (
+      <PersonalLayer
+        category={category}
+        zone={zone}
+        personal={personal}
+        valores={valores}
+        skip={main && personalStep && zone === currentZone ? activeField ?? undefined : undefined}
+        faded={designMode && !personalStep}
+      />
+    );
+    const common = zonePreviews[zone];
+    if (main && personalStep && common) {
+      return {
+        underlay: <DesignLayer category={category} zone={zone} content={common.content} transform={common.transform} />,
+        overlay: fields,
+      };
+    }
+    return { overlay: fields };
+  }
+
+  function changeZone(zone: DesignZone) {
+    setActiveZone(zone);
+    setEditingField(null);
+  }
+
+  function addField(campo: Campo) {
+    if (!selectedProduct) return;
+    const t = defaultTransform(selectedProduct.category, currentZone);
+    const field: PersonalField = {
+      zona: currentZone,
+      campo,
+      color: contrastInk,
+      fuente: campo === "numero" ? "display" : "colegial",
+      posX: t.x,
+      posY: t.y,
+      escala: campo === "numero" ? 0.35 : 0.6,
+      rotacion: 0,
+    };
+    setPersonal((p) => ({
+      ...p,
+      campos: [...p.campos, field],
+      ejemplos: campo === "texto" && !p.ejemplos.texto ? { ...p.ejemplos, texto: "TEXTO" } : p.ejemplos,
+    }));
+    setEditingField(personal.campos.length);
+  }
+
+  // El diseñador edita el texto de cada quien como cualquier texto: lo que se escribe es
+  // lo que dice la camisa de ejemplo (la del organizador) en ese campo.
+  function handleFieldContent(next: DesignContent | null) {
+    if (activeField === null || !editing) return;
+    if (!next) {
+      setPersonal((p) => ({ ...p, campos: p.campos.filter((_, i) => i !== activeField) }));
+      setEditingField(null);
+      return;
+    }
+    if (next.kind !== "texto") return;
+    const value =
+      editing.campo === "numero"
+        ? next.texto.replace(/\D/g, "").slice(0, MAX_NUMERO)
+        : next.texto.slice(0, editing.campo === "texto" ? MAX_EXTRA : MAX_TEXTO);
+    setPersonal((p) => ({
+      ...p,
+      ejemplos: { ...p.ejemplos, [editing.campo]: value },
+      campos: p.campos.map((f, i) =>
+        i === activeField ? { ...f, color: next.color, fuente: next.fontFamily, contorno: next.outline ?? undefined } : f
+      ),
+    }));
+  }
+
+  function handleFieldTransform(t: DesignTransform) {
+    if (activeField === null) return;
+    setPersonal((p) => ({
+      ...p,
+      campos: p.campos.map((f, i) =>
+        i === activeField ? { ...f, posX: t.x, posY: t.y, escala: t.scale, rotacion: t.rotation } : f
+      ),
+    }));
   }
 
   // El diseño de cada línea: el suyo, o si no tiene, el que está en el diseñador
@@ -566,24 +639,47 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const [listDesignState, setListDesignState] = useState<"cargando" | "listo" | "error" | null>(null);
   useEffect(() => {
     if (!draftReady || !urlListaId) return;
+    // Lo de cada quien siempre se carga (solo se muestra); el diseño de todos, una vez.
     const loadedKey = `impreza-lista-diseno-${urlListaId}`;
+    let loadedBefore = false;
     if (!designMode) {
       try {
-        if (sessionStorage.getItem(loadedKey)) return;
+        loadedBefore = Boolean(sessionStorage.getItem(loadedKey));
       } catch {
         // Sin almacenamiento: se carga cada vez.
       }
     }
     let cancelled = false;
     (async () => {
-      setListDesignState("cargando");
+      if (!loadedBefore) setListDesignState("cargando");
       try {
         const res = await fetch(`/api/listas/${urlListaId}/diseno`);
         if (!res.ok) throw new Error();
         const data: {
           diseno: GroupDesign | null;
-          nombres: { lugares: unknown; fuente?: FontFamilyKey; color?: string; eligen?: unknown } | null;
+          personal: unknown;
+          ejemplosGrupo: { nombre: string; valores: Ejemplos }[];
+          mia: { nombre: string; talla: string } | null;
         } = await res.json();
+        const category = getProductById(preselected)?.category ?? "camisa";
+        const loadedPersonal = parsePersonal(data.personal, category);
+        if (cancelled) return;
+        if (loadedPersonal) setPersonal(loadedPersonal);
+        setGroupExamples(data.ejemplosGrupo ?? []);
+        if (designMode && listDesign!.personas > 0) {
+          setPedidoAntes({
+            nombre: Boolean(loadedPersonal?.campos.some((f) => f.campo === "nombre")),
+            numero: Boolean(loadedPersonal?.campos.some((f) => f.campo === "numero")),
+            texto: Boolean(loadedPersonal?.campos.some((f) => f.campo === "texto")),
+          });
+        }
+        if (designMode) {
+          // Ya guardado sin la camisa del organizador: sigue sin ella hasta que la marque.
+          if (data.mia) setMia({ incluir: true, nombre: data.mia.nombre, talla: data.mia.talla });
+          else if (data.diseno || loadedPersonal) setMia((m) => ({ ...m, incluir: false }));
+        }
+        if (loadedBefore) return;
+
         const content: ZoneContentMap = {};
         const transforms: ZoneTransformMap = {};
         for (const z of data.diseno?.zonas ?? []) {
@@ -613,21 +709,12 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           setTechnique(data.diseno.tecnica);
           setFabric(data.diseno.tela ?? defaultFabricFor(getProductById(preselected), data.diseno.tecnica));
         }
-        const nombres = data.nombres;
-        if (nombres) {
-          setNameStyle((prev) => ({
-            lugares: parseLugares(nombres.lugares),
-            fuente: nombres.fuente ?? prev.fuente,
-            color: nombres.color ?? prev.color,
-          }));
-          setNameChoice(parseNameChoice({ eligen: nombres.eligen }));
-        }
         try {
           sessionStorage.setItem(loadedKey, "1");
         } catch {
           // Sin almacenamiento: se vuelve a cargar al recargar la página.
         }
-        setListDesignState(data.diseno ? "listo" : null);
+        setListDesignState(data.diseno || loadedPersonal ? "listo" : null);
       } catch {
         if (!cancelled) setListDesignState("error");
       }
@@ -696,7 +783,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         body: JSON.stringify({
           clave: listDesign.clave,
           diseno: { tecnica: technique, tela: fabric, color, zonas },
-          nombres: namesActive ? { ...nameStyle, lugares: nameLugares, eligen: nameChoice } : null,
+          personal: hasPersonal ? personal : null,
+          mia: mia.incluir ? { nombre: mia.nombre, talla: mia.talla } : null,
         }),
       });
       if (!res.ok) {
@@ -866,6 +954,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setItems(next);
     setSizeQty(initialSizeQty(availableSizes));
   }
+
+  // Pedido de una lista con su diseño: las piezas de la lista entran solas con el diseño
+  // cargado (una vez); solo faltan los datos y el pago.
+  const autoAdded = useRef(false);
+  useEffect(() => {
+    if (designMode || listDesignState !== "listo" || autoAdded.current) return;
+    autoAdded.current = true;
+    if (items.length === 0 && pendingTotal > 0) addItem();
+    // Solo cuando termina de cargar el diseño de la lista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listDesignState]);
 
   // Le pone a esta línea lo que hay ahora en el diseñador.
   function applyCurrentDesign(lineKey: string) {
@@ -1049,10 +1148,6 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           comprobantePath,
           orderId: pendingOrderId,
           listaId: urlListaId,
-          personalizacion:
-            urlListaId && urlPersonal
-              ? { ...nameStyle, lugares: nameLugares }
-              : null,
         }),
       });
 
@@ -1093,8 +1188,14 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         {listDesignState === "listo" && !designMode && (
           <div className="flex items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3 text-sm">
             <p className="text-ink">
-              <span className="font-semibold">Ya pusimos el diseño de tu lista.</span>{" "}
-              <span className="text-ink-soft">Revísalo, agrega tus piezas y confirma.</span>
+              <span className="font-semibold">Ya pusimos el diseño y las piezas de tu lista.</span>{" "}
+              <span className="text-ink-soft">
+                Revísalo; solo faltan{" "}
+                <a href="#datos" className="font-semibold text-ink underline">
+                  tus datos y el pago
+                </a>
+                .
+              </span>
             </p>
             <button type="button" onClick={() => setListDesignState(null)} className="shrink-0 text-xs font-semibold text-ink hover:underline">
               Cerrar
@@ -1135,6 +1236,34 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">
             {designMode ? "Diseño del grupo" : "1. Diseña tu producto"}
           </h2>
+
+          {designMode && (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2" role="tablist" aria-label="Pasos del diseño">
+              {(
+                [
+                  ["comun", "1. El diseño de todos", "Lo que sale igual en todas las camisas, como el logo del frente."],
+                  ["personal", "2. Lo que pone cada quien", "Su nombre, su número u otro texto, donde tú digas: mangas, espalda o pecho."],
+                ] as const
+              ).map(([value, title, hint]) => (
+                <button
+                  key={value}
+                  type="button"
+                  role="tab"
+                  aria-selected={step === value}
+                  onClick={() => {
+                    setStep(value);
+                    setEditingField(null);
+                  }}
+                  className={`rounded-brand border-2 px-4 py-3 text-left transition-colors ${
+                    step === value ? "border-ink bg-ink text-paper" : "border-black/10 bg-white text-ink hover:border-ink"
+                  }`}
+                >
+                  <span className="block text-sm font-semibold">{title}</span>
+                  <span className={`block text-xs ${step === value ? "text-paper/70" : "text-ink-soft"}`}>{hint}</span>
+                </button>
+              ))}
+            </div>
+          )}
 
           <div className="mt-3 grid gap-6 lg:grid-cols-[260px_1fr]">
             <div className="order-2 space-y-5 self-start rounded-brand border border-black/10 bg-white p-5 lg:order-1">
@@ -1440,7 +1569,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             </div>
 
             <div className="order-1 min-w-0 lg:order-2">
-              {designMode && !currentContent && textIdeas.length > 0 && (
+              {designMode && !personalStep && !currentContent && textIdeas.length > 0 && (
                 <div className="mb-3 rounded-brand bg-paper-soft p-3">
                   <p className="text-xs font-semibold text-ink-soft">
                     Para empezar rápido, toca un texto y se pone en {ZONE_NAME[currentZone]}:
@@ -1478,29 +1607,167 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   zone={currentZone}
                   zonesWithContent={zonesWithContent}
                   zonePreviews={zonePreviews}
-                  onZoneChange={setActiveZone}
-                  content={currentContent}
-                  onContentChange={handleContentChange}
-                  transform={currentTransform}
-                  onTransformChange={handleTransformChange}
+                  onZoneChange={changeZone}
+                  content={
+                    personalStep
+                      ? editing && fieldContent(editing, personal.ejemplos[editing.campo])
+                      : currentContent
+                  }
+                  onContentChange={personalStep ? handleFieldContent : handleContentChange}
+                  transform={personalStep && editing ? fieldTransform(editing) : currentTransform}
+                  onTransformChange={personalStep ? handleFieldTransform : handleTransformChange}
                   technique={technique}
-                  zoneOverlay={withNames ? nameOverlay : undefined}
+                  layers={hasPersonal || personalStep ? groupLayers : undefined}
+                  contentTitle={editing ? `${campoLabel(editing.campo)} de cada quien` : undefined}
+                  textPlaceholder={personalStep ? "Lo que dice tu camisa de ejemplo" : undefined}
+                  panelTop={
+                    personalStep &&
+                    zoneFields.length > 0 && (
+                      <div className="mb-4 border-b border-black/10 pb-3">
+                        <p className="text-xs font-semibold text-ink-soft">En {ZONE_NAME[currentZone]} cada quien pone:</p>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {zoneFields.map(({ field, index }) => (
+                            <button
+                              key={index}
+                              type="button"
+                              onClick={() => setEditingField(index)}
+                              aria-pressed={index === activeField}
+                              className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${
+                                index === activeField ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                              }`}
+                            >
+                              {campoLabel(field.campo)}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setEditingField("nuevo")}
+                            className="rounded-full border border-dashed border-black/25 px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink hover:text-ink"
+                          >
+                            + Agregar otro
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  }
+                  emptyPanel={
+                    personalStep && (
+                      <div>
+                        <p className="text-sm font-semibold text-ink">¿Qué pone cada quien en {ZONE_NAME[currentZone]}?</p>
+                        {personalZones(selectedProduct.category).includes(currentZone) ? (
+                          <>
+                            <p className="mt-1 text-xs text-ink-soft">
+                              Lo pones en tu camisa de ejemplo con lo tuyo, y cada quien lo cambia por lo suyo al anotarse. Lo
+                              mueves y le cambias tamaño, letra y color igual que a un texto.
+                            </p>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                              {CAMPOS.map((c) => (
+                                <button
+                                  key={c.value}
+                                  type="button"
+                                  onClick={() => addField(c.value)}
+                                  disabled={Boolean(pedidoAntes && !pedidoAntes[c.value])}
+                                  className="rounded-brand border border-ink/20 px-3 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
+                                >
+                                  + {c.add}
+                                </button>
+                              ))}
+                            </div>
+                            {pedidoAntes && (
+                              <p className="mt-2 text-[11px] text-ink-muted">
+                                Ya hay gente anotada: solo puedes poner lo que ellos ya escribieron.
+                              </p>
+                            )}
+                          </>
+                        ) : (
+                          <p className="mt-1 text-xs text-ink-soft">Aquí no va nada de cada persona: elige otro lado de la prenda.</p>
+                        )}
+                      </div>
+                    )
+                  }
                 >
-                  {withNames && (
-                    <GroupNamesControls
-                      category={selectedProduct.category}
-                      zone={currentZone}
-                      onZoneChange={setActiveZone}
-                      campos={nameCampos}
-                      style={{ ...nameStyle, lugares: nameLugares }}
-                      onChange={setNameStyle}
-                      keepOne={!freeNames}
-                      choice={designMode ? nameChoice : undefined}
-                      onChoiceChange={setNameChoice}
-                      examples={nameExamples}
-                      shown={shownExample}
-                      onShow={setShownExample}
-                    />
+                  {personalStep && (
+                    <div className="mt-4 rounded-brand border-2 border-ink bg-white p-4">
+                      <p className="text-sm font-semibold text-ink">Lo que pone cada quien, en toda la camisa</p>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {personalZones(selectedProduct.category).map((z) => {
+                          const here = personal.campos.filter((f) => f.zona === z);
+                          return (
+                            <button
+                              key={z}
+                              type="button"
+                              onClick={() => changeZone(z)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                                z === currentZone ? "bg-ink text-paper" : here.length ? "bg-paper-soft text-ink" : "bg-paper-soft text-ink-muted"
+                              }`}
+                            >
+                              {zoneTitle(z)}: {here.length ? here.map((f) => campoLabel(f.campo).toLowerCase()).join(" + ") : "nada"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {!hasPersonal && (
+                        <p className="mt-2 text-xs text-ink-soft">
+                          Si no agregas nada, todas las camisas salen iguales (solo cambia la talla).
+                        </p>
+                      )}
+                      {personal.campos.some((f) => f.campo === "texto") && (
+                        <label className="mt-3 block">
+                          <span className="text-xs font-semibold text-ink-soft">¿Qué le pides a cada quien en «Otro texto»?</span>
+                          <input
+                            value={personal.etiqueta}
+                            maxLength={MAX_EXTRA}
+                            onChange={(e) => setPersonal((p) => ({ ...p, etiqueta: e.target.value }))}
+                            placeholder="Ej. Tu frase, tu carrera, tu signo"
+                            className="input mt-1"
+                          />
+                        </label>
+                      )}
+                      {hasPersonal && (
+                        <div className="mt-3 rounded-brand bg-paper-soft p-3">
+                          <p className="text-xs font-semibold text-ink">¿Dejas que cada quien elija para sus textos?</p>
+                          <p className="text-[11px] text-ink-soft">Lo de tu camisa queda como lo normal; cada quien lo puede cambiar al anotarse.</p>
+                          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1.5">
+                            {(["color", "fuente"] as const).map((k) => (
+                              <label key={k} className="flex items-center gap-2 text-sm text-ink">
+                                <input
+                                  type="checkbox"
+                                  checked={personal.eligen[k]}
+                                  onChange={(e) => setPersonal((p) => ({ ...p, eligen: { ...p.eligen, [k]: e.target.checked } }))}
+                                  className="h-4 w-4 accent-ink"
+                                />
+                                {k === "color" ? "El color" : "La letra"}
+                              </label>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {!designMode && hasPersonal && (
+                    <div className="mt-4 rounded-brand border-2 border-ink bg-white p-4">
+                      <p className="text-sm font-semibold text-ink">Cada camisa lleva lo suyo</p>
+                      <p className="mt-0.5 text-xs text-ink-soft">
+                        {describePersonal(personal)}. Lo escribió cada quien en la lista y el taller lo pone camisa por camisa.
+                      </p>
+                      {groupExamples.length > 0 && (
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
+                          <span className="text-[11px] text-ink-muted">Ver la camisa de:</span>
+                          {[{ nombre: "La de ejemplo" }, ...groupExamples].map((e, i) => (
+                            <button
+                              key={`${e.nombre}-${i}`}
+                              type="button"
+                              onClick={() => setShownExample(i - 1)}
+                              className={`max-w-[8rem] truncate rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                                shownExample === i - 1 ? "bg-ink text-paper" : "bg-paper-soft text-ink-soft hover:text-ink"
+                              }`}
+                            >
+                              {e.nombre}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </DesignCanvas>
               )}
@@ -1510,22 +1777,96 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
 
           {designMode && (
             <div className="mt-6 rounded-brand bg-ink p-5 text-paper">
-              <p className="font-display text-3xl uppercase leading-none tracking-wide">¿Listo?</p>
-              <p className="mt-2 text-sm text-paper/75">
-                Al guardarlo, cada persona de la lista ve su camisa con este diseño{namesActive ? " y con su nombre" : ""}{" "}
-                antes de anotarse. Lo puedes cambiar cuando quieras, y al hacer el pedido ya va a estar listo en el
-                diseñador: no hay que volver a hacerlo.
+              <p className="font-display text-3xl uppercase leading-none tracking-wide">
+                {step === "comun" ? "¿Listo el diseño de todos?" : "¿Listo?"}
               </p>
+              <p className="mt-2 text-sm text-paper/75">
+                Al guardarlo, cada persona de la lista ve su camisa así{hasPersonal ? ", con lo suyo," : ""} antes de
+                anotarse. Lo puedes cambiar cuando quieras, y al hacer el pedido entra solo: no hay que volver a diseñar.
+              </p>
+
+              {/* La camisa de ejemplo es la del organizador: va con las demás al pedido. */}
+              <div className="mt-4 rounded-brand bg-paper/10 p-3">
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={mia.incluir}
+                    onChange={(e) => setMia((m) => ({ ...m, incluir: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 accent-paper"
+                  />
+                  <span>
+                    La camisa de ejemplo es la mía: mándala a hacer con las demás
+                    {hasPersonal && (
+                      <span className="block text-[11px] text-paper/60">
+                        Con lo que escribiste en ella:{" "}
+                        {personal.campos
+                          .map((f) => f.campo)
+                          .filter((c, i, all) => all.indexOf(c) === i)
+                          .map((c) => personal.ejemplos[c] || "—")
+                          .join(" · ")}
+                      </span>
+                    )}
+                  </span>
+                </label>
+                {mia.incluir && (
+                  <div className="mt-3 space-y-2">
+                    <input
+                      value={mia.nombre}
+                      maxLength={60}
+                      onChange={(e) => setMia((m) => ({ ...m, nombre: e.target.value }))}
+                      placeholder="Tu nombre y apellido, para la lista"
+                      className="input text-ink"
+                    />
+                    <div className="flex flex-wrap gap-1.5">
+                      {availableSizes.map((s) => (
+                        <button
+                          key={s}
+                          type="button"
+                          onClick={() => setMia((m) => ({ ...m, talla: s }))}
+                          aria-pressed={mia.talla === s}
+                          className={`min-w-[2.75rem] rounded-brand border px-2 py-2 text-sm font-semibold ${
+                            mia.talla === s ? "border-paper bg-paper text-ink" : "border-paper/30 text-paper hover:border-paper"
+                          }`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                    {!mia.talla && <p className="text-[11px] text-paper/60">Elige tu talla.</p>}
+                  </div>
+                )}
+              </div>
+
               {error && <p className="mt-3 rounded-brand bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-              <button
-                type="button"
-                onClick={saveListDesign}
-                disabled={savingDesign || (zonesWithContent.length === 0 && !namesActive)}
-                className="mt-4 w-full rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40"
-              >
-                {savingDesign ? "Guardando…" : "Guardar el diseño de la lista"}
-              </button>
-              {zonesWithContent.length === 0 && (
+              <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                {step === "comun" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep("personal");
+                      document.getElementById("diseno")?.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="rounded-brand border border-paper/40 px-5 py-3 text-sm font-semibold text-paper hover:border-paper"
+                  >
+                    Siguiente: lo que pone cada quien →
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={saveListDesign}
+                  disabled={
+                    savingDesign ||
+                    (zonesWithContent.length === 0 && !hasPersonal) ||
+                    (mia.incluir && (!mia.talla || mia.nombre.trim().length < 2))
+                  }
+                  className={`rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90 disabled:opacity-40 ${
+                    step === "comun" ? "" : "sm:col-span-2"
+                  }`}
+                >
+                  {savingDesign ? "Guardando…" : "Guardar el diseño de la lista"}
+                </button>
+              </div>
+              {zonesWithContent.length === 0 && !hasPersonal && (
                 <p className="mt-2 text-center text-[11px] text-paper/60">
                   Sube una imagen o escribe un texto en el diseñador de arriba.
                 </p>

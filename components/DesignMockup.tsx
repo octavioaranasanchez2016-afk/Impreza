@@ -88,6 +88,8 @@ export function DesignMockup({
   compact = false,
   onSizeCm,
   overlay,
+  underlay,
+  bare = false,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -103,8 +105,12 @@ export function DesignMockup({
   compact?: boolean;
   // Avisa el tamaño real del diseño (sin girar), para escribir las medidas en cm.
   onSizeCm?: (size: { w: number; h: number } | null) => void;
-  // Algo que va encima de todo y no se toca (el nombre de cada persona en camisas de grupo).
+  // Capas que no se tocan, encima o debajo del diseño (camisas de grupo: el diseño de
+  // todos y los textos de cada persona).
   overlay?: React.ReactNode;
+  underlay?: React.ReactNode;
+  // Solo el diseño, sin la prenda ni el fondo: para ponerlo como capa sobre otra vista.
+  bare?: boolean;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -281,7 +287,7 @@ export function DesignMockup({
             getBoundingClientRect ya incluye la escala, así que arrastrar sigue funcionando. */}
         <div
           ref={containerRef}
-          className="relative aspect-square w-full select-none overflow-visible rounded-brand bg-paper-soft"
+          className={`relative aspect-square w-full select-none overflow-visible rounded-brand ${bare ? "" : "bg-paper-soft"}`}
           style={{
             containerType: "inline-size",
             transform: zoom > 1 ? `scale(${zoom})` : undefined,
@@ -289,9 +295,13 @@ export function DesignMockup({
             transition: "transform 200ms ease",
           }}
         >
-          <div className="absolute inset-0 overflow-hidden rounded-brand">
-            <GarmentShape category={category} zone={zone} color={color} size={size} showGuide={interactive} />
-          </div>
+          {!bare && (
+            <div className="absolute inset-0 overflow-hidden rounded-brand">
+              <GarmentShape category={category} zone={zone} color={color} size={size} showGuide={interactive} />
+            </div>
+          )}
+
+          {underlay && <div className="pointer-events-none absolute inset-0">{underlay}</div>}
 
           {content && (
             <div

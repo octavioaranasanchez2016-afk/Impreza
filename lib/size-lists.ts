@@ -1,7 +1,7 @@
 import { randomBytes } from "crypto";
 import { createServiceClient } from "./supabase/server";
 import { getProductById } from "./catalog";
-import { NameStyle, Personalizado, parsePersonStyle } from "./group-names";
+import { GroupPersonal, PersonExtra, Personalizado, parsePersonExtra, personalDeLista } from "./group-names";
 import { GroupDesign, parseGroupDesign } from "./group-design";
 
 // Listas de tallas para grupos (ver supabase/listas.sql). Solo se usan desde el
@@ -30,7 +30,7 @@ export interface SizeListEntry {
   cantidad: number;
   texto?: string | null; // lo que dirá su camisa
   numero?: string | null;
-  estilo?: Partial<Pick<NameStyle, "fuente" | "color">>; // la letra y el color que eligió, si se podía
+  estilo?: PersonExtra; // su otro texto, y la letra y el color que eligió, si se podía
   created_at: string;
 }
 
@@ -80,7 +80,7 @@ export async function loadSizeList(
     cantidad: r.cantidad as number,
     texto: (r.texto as string | null) ?? null,
     numero: (r.numero as string | null) ?? null,
-    estilo: parsePersonStyle(r.estilo),
+    estilo: parsePersonExtra(r.estilo),
     created_at: r.created_at as string,
   }));
   const { clave, ...rest } = list as SizeList & { clave: string };
@@ -108,4 +108,16 @@ export async function loadGroupDesign(list: SizeList): Promise<GroupDesign | nul
     ...design,
     zonas: design.zonas.map((z) => (z.tipo === "imagen" ? { ...z, url: urls.get(z.path) ?? undefined } : z)),
   };
+}
+
+// Lo que pone cada quien en las camisas de esta lista (null: todas iguales).
+export function listPersonal(list: SizeList): GroupPersonal | null {
+  const product = getProductById(list.product_id);
+  return product ? personalDeLista(list.estilo, product.category, list.personalizado) : null;
+}
+
+// El registro del organizador: su camisa de ejemplo, que va con las demás al pedido.
+export function exampleEntryId(list: SizeList): string | null {
+  const estilo = list.estilo && typeof list.estilo === "object" ? (list.estilo as Record<string, unknown>) : {};
+  return typeof estilo.ejemploId === "string" ? estilo.ejemploId : null;
 }

@@ -2,9 +2,10 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { buildInvoiceLines, calculateOrderTotal, techniquesText } from "@/lib/pricing";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
-import { DesignZone, OrderItemInput, PaymentMethod, ProductCategory, Technique } from "@/lib/types";
+import { DesignZone, OrderItemInput, PaymentMethod, Technique } from "@/lib/types";
 import { sendCustomerConfirmationEmail, sendNewOrderEmail } from "@/lib/email";
-import { describeNameStyle, parseNameStyle } from "@/lib/group-names";
+import { describePersonal } from "@/lib/group-names";
+import { SizeList, listPersonal } from "@/lib/size-lists";
 import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 
@@ -43,7 +44,6 @@ interface CreateOrderBody {
   comprobantePath: string;
   orderId?: string; // creado en el navegador antes de pagar (va en el concepto de la transferencia)
   listaId?: string; // si el pedido se armó desde una lista de tallas del grupo
-  personalizacion?: unknown; // dónde y cómo va el nombre de cada persona (camisas de grupo)
 }
 
 const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga", "manga-izq", "manga-der", "etiqueta"];
@@ -188,33 +188,19 @@ export async function POST(req: NextRequest) {
   // Pedido armado desde una lista de tallas: la lista queda unida al pedido (y cerrada),
   // así el taller ve en el panel quién lleva qué talla. Si falla, el pedido sigue igual.
   let listaPersonas = 0;
-  let listaCategory: ProductCategory | undefined;
-  const nameStyle = parseNameStyle(body.personalizacion);
+  let nombresEstilo: string | undefined;
   if (typeof body.listaId === "string" && UUID.test(body.listaId)) {
-    // El estilo de los nombres se suma a lo que ya tenía la lista (su diseño del grupo).
-    const { data: current } = await supabase.from("listas_tallas").select("*").eq("id", body.listaId).maybeSingle();
-    const saved = current?.estilo && typeof current.estilo === "object" ? current.estilo : {};
-    const link = (withStyle: boolean) =>
-      supabase
-        .from("listas_tallas")
-        .update({ order_id: order.id, cerrada: true, ...(withStyle && nameStyle ? { estilo: { ...saved, ...nameStyle } } : {}) })
-        .eq("id", body.listaId!)
-        .is("order_id", null)
-        .select("id, product_id");
-    let { data: linked, error: listError } = await link(true);
-    // Sin la columna "estilo" (falta la parte nueva de listas.sql): la lista se une igual
-    // y el estilo de los nombres queda en las notas del pedido para que el taller lo vea.
-    if (listError?.code === "PGRST204" && nameStyle) {
-      ({ data: linked, error: listError } = await link(false));
-      const nota = `Cada camisa personalizada: ${describeNameStyle(nameStyle)}`;
-      await supabase
-        .from("orders")
-        .update({ notas: body.notas ? `${body.notas}\n\n${nota}` : nota })
-        .eq("id", order.id);
-    }
+    const { data: linked, error: listError } = await supabase
+      .from("listas_tallas")
+      .update({ order_id: order.id, cerrada: true })
+      .eq("id", body.listaId)
+      .is("order_id", null)
+      .select("*");
     if (listError) console.error("No se pudo unir la lista de tallas al pedido:", listError.message);
     if (linked?.length) {
-      listaCategory = getProductById(linked[0].product_id as string)?.category;
+      // Lo que pone cada quien quedó guardado en la lista: va en el correo del taller.
+      const personal = listPersonal(linked[0] as SizeList);
+      nombresEstilo = personal ? describePersonal(personal) : undefined;
       const { count } = await supabase
         .from("listas_tallas_personas")
         .select("id", { count: "exact", head: true })
@@ -290,7 +276,7 @@ export async function POST(req: NextRequest) {
             : 0,
         disenosDistintos: new Set(disenos.map((d) => ("grupo" in d ? d.grupo : 1))).size,
         listaPersonas,
-        nombresEstilo: listaPersonas && nameStyle ? describeNameStyle(nameStyle, listaCategory) : undefined,
+        nombresEstilo: listaPersonas ? nombresEstilo : undefined,
       }),
       clienteEmail
         ? sendCustomerConfirmationEmail({

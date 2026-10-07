@@ -6,16 +6,9 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
-import {
-  describeLugares,
-  describeNameStyle,
-  describePersonStyle,
-  lugaresDeLista,
-  parseNameChoice,
-  parseNameStyle,
-  parsePersonStyle,
-  parsePersonalizado,
-} from "@/lib/group-names";
+import { describePersonStyle, describePersonal, parsePersonExtra, valoresDe } from "@/lib/group-names";
+import { SizeList, exampleEntryId, listPersonal, loadGroupDesign } from "@/lib/size-lists";
+import { groupDesignPreview } from "@/lib/group-design";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
 import { ShippingCard } from "@/components/admin/ShippingCard";
 import { PrintButton } from "@/components/admin/PrintButton";
@@ -89,31 +82,35 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
       .then(async ({ data: list }) => {
         if (!list) return null;
         const { data: people } = await service.from("listas_tallas_personas").select("*").eq("lista_id", list.id);
-        // Qué lleva cada camisa y dónde, con letra y color. Si el pedido no guardó la letra
-        // y el color, al menos los lugares que eligió el organizador.
-        const personalizado = parsePersonalizado(list.personalizado);
-        const category = getProductById(list.product_id as string)?.category;
-        const style = parseNameStyle(list.estilo, personalizado);
-        // Si cada quien eligió su letra o su color, eso va en la tabla, persona por persona.
-        const eligen = parseNameChoice(list.estilo);
-        const propio = [eligen.fuente && "la letra", eligen.color && "el color"].filter(Boolean).join(" y ");
-        const estilo = style
-          ? `${describeNameStyle(style, category)}${propio ? ` (${propio}: lo eligió cada quien, ver tabla)` : ""}`
-          : personalizado !== "ninguno" && category
-            ? `${describeLugares(lugaresDeLista(personalizado, list.estilo, category), category)} (la letra y el color no quedaron guardados; pregúntalos al cliente)`
-            : null;
+        // Lo que pone cada quien (dónde, con qué letra y color) y la camisa de ejemplo,
+        // para que el taller vea cómo va cada una.
+        const personal = listPersonal(list as SizeList);
+        const product = getProductById(list.product_id as string);
+        const ejemploId = exampleEntryId(list as SizeList);
+        const design = await loadGroupDesign(list as SizeList);
         return {
           nombre: list.nombre as string,
           organizador: list.organizador as string | null,
-          estilo,
-          entries: (people ?? []).map((p) => ({
-            nombre: p.nombre as string,
-            talla: p.talla as string,
-            cantidad: p.cantidad as number,
-            texto: (p.texto as string | null) ?? null,
-            numero: (p.numero as string | null) ?? null,
-            propio: describePersonStyle(parsePersonStyle(p.estilo)) || null,
-          })),
+          estilo: personal ? describePersonal(personal) : null,
+          etiqueta: personal?.etiqueta ?? null,
+          personal,
+          category: product?.category ?? null,
+          colorHex: product?.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF",
+          designs: groupDesignPreview(design),
+          entries: (people ?? []).map((p) => {
+            const extra = parsePersonExtra(p.estilo);
+            return {
+              nombre: (p.nombre as string) + (p.id === ejemploId ? " (organiza)" : ""),
+              talla: p.talla as string,
+              cantidad: p.cantidad as number,
+              texto: (p.texto as string | null) ?? null,
+              numero: (p.numero as string | null) ?? null,
+              extra: extra.extra ?? null,
+              propio: describePersonStyle(extra) || null,
+              valores: valoresDe({ texto: p.texto, numero: p.numero, estilo: extra }),
+              estilo: extra,
+            };
+          }),
         };
       }),
   ]);
@@ -296,6 +293,17 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               organizador={groupList.organizador}
               entries={groupList.entries}
               nombresEstilo={groupList.estilo}
+              etiqueta={groupList.etiqueta}
+              shirt={
+                groupList.category && (groupList.personal || Object.keys(groupList.designs).length > 0)
+                  ? {
+                      category: groupList.category,
+                      colorHex: groupList.colorHex,
+                      designs: groupList.designs,
+                      personal: groupList.personal,
+                    }
+                  : null
+              }
             />
           )}
         </div>

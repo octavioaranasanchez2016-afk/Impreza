@@ -1,5 +1,14 @@
+"use client";
+
+import { useState } from "react";
+import { ProductCategory } from "@/lib/types";
+import { GroupDesignPreview } from "@/lib/group-design";
+import { Ejemplos, GroupPersonal, PersonExtra } from "@/lib/group-names";
+import { GroupShirtPreview } from "../GroupShirtPreview";
+
 // En el pedido del panel: la lista de tallas del grupo con la que se armó, ordenada
 // por talla, para empacar y entregar cada camisa a su dueño. También sale al imprimir.
+// Tocar a alguien muestra cómo va su camisa.
 const SIZE_ORDER = ["XS", "S", "M", "L", "XL", "XXL"];
 
 export interface OrderSizeListEntry {
@@ -9,6 +18,9 @@ export interface OrderSizeListEntry {
   texto?: string | null; // lo que dice su camisa
   numero?: string | null;
   propio?: string | null; // la letra y el color que eligió, si se podía ("Colegial, dorado")
+  extra?: string | null; // su otro texto
+  valores?: Ejemplos; // lo que escribió, para dibujar su camisa
+  estilo?: PersonExtra;
 }
 
 export function OrderSizeList({
@@ -16,15 +28,21 @@ export function OrderSizeList({
   organizador,
   entries,
   nombresEstilo,
+  etiqueta,
+  shirt,
 }: {
   nombre: string;
   organizador: string | null;
   entries: OrderSizeListEntry[];
-  nombresEstilo?: string | null; // "Espalda: nombre y número · Manga izquierda: número · letra Colegial · blanco"
+  nombresEstilo?: string | null; // "Espalda: nombre (Colegial, blanco) y número (Impacto, blanco) · …"
+  etiqueta?: string | null; // lo que se pidió en "otro texto"
+  shirt?: { category: ProductCategory; colorHex: string; designs: GroupDesignPreview; personal: GroupPersonal | null } | null;
 }) {
+  const [shown, setShown] = useState(0);
   const withText = entries.some((e) => e.texto);
   const withNumber = entries.some((e) => e.numero);
   const withOwn = entries.some((e) => e.propio);
+  const withExtra = entries.some((e) => e.extra);
   const rank = (t: string) => (SIZE_ORDER.indexOf(t) + 1 || 99);
   const sorted = [...entries].sort((a, b) => rank(a.talla) - rank(b.talla) || a.nombre.localeCompare(b.nombre, "es"));
   const counts = new Map<string, number>();
@@ -47,7 +65,25 @@ export function OrderSizeList({
           </span>
         ))}
       </p>
-      {(withText || withNumber || nombresEstilo) && (
+      {shirt && sorted[shown] && (
+        <div className="mt-3 rounded-brand bg-paper-soft p-3">
+          <p className="text-xs font-semibold text-ink">
+            Así va la camisa de {sorted[shown].nombre}
+            <span className="font-normal text-ink-soft"> · toca a alguien en la tabla para ver la suya</span>
+          </p>
+          <div className="mt-2">
+            <GroupShirtPreview
+              category={shirt.category}
+              colorHex={shirt.colorHex}
+              designs={shirt.designs}
+              personal={shirt.personal}
+              valores={sorted[shown].valores}
+              propio={sorted[shown].estilo}
+            />
+          </div>
+        </div>
+      )}
+      {(withText || withNumber || withExtra || nombresEstilo) && (
         <p className="mt-3 rounded-brand border-2 border-ink px-3 py-2 text-sm text-ink">
           <span className="font-semibold">Cada camisa personalizada</span>
           {nombresEstilo ? `: ${nombresEstilo}` : " (no quedó guardado dónde va ni cómo; pregúntalo al cliente)"}
@@ -60,17 +96,23 @@ export function OrderSizeList({
             <th className="pb-2 font-medium">Talla</th>
             {withText && <th className="pb-2 font-medium">Dice la camisa</th>}
             {withNumber && <th className="pb-2 font-medium">Número</th>}
+            {withExtra && <th className="pb-2 font-medium">{etiqueta ?? "Otro texto"}</th>}
             {withOwn && <th className="pb-2 font-medium">Letra y color</th>}
             <th className="pb-2 text-right font-medium">Piezas</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((e, i) => (
-            <tr key={`${e.nombre}-${i}`} className="border-t border-black/5">
+            <tr
+              key={`${e.nombre}-${i}`}
+              onClick={() => setShown(i)}
+              className={`cursor-pointer border-t border-black/5 ${shirt && i === shown ? "bg-paper-soft" : "hover:bg-paper-soft/60"}`}
+            >
               <td className="py-1.5 text-ink">{e.nombre}</td>
               <td className="py-1.5 font-semibold text-ink">{e.talla}</td>
               {withText && <td className="py-1.5 font-semibold text-ink">{e.texto ?? "—"}</td>}
               {withNumber && <td className="py-1.5 font-semibold text-ink">{e.numero ?? "—"}</td>}
+              {withExtra && <td className="py-1.5 font-semibold text-ink">{e.extra ?? "—"}</td>}
               {withOwn && <td className="py-1.5 text-ink">{e.propio ?? "—"}</td>}
               <td className="py-1.5 text-right text-ink">{e.cantidad}</td>
             </tr>

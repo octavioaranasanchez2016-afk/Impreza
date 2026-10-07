@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
-import { loadGroupDesign, loadSizeList } from "@/lib/size-lists";
-import { examplesParam, lugaresDeLista, lugaresParam, parsePersonalizado } from "@/lib/group-names";
+import { exampleEntryId, loadGroupDesign, loadSizeList } from "@/lib/size-lists";
 import { OrderForm } from "@/components/OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -51,10 +50,9 @@ export default async function DisenoListaPage({
     );
   }
 
-  // Lo que el diseñador necesita: prenda, color, técnica y tela del diseño guardado, y
-  // cómo van los nombres con ejemplos del grupo.
+  // Lo que el diseñador necesita: prenda, color, técnica y tela del diseño guardado
+  // (lo de cada quien lo carga el diseñador).
   const design = await loadGroupDesign(list);
-  const personalizado = parsePersonalizado(list.personalizado);
   const query = new URLSearchParams({ producto: product.id, lista: id });
   const color = design?.color ?? list.color;
   if (color) query.set("color", color);
@@ -62,11 +60,8 @@ export default async function DisenoListaPage({
     query.set("tecnica", design.tecnica);
     if (design.tela) query.set("tela", design.tela);
   }
-  if (personalizado !== "ninguno") {
-    query.set("personal", personalizado);
-    query.set("lugares", lugaresParam(lugaresDeLista(personalizado, list.estilo, product.category)));
-    query.set("ejemplos", examplesParam(entries));
-  }
+  const ejemploId = exampleEntryId(list);
+  const otros = entries.filter((e) => e.id !== ejemploId).length;
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10 md:px-6 md:py-12">
@@ -76,13 +71,13 @@ export default async function DisenoListaPage({
       <p className="mt-4 text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Diseño de la lista</p>
       <h1 className="mt-2 font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-6xl">{list.nombre}</h1>
       <p className="mt-3 max-w-2xl text-ink-soft">
-        Hazlo una sola vez: cada quien lo ve en su camisa antes de anotarse, y cuando hagas el pedido ya va a estar listo,
-        con las tallas{personalizado !== "ninguno" ? " y los nombres" : ""} de todos.
+        Haz tu camisa de ejemplo una sola vez: primero lo que sale igual en todas y después lo que pone cada quien (su
+        nombre, su número…). Todos la ven antes de anotarse y, al hacer el pedido, entra sola con las tallas de todos.
       </p>
       <div className="mt-8">
         <Suspense fallback={<p className="text-sm text-ink-muted">Cargando el diseñador…</p>}>
           <OrderForm
-            listDesign={{ listId: id, clave, nombre: list.nombre, personas: entries.length }}
+            listDesign={{ listId: id, clave, nombre: list.nombre, organizador: list.organizador, personas: otros }}
             query={query.toString()}
           />
         </Suspense>
