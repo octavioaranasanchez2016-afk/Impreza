@@ -24,8 +24,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const ejemploId = exampleEntryId(list as SizeList);
   const mia = (rows ?? []).find((r) => r.id === ejemploId);
   const otros = (rows ?? []).filter((r) => r.id !== ejemploId);
+  const estilo = list.estilo && typeof list.estilo === "object" ? (list.estilo as Record<string, unknown>) : {};
   return NextResponse.json({
     nombre: list.nombre,
+    // Cambia cada vez que se guarda: el pedido vuelve a cargar el diseño si cambió.
+    version: typeof estilo.actualizado === "string" ? estilo.actualizado : null,
     personas: otros.length,
     diseno: await loadGroupDesign(list as SizeList),
     personal: listPersonal(list as SizeList),
@@ -141,6 +144,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     ...(diseno ? { diseno } : {}),
     ...(personal ? { campos: personal.campos, ejemplos: personal.ejemplos, etiqueta: personal.etiqueta, eligen: personal.eligen } : {}),
     ...(nuevoEjemploId ? { ejemploId: nuevoEjemploId } : {}),
+    actualizado: new Date().toISOString(),
   };
   const { error } = await service
     .from("listas_tallas")

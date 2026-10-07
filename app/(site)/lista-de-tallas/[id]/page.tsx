@@ -59,6 +59,8 @@ export default async function ListaPage({
   const order = new URLSearchParams({ producto: product.id, tallas: sizesParam(entries), nota: `Lista: ${list.nombre}` });
   if (list.color) order.set("color", list.color);
   order.set("lista", list.id);
+  // Con la clave, el pedido puede volver a la lista del organizador y abrir el diseño.
+  if (isOrganizer) order.set("clave", clave!);
   // Con el diseño del grupo, el diseñador abre ya con su técnica y tela (y lo carga).
   if (design) {
     order.set("tecnica", design.tecnica);

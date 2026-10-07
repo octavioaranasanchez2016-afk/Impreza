@@ -53,6 +53,7 @@ import { ProformaPrint } from "./ProformaPrint";
 import { TechniqueGuide } from "./TechniqueGuide";
 import { SizeChartButton } from "./SizeChartButton";
 import { DesignLayer, PersonalLayer } from "./GroupShirtPreview";
+import { ListOrderSummary } from "./ListOrderSummary";
 import {
   CAMPOS,
   Campo,
@@ -236,6 +237,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const urlNota = (searchParams.get("nota") ?? "").slice(0, 200);
   // La lista de tallas de donde viene el pedido: al confirmarlo, queda unida a él.
   const urlListaId = UUID_RE.test(searchParams.get("lista") ?? "") ? searchParams.get("lista") : null;
+  // La clave del organizador (viene de su lista): para volver a ella y cambiar el diseño.
+  const urlClave = searchParams.get("clave");
   const startTechnique = urlTechnique ?? preProduct?.techniques[0] ?? "serigrafia";
   const startFabric = urlFabricOption?.id ?? defaultFabricFor(preProduct, startTechnique);
 
@@ -637,35 +640,44 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // diseñar. En el pedido se carga una sola vez por pestaña, para no pisar lo que ya cambiaron.
   const listImagePaths = useRef(new Map<string, string>()); // imagen → dónde está guardada
   const [listDesignState, setListDesignState] = useState<"cargando" | "listo" | "error" | null>(null);
+  const [listInfo, setListInfo] = useState<{ nombre: string; conDiseno: boolean } | null>(null);
+  // Pedido de una lista con camisa de ejemplo: se ve la camisa terminada, no el diseñador
+  // (a menos que quiera agregar otras prendas).
+  const [showDesigner, setShowDesigner] = useState(false);
   useEffect(() => {
     if (!draftReady || !urlListaId) return;
-    // Lo de cada quien siempre se carga (solo se muestra); el diseño de todos, una vez.
+    // Lo de cada quien siempre se carga (solo se muestra). El diseño de todos y las piezas,
+    // una vez por pestaña, o de nuevo si el organizador cambió el diseño o las tallas.
     const loadedKey = `impreza-lista-diseno-${urlListaId}`;
-    let loadedBefore = false;
-    if (!designMode) {
-      try {
-        loadedBefore = Boolean(sessionStorage.getItem(loadedKey));
-      } catch {
-        // Sin almacenamiento: se carga cada vez.
-      }
-    }
     let cancelled = false;
     (async () => {
-      if (!loadedBefore) setListDesignState("cargando");
+      setListDesignState("cargando");
       try {
         const res = await fetch(`/api/listas/${urlListaId}/diseno`);
         if (!res.ok) throw new Error();
         const data: {
+          nombre: string;
+          version: string | null;
           diseno: GroupDesign | null;
           personal: unknown;
           ejemplosGrupo: { nombre: string; valores: Ejemplos }[];
           mia: { nombre: string; talla: string } | null;
         } = await res.json();
+        const loadedValue = `${data.version ?? ""}|${searchParams.get("tallas") ?? ""}`;
+        let loadedBefore = false;
+        if (!designMode) {
+          try {
+            loadedBefore = sessionStorage.getItem(loadedKey) === loadedValue;
+          } catch {
+            // Sin almacenamiento: se carga cada vez.
+          }
+        }
         const category = getProductById(preselected)?.category ?? "camisa";
         const loadedPersonal = parsePersonal(data.personal, category);
         if (cancelled) return;
         if (loadedPersonal) setPersonal(loadedPersonal);
         setGroupExamples(data.ejemplosGrupo ?? []);
+        setListInfo({ nombre: data.nombre, conDiseno: Boolean(data.diseno || loadedPersonal) });
         if (designMode && listDesign!.personas > 0) {
           setPedidoAntes({
             nombre: Boolean(loadedPersonal?.campos.some((f) => f.campo === "nombre")),
@@ -678,7 +690,10 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           if (data.mia) setMia({ incluir: true, nombre: data.mia.nombre, talla: data.mia.talla });
           else if (data.diseno || loadedPersonal) setMia((m) => ({ ...m, incluir: false }));
         }
-        if (loadedBefore) return;
+        if (loadedBefore) {
+          setListDesignState(null);
+          return;
+        }
 
         const content: ZoneContentMap = {};
         const transforms: ZoneTransformMap = {};
@@ -709,8 +724,10 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           setTechnique(data.diseno.tecnica);
           setFabric(data.diseno.tela ?? defaultFabricFor(getProductById(preselected), data.diseno.tecnica));
         }
+        // Las piezas de antes (de otro diseño o de otras tallas) se cambian por las de ahora.
+        if (!designMode) setItems([]);
         try {
-          sessionStorage.setItem(loadedKey, "1");
+          sessionStorage.setItem(loadedKey, loadedValue);
         } catch {
           // Sin almacenamiento: se vuelve a cargar al recargar la página.
         }
@@ -955,6 +972,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setSizeQty(initialSizeQty(availableSizes));
   }
 
+  // Pedido de una lista con camisa de ejemplo, y sus piezas por talla para el resumen.
+  const listOrder = !designMode && Boolean(listInfo?.conDiseno);
+  const listSizesInCart: [string, number][] = [];
+  for (const line of items) {
+    if (line.productId !== productId) continue;
+    const found = listSizesInCart.find(([t]) => t === line.size);
+    if (found) found[1] += line.quantity;
+    else listSizesInCart.push([line.size, line.quantity]);
+  }
+  listSizesInCart.sort(([a], [b]) => availableSizes.indexOf(a) - availableSizes.indexOf(b));
+
   // Pedido de una lista con su diseño: las piezas de la lista entran solas con el diseño
   // cargado (una vez); solo faltan los datos y el pago.
   const autoAdded = useRef(false);
@@ -1185,7 +1213,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             Cargando el diseño de la lista…
           </p>
         )}
-        {listDesignState === "listo" && !designMode && (
+        {listDesignState === "listo" && !designMode && !listInfo?.conDiseno && (
           <div className="flex items-center justify-between gap-3 rounded-brand border-2 border-ink bg-white px-4 py-3 text-sm">
             <p className="text-ink">
               <span className="font-semibold">Ya pusimos el diseño y las piezas de tu lista.</span>{" "}
@@ -1234,8 +1262,33 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
 
         <section id="diseno" className="scroll-mt-28">
           <h2 className="font-display text-3xl uppercase tracking-wide text-ink">
-            {designMode ? "Diseño del grupo" : "1. Diseña tu producto"}
+            {designMode ? "Diseño del grupo" : listOrder && !showDesigner ? "1. Tu pedido de la lista" : "1. Diseña tu producto"}
           </h2>
+
+          {listOrder && !showDesigner && selectedProduct && (
+            <ListOrderSummary
+              listName={listInfo!.nombre}
+              category={selectedProduct.category}
+              colorHex={selectedVariant?.colorHex ?? "#FFFFFF"}
+              details={[
+                selectedProduct.name,
+                color,
+                TECHNIQUE_LABEL[technique],
+                getFabric(productId, fabric)?.name,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              sizes={listSizesInCart}
+              designs={zonePreviews}
+              personal={hasPersonal ? personal : null}
+              examples={groupExamples}
+              changeHref={urlClave ? `/lista-de-tallas/${urlListaId}/diseno?clave=${encodeURIComponent(urlClave)}` : null}
+              backHref={`/lista-de-tallas/${urlListaId}${urlClave ? `?clave=${encodeURIComponent(urlClave)}` : ""}`}
+              missingPieces={pendingTotal}
+              onAddPieces={addItem}
+              onCustomize={() => setShowDesigner(true)}
+            />
+          )}
 
           {designMode && (
             <div className="mt-3 grid gap-2 sm:grid-cols-2" role="tablist" aria-label="Pasos del diseño">
@@ -1265,7 +1318,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             </div>
           )}
 
-          <div className="mt-3 grid gap-6 lg:grid-cols-[260px_1fr]">
+          {listOrder && showDesigner && (
+            <button
+              type="button"
+              onClick={() => setShowDesigner(false)}
+              className="mt-2 text-sm font-semibold text-ink-soft hover:text-ink hover:underline"
+            >
+              ← Volver al resumen de tu lista
+            </button>
+          )}
+
+          <div className={`mt-3 grid gap-6 lg:grid-cols-[260px_1fr] ${listOrder && !showDesigner ? "hidden" : ""}`}>
             <div className="order-2 space-y-5 self-start rounded-brand border border-black/10 bg-white p-5 lg:order-1">
               <Field label="Producto">
                 <select

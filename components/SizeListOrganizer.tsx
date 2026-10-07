@@ -124,7 +124,7 @@ export function SizeListOrganizer({
               href={orderHref}
               className="rounded-brand bg-paper px-5 py-3 text-sm font-semibold text-ink hover:opacity-90"
             >
-              Armar el pedido con estas tallas →
+              Hacer el pedido con estas tallas →
             </Link>
           )}
         </div>
