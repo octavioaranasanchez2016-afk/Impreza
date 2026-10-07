@@ -6,7 +6,7 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
-import { describePersonStyle, describePersonal, parsePersonExtra, valoresDe } from "@/lib/group-names";
+import { campoLugares, describePersonStyle, describePersonal, parsePersonExtra, valoresDe } from "@/lib/group-names";
 import { SizeList, exampleEntryId, listPersonal, loadGroupDesign } from "@/lib/size-lists";
 import { groupDesignPreview } from "@/lib/group-design";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
@@ -93,6 +93,10 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
           organizador: list.organizador as string | null,
           estilo: personal ? describePersonal(personal) : null,
           etiqueta: personal?.etiqueta ?? null,
+          // Las columnas de la tabla dicen dónde va cada cosa ("Manga izquierda").
+          labels: personal
+            ? { texto: campoLugares(personal, "nombre"), numero: campoLugares(personal, "numero"), extra: campoLugares(personal, "texto") }
+            : null,
           personal,
           category: product?.category ?? null,
           colorHex: product?.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF",
@@ -294,6 +298,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               entries={groupList.entries}
               nombresEstilo={groupList.estilo}
               etiqueta={groupList.etiqueta}
+              labels={groupList.labels}
               shirt={
                 groupList.category && (groupList.personal || Object.keys(groupList.designs).length > 0)
                   ? {

@@ -106,6 +106,24 @@ export function personalZones(category: ProductCategory): DesignZone[] {
 
 export const zoneTitle = (zone: DesignZone) => ZONE_TITLE[zone] ?? zone;
 
+// Dónde va lo que cada persona escribe en un campo: "Manga izquierda", "Frente y
+// espalda". Así se le pregunta en la lista, y así sale en la tabla del taller.
+export function campoLugares(personal: GroupPersonal, campo: Campo): string {
+  const names = LUGAR_ORDER.filter((z) => personal.campos.some((f) => f.campo === campo && f.zona === z)).map(zoneTitle);
+  if (names.length === 0) return campoLabel(campo);
+  return names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} y ${names[names.length - 1].toLowerCase()}`;
+}
+
+// Los campos en el orden de la prenda (frente, espalda, mangas), como en la vista previa.
+export function camposEnOrden(personal: GroupPersonal): Campo[] {
+  const first = (c: Campo) => Math.min(...personal.campos.filter((f) => f.campo === c).map((f) => LUGAR_ORDER.indexOf(f.zona)));
+  return CAMPOS.map((c) => c.value)
+    .filter((c) => personal.campos.some((f) => f.campo === c))
+    .sort((a, b) => first(a) - first(b));
+}
+
+const LUGAR_ORDER: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der"];
+
 export function fieldTransform(field: PersonalField): DesignTransform {
   return { x: field.posX, y: field.posY, scale: field.escala, rotation: field.rotacion };
 }

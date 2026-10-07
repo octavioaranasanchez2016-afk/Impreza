@@ -29,6 +29,7 @@ export function OrderSizeList({
   entries,
   nombresEstilo,
   etiqueta,
+  labels,
   shirt,
 }: {
   nombre: string;
@@ -36,6 +37,7 @@ export function OrderSizeList({
   entries: OrderSizeListEntry[];
   nombresEstilo?: string | null; // "Espalda: nombre (Colegial, blanco) y número (Impacto, blanco) · …"
   etiqueta?: string | null; // lo que se pidió en "otro texto"
+  labels?: { texto: string; numero: string; extra: string } | null; // dónde va cada cosa
   shirt?: { category: ProductCategory; colorHex: string; designs: GroupDesignPreview; personal: GroupPersonal | null } | null;
 }) {
   const [shown, setShown] = useState(0);
@@ -94,9 +96,9 @@ export function OrderSizeList({
           <tr className="text-left text-xs text-ink-muted">
             <th className="pb-2 font-medium">Nombre</th>
             <th className="pb-2 font-medium">Talla</th>
-            {withText && <th className="pb-2 font-medium">Dice la camisa</th>}
-            {withNumber && <th className="pb-2 font-medium">Número</th>}
-            {withExtra && <th className="pb-2 font-medium">{etiqueta ?? "Otro texto"}</th>}
+            {withText && <th className="pb-2 font-medium">{labels?.texto ?? "Dice la camisa"}</th>}
+            {withNumber && <th className="pb-2 font-medium">{labels?.numero ?? "Número"}</th>}
+            {withExtra && <th className="pb-2 font-medium">{labels?.extra ?? etiqueta ?? "Otro texto"}</th>}
             {withOwn && <th className="pb-2 font-medium">Letra y color</th>}
             <th className="pb-2 text-right font-medium">Piezas</th>
           </tr>

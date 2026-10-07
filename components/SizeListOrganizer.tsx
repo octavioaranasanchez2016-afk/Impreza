@@ -51,6 +51,7 @@ export function SizeListOrganizer({
   campos = { nombre: false, numero: false, texto: false },
   etiqueta,
   ejemploId,
+  labels = {},
 }: {
   listId: string;
   clave: string;
@@ -63,6 +64,7 @@ export function SizeListOrganizer({
   campos?: Record<Campo, boolean>; // lo que cada persona escribe para su camisa
   etiqueta?: string; // lo que se pide en "otro texto"
   ejemploId?: string | null; // el registro del organizador (su camisa de ejemplo)
+  labels?: Partial<Record<Campo, string>>; // dónde va cada cosa: "Manga izquierda"
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -82,14 +84,24 @@ export function SizeListOrganizer({
   for (const e of entries) if (e.numero) byNumber.set(e.numero, [...(byNumber.get(e.numero) ?? []), e.nombre]);
   const repeated = [...byNumber].filter(([, names]) => names.length > 1);
 
+  // Lo que escribió cada quien, con el lugar donde va: "Manga izquierda: JUAN".
+  const escribio = (e: Entry) =>
+    [
+      e.texto && `${labels.nombre ?? "Nombre"}: ${e.texto}`,
+      e.numero && `${labels.numero ?? "Número"}: ${e.numero}`,
+      e.estilo?.extra && `${labels.texto ?? etiqueta ?? "Texto"}: ${e.estilo.extra}`,
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
   // La lista en texto, para pegarla en el chat o guardarla.
   const listText = [
     `${listName} — ${total} pieza${total === 1 ? "" : "s"}`,
     ...entries.map(
       (e, i) =>
-        `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${e.texto ? ` — «${e.texto}»` : ""}${e.numero ? ` #${e.numero}` : ""}${
-          e.estilo?.extra ? ` «${e.estilo.extra}»` : ""
-        }${e.estilo && describePersonStyle(e.estilo) ? ` (${describePersonStyle(e.estilo)})` : ""}`
+        `${i + 1}. ${e.nombre} — ${e.talla}${e.cantidad > 1 ? ` ×${e.cantidad}` : ""}${escribio(e) ? ` — ${escribio(e)}` : ""}${
+          e.estilo && describePersonStyle(e.estilo) ? ` (${describePersonStyle(e.estilo)})` : ""
+        }`
     ),
   ].join("\n");
 
@@ -198,10 +210,7 @@ export function SizeListOrganizer({
                   </span>
                   {(e.texto || e.numero || e.estilo?.extra) && (
                     <span className="block truncate text-xs text-ink-soft">
-                      Dirá{" "}
-                      {[e.texto && `«${e.texto}»`, e.numero && `#${e.numero}`, e.estilo?.extra && `«${e.estilo.extra}»`]
-                        .filter(Boolean)
-                        .join(" · ")}
+                      {escribio(e)}
                       {e.estilo && describePersonStyle(e.estilo) ? ` · ${describePersonStyle(e.estilo)}` : ""}
                     </span>
                   )}

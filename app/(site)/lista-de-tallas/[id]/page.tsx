@@ -7,7 +7,7 @@ import { GroupDesignCard } from "@/components/GroupDesignCard";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
-import { camposPedidos, describePersonal } from "@/lib/group-names";
+import { campoLugares, camposEnOrden, camposPedidos, describePersonal } from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -129,6 +129,7 @@ export default async function ListaPage({
               campos={camposPedidos(personal)}
               etiqueta={personal?.etiqueta}
               ejemploId={ejemploId}
+              labels={personal ? Object.fromEntries(camposEnOrden(personal).map((c) => [c, campoLugares(personal, c)])) : {}}
             />
           </div>
         ) : (

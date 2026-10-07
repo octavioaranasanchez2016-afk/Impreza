@@ -12,6 +12,8 @@ import {
   MAX_TEXTO,
   NAME_COLORS,
   NAME_FONTS,
+  campoLugares,
+  camposEnOrden,
   camposPedidos,
 } from "@/lib/group-names";
 import { FONT_OPTIONS, FontFamilyKey } from "@/lib/design";
@@ -213,29 +215,24 @@ export function SizeListSignup({
         />
       </label>
 
-      {(withName || withNumber || withExtra) && (
+      {personal && (withName || withNumber || withExtra) && (
         <div className="mt-4 space-y-3">
-          <div className="flex items-start gap-3">
-            {withName && (
-              <label className="block min-w-0 flex-1">
-                <span className="block text-xs font-semibold text-ink-soft">
-                  {forOthers ? "Lo que dirá su camisa" : "Lo que dirá tu camisa"}
+          {camposEnOrden(personal).map((campo) => (
+            <label key={campo} className="block">
+              <span className="block text-xs font-semibold text-ink-soft">
+                {campoLugares(personal, campo)}
+                <span className="font-normal text-ink-muted">
+                  {" · "}
+                  {campo === "nombre"
+                    ? forOthers
+                      ? "su nombre o apodo"
+                      : "tu nombre o apodo"
+                    : campo === "numero"
+                      ? "número"
+                      : personal.etiqueta.toLowerCase()}
                 </span>
-                <input
-                  value={texto}
-                  maxLength={MAX_TEXTO}
-                  onChange={(e) => setTexto(e.target.value)}
-                  placeholder="Nombre o apodo, ej. CHEPE"
-                  className="input mt-1 font-semibold"
-                />
-                <span className="mt-1 block text-[11px] text-ink-muted">
-                  Tal cual: mayúsculas, tildes y espacios salen como los escribas ({texto.length}/{MAX_TEXTO}).
-                </span>
-              </label>
-            )}
-            {withNumber && (
-              <label className="block shrink-0">
-                <span className="block text-xs font-semibold text-ink-soft">Número</span>
+              </span>
+              {campo === "numero" ? (
                 <input
                   value={numero}
                   inputMode="numeric"
@@ -245,20 +242,22 @@ export function SizeListSignup({
                   className="input mt-1 text-center font-semibold"
                   style={{ width: "6rem" }}
                 />
-              </label>
-            )}
-          </div>
-          {withExtra && (
-            <label className="block">
-              <span className="block text-xs font-semibold text-ink-soft">{personal?.etiqueta}</span>
-              <input
-                value={extra}
-                maxLength={MAX_EXTRA}
-                onChange={(e) => setExtra(e.target.value)}
-                className="input mt-1 font-semibold"
-              />
+              ) : (
+                <input
+                  value={campo === "nombre" ? texto : extra}
+                  maxLength={campo === "nombre" ? MAX_TEXTO : MAX_EXTRA}
+                  onChange={(e) => (campo === "nombre" ? setTexto(e.target.value) : setExtra(e.target.value))}
+                  placeholder={campo === "nombre" ? "Ej. CHEPE" : ""}
+                  className="input mt-1 font-semibold"
+                />
+              )}
+              {campo === "nombre" && (
+                <span className="mt-1 block text-[11px] text-ink-muted">
+                  Tal cual: mayúsculas, tildes y espacios salen como los escribas ({texto.length}/{MAX_TEXTO}).
+                </span>
+              )}
             </label>
-          )}
+          ))}
         </div>
       )}
 
