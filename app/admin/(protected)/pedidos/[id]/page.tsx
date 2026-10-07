@@ -6,7 +6,7 @@ import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
 import { OrderSizeList } from "@/components/admin/OrderSizeList";
-import { campoLugares, describePersonStyle, describePersonal, parsePersonExtra, valoresDe } from "@/lib/group-names";
+import { describePersonStyle, describePersonal, fieldLabel, fieldsEnOrden, parsePersonExtra, valoresDePersona } from "@/lib/group-names";
 import { SizeList, exampleEntryId, listPersonal, loadGroupDesign } from "@/lib/size-lists";
 import { groupDesignPreview } from "@/lib/group-design";
 import { PaymentBadge } from "@/components/admin/PaymentBadge";
@@ -92,11 +92,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
           nombre: list.nombre as string,
           organizador: list.organizador as string | null,
           estilo: personal ? describePersonal(personal) : null,
-          etiqueta: personal?.etiqueta ?? null,
-          // Las columnas de la tabla dicen dónde va cada cosa ("Manga izquierda").
-          labels: personal
-            ? { texto: campoLugares(personal, "nombre"), numero: campoLugares(personal, "numero"), extra: campoLugares(personal, "texto") }
-            : null,
+          // Una columna por cada texto de cada quien, con el lugar donde va ("Manga izquierda").
+          columns: personal ? fieldsEnOrden(personal).map((f) => ({ id: f.id, label: fieldLabel(personal, f) })) : [],
           personal,
           category: product?.category ?? null,
           colorHex: product?.variants.find((v) => v.color === list.color)?.colorHex ?? "#FFFFFF",
@@ -107,11 +104,8 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               nombre: (p.nombre as string) + (p.id === ejemploId ? " (organiza)" : ""),
               talla: p.talla as string,
               cantidad: p.cantidad as number,
-              texto: (p.texto as string | null) ?? null,
-              numero: (p.numero as string | null) ?? null,
-              extra: extra.extra ?? null,
               propio: describePersonStyle(extra) || null,
-              valores: valoresDe({ texto: p.texto, numero: p.numero, estilo: extra }),
+              valores: valoresDePersona(personal, { texto: p.texto, numero: p.numero, estilo: extra }),
               estilo: extra,
             };
           }),
@@ -297,8 +291,7 @@ export default async function AdminPedidoDetailPage({ params }: { params: Promis
               organizador={groupList.organizador}
               entries={groupList.entries}
               nombresEstilo={groupList.estilo}
-              etiqueta={groupList.etiqueta}
-              labels={groupList.labels}
+              columns={groupList.columns}
               shirt={
                 groupList.category && (groupList.personal || Object.keys(groupList.designs).length > 0)
                   ? {

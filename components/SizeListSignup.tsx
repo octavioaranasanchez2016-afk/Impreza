@@ -7,14 +7,15 @@ import { SizeChartButton } from "./SizeChartButton";
 import { GroupShirtPreview } from "./GroupShirtPreview";
 import {
   GroupPersonal,
-  MAX_EXTRA,
-  MAX_NUMERO,
   MAX_TEXTO,
   NAME_COLORS,
   NAME_FONTS,
-  campoLugares,
-  camposEnOrden,
-  camposPedidos,
+  Valores,
+  describeValores,
+  fieldHint,
+  fieldsEnOrden,
+  maxLength,
+  zoneTitle,
 } from "@/lib/group-names";
 import { FONT_OPTIONS, FontFamilyKey } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
@@ -26,9 +27,7 @@ interface Mine {
   nombre: string;
   talla: string;
   cantidad: number;
-  texto?: string;
-  numero?: string;
-  extra?: string;
+  resumen?: string; // "Manga izquierda: JUAN · Manga derecha: 10"
 }
 
 const mineKey = (listId: string) => `impreza-lista-${listId}`;
@@ -77,18 +76,15 @@ export function SizeListSignup({
   const [nombre, setNombre] = useState("");
   const [talla, setTalla] = useState(sizes.length === 1 ? sizes[0] : "");
   const [cantidad, setCantidad] = useState(1);
-  const [texto, setTexto] = useState("");
-  const [numero, setNumero] = useState("");
-  const [extra, setExtra] = useState("");
+  // Lo que escribe en cada texto de la camisa (cada uno es una casilla aparte).
+  const [valores, setValores] = useState<Valores>({});
   // La letra y el color de sus textos, si el organizador lo deja elegir (si no, los de la camisa de ejemplo).
   const firstField = personal?.campos[0];
   const [miFuente, setMiFuente] = useState<FontFamilyKey | undefined>(firstField?.fuente);
   const [miColor, setMiColor] = useState<string | undefined>(firstField?.color);
   const eligen = personal?.eligen ?? { color: false, fuente: false };
-  const campos = camposPedidos(personal);
-  const withName = campos.nombre;
-  const withNumber = campos.numero;
-  const withExtra = campos.texto;
+  const fields = personal ? fieldsEnOrden(personal) : [];
+  const filled = fields.every((field) => valores[field.id]?.trim());
   const hasDesign = Object.keys(designs).length > 0;
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,9 +103,7 @@ export function SizeListSignup({
         nombre,
         talla,
         cantidad,
-        texto,
-        numero,
-        extra,
+        valores,
         estilo: { ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) },
       }),
     });
@@ -125,18 +119,14 @@ export function SizeListSignup({
       nombre: nombre.trim(),
       talla,
       cantidad,
-      texto: texto.trim(),
-      numero,
-      extra: extra.trim(),
+      resumen: describeValores(personal, valores),
     };
     const next = [...mine, entry];
     setMine(next);
     writeMine(listId, next);
     setJustAdded(entry);
     setNombre("");
-    setTexto("");
-    setNumero("");
-    setExtra("");
+    setValores({});
     setCantidad(1);
     if (sizes.length > 1) setTalla("");
     router.refresh();
@@ -171,12 +161,7 @@ export function SizeListSignup({
           <p className="font-semibold">¡Listo, {justAdded.nombre}!</p>
           <p className="mt-0.5 text-sm text-paper/70">
             Quedaste anotado con talla {justAdded.talla}
-            {justAdded.texto
-              ? `, y tu camisa dirá «${justAdded.texto}»${justAdded.numero ? ` con el ${justAdded.numero}` : ""}`
-              : justAdded.numero
-                ? `, con el número ${justAdded.numero}`
-                : ""}
-            {justAdded.extra ? ` y «${justAdded.extra}»` : ""}
+            {justAdded.resumen ? ` (${justAdded.resumen})` : ""}
             {justAdded.cantidad > 1 ? ` (${justAdded.cantidad} piezas)` : ""}. Puedes anotar a alguien más aquí abajo.
           </p>
         </div>
@@ -191,7 +176,7 @@ export function SizeListSignup({
             colorHex={colorHex}
             designs={designs}
             personal={personal}
-            valores={{ nombre: texto.trim(), numero, texto: extra.trim() }}
+            valores={valores}
             propio={{ ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) }}
           />
           <p className="mt-1.5 text-center text-[11px] text-ink-muted">
@@ -215,49 +200,47 @@ export function SizeListSignup({
         />
       </label>
 
-      {personal && (withName || withNumber || withExtra) && (
+      {personal && fields.length > 0 && (
         <div className="mt-4 space-y-3">
-          {camposEnOrden(personal).map((campo) => (
-            <label key={campo} className="block">
-              <span className="block text-xs font-semibold text-ink-soft">
-                {campoLugares(personal, campo)}
-                <span className="font-normal text-ink-muted">
-                  {" · "}
-                  {campo === "nombre"
-                    ? forOthers
-                      ? "su nombre o apodo"
-                      : "tu nombre o apodo"
-                    : campo === "numero"
-                      ? "número"
-                      : personal.etiqueta.toLowerCase()}
+          {fields.map((field) => {
+            const valor = valores[field.id] ?? "";
+            const set = (v: string) => setValores((prev) => ({ ...prev, [field.id]: v }));
+            return (
+              <label key={field.id} className="block">
+                <span className="block text-xs font-semibold text-ink-soft">
+                  {zoneTitle(field.zona)}
+                  <span className="font-normal text-ink-muted">
+                    {" · "}
+                    {field.campo === "nombre" ? (forOthers ? "su nombre o apodo" : "tu nombre o apodo") : fieldHint(field)}
+                  </span>
                 </span>
-              </span>
-              {campo === "numero" ? (
-                <input
-                  value={numero}
-                  inputMode="numeric"
-                  maxLength={MAX_NUMERO}
-                  onChange={(e) => setNumero(e.target.value.replace(/\D/g, ""))}
-                  placeholder="Ej. 10"
-                  className="input mt-1 text-center font-semibold"
-                  style={{ width: "6rem" }}
-                />
-              ) : (
-                <input
-                  value={campo === "nombre" ? texto : extra}
-                  maxLength={campo === "nombre" ? MAX_TEXTO : MAX_EXTRA}
-                  onChange={(e) => (campo === "nombre" ? setTexto(e.target.value) : setExtra(e.target.value))}
-                  placeholder={campo === "nombre" ? "Ej. CHEPE" : ""}
-                  className="input mt-1 font-semibold"
-                />
-              )}
-              {campo === "nombre" && (
-                <span className="mt-1 block text-[11px] text-ink-muted">
-                  Tal cual: mayúsculas, tildes y espacios salen como los escribas ({texto.length}/{MAX_TEXTO}).
-                </span>
-              )}
-            </label>
-          ))}
+                {field.campo === "numero" ? (
+                  <input
+                    value={valor}
+                    inputMode="numeric"
+                    maxLength={maxLength("numero")}
+                    onChange={(e) => set(e.target.value.replace(/\D/g, ""))}
+                    placeholder={`Ej. ${field.ejemplo}`}
+                    className="input mt-1 text-center font-semibold"
+                    style={{ width: "6rem" }}
+                  />
+                ) : (
+                  <input
+                    value={valor}
+                    maxLength={maxLength(field.campo)}
+                    onChange={(e) => set(e.target.value)}
+                    placeholder={`Ej. ${field.ejemplo}`}
+                    className="input mt-1 font-semibold"
+                  />
+                )}
+                {field.campo === "nombre" && (
+                  <span className="mt-1 block text-[11px] text-ink-muted">
+                    Tal cual: mayúsculas, tildes y espacios salen como los escribas ({valor.length}/{MAX_TEXTO}).
+                  </span>
+                )}
+              </label>
+            );
+          })}
         </div>
       )}
 
@@ -281,7 +264,7 @@ export function SizeListSignup({
                       }`}
                       style={{ fontFamily: option?.cssVar, fontWeight: option?.weight }}
                     >
-                      {(texto.trim() || numero || extra.trim() || "Texto").slice(0, 8)}
+                      {(Object.values(valores).find((v) => v.trim()) || fields[0]?.ejemplo || "Texto").slice(0, 8)}
                     </button>
                   );
                 })}
@@ -368,9 +351,7 @@ export function SizeListSignup({
           sending ||
           nombre.trim().length < 2 ||
           !talla ||
-          (withName && !texto.trim()) ||
-          (withNumber && !numero) ||
-          (withExtra && !extra.trim())
+          !filled
         }
         className="mt-5 w-full rounded-brand bg-ink px-5 py-3 text-sm font-semibold text-paper hover:opacity-80 disabled:opacity-40"
       >
@@ -385,9 +366,7 @@ export function SizeListSignup({
               <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
                 <span className="text-ink">
                   {m.nombre} · <span className="font-semibold">{m.talla}</span>
-                  {m.texto ? ` · «${m.texto}»` : ""}
-                  {m.numero ? ` · #${m.numero}` : ""}
-                  {m.extra ? ` · «${m.extra}»` : ""}
+                  {m.resumen ? ` · ${m.resumen}` : ""}
                   {m.cantidad > 1 ? ` × ${m.cantidad}` : ""}
                 </span>
                 <button type="button" onClick={() => remove(m)} className="text-xs font-semibold text-red-700 hover:underline">

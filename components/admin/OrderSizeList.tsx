@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ProductCategory } from "@/lib/types";
 import { GroupDesignPreview } from "@/lib/group-design";
-import { Ejemplos, GroupPersonal, PersonExtra } from "@/lib/group-names";
+import { GroupPersonal, PersonExtra, Valores } from "@/lib/group-names";
 import { GroupShirtPreview } from "../GroupShirtPreview";
 
 // En el pedido del panel: la lista de tallas del grupo con la que se armó, ordenada
@@ -15,11 +15,8 @@ export interface OrderSizeListEntry {
   nombre: string;
   talla: string;
   cantidad: number;
-  texto?: string | null; // lo que dice su camisa
-  numero?: string | null;
   propio?: string | null; // la letra y el color que eligió, si se podía ("Colegial, dorado")
-  extra?: string | null; // su otro texto
-  valores?: Ejemplos; // lo que escribió, para dibujar su camisa
+  valores?: Valores; // lo que escribió en cada texto de su camisa
   estilo?: PersonExtra;
 }
 
@@ -28,23 +25,18 @@ export function OrderSizeList({
   organizador,
   entries,
   nombresEstilo,
-  etiqueta,
-  labels,
+  columns = [],
   shirt,
 }: {
   nombre: string;
   organizador: string | null;
   entries: OrderSizeListEntry[];
   nombresEstilo?: string | null; // "Espalda: nombre (Colegial, blanco) y número (Impacto, blanco) · …"
-  etiqueta?: string | null; // lo que se pidió en "otro texto"
-  labels?: { texto: string; numero: string; extra: string } | null; // dónde va cada cosa
+  columns?: { id: string; label: string }[]; // un texto de cada quien por columna ("Manga izquierda")
   shirt?: { category: ProductCategory; colorHex: string; designs: GroupDesignPreview; personal: GroupPersonal | null } | null;
 }) {
   const [shown, setShown] = useState(0);
-  const withText = entries.some((e) => e.texto);
-  const withNumber = entries.some((e) => e.numero);
   const withOwn = entries.some((e) => e.propio);
-  const withExtra = entries.some((e) => e.extra);
   const rank = (t: string) => (SIZE_ORDER.indexOf(t) + 1 || 99);
   const sorted = [...entries].sort((a, b) => rank(a.talla) - rank(b.talla) || a.nombre.localeCompare(b.nombre, "es"));
   const counts = new Map<string, number>();
@@ -85,7 +77,7 @@ export function OrderSizeList({
           </div>
         </div>
       )}
-      {(withText || withNumber || withExtra || nombresEstilo) && (
+      {(columns.length > 0 || nombresEstilo) && (
         <p className="mt-3 rounded-brand border-2 border-ink px-3 py-2 text-sm text-ink">
           <span className="font-semibold">Cada camisa personalizada</span>
           {nombresEstilo ? `: ${nombresEstilo}` : " (no quedó guardado dónde va ni cómo; pregúntalo al cliente)"}
@@ -96,9 +88,11 @@ export function OrderSizeList({
           <tr className="text-left text-xs text-ink-muted">
             <th className="pb-2 font-medium">Nombre</th>
             <th className="pb-2 font-medium">Talla</th>
-            {withText && <th className="pb-2 font-medium">{labels?.texto ?? "Dice la camisa"}</th>}
-            {withNumber && <th className="pb-2 font-medium">{labels?.numero ?? "Número"}</th>}
-            {withExtra && <th className="pb-2 font-medium">{labels?.extra ?? etiqueta ?? "Otro texto"}</th>}
+            {columns.map((c) => (
+              <th key={c.id} className="pb-2 font-medium">
+                {c.label}
+              </th>
+            ))}
             {withOwn && <th className="pb-2 font-medium">Letra y color</th>}
             <th className="pb-2 text-right font-medium">Piezas</th>
           </tr>
@@ -112,9 +106,11 @@ export function OrderSizeList({
             >
               <td className="py-1.5 text-ink">{e.nombre}</td>
               <td className="py-1.5 font-semibold text-ink">{e.talla}</td>
-              {withText && <td className="py-1.5 font-semibold text-ink">{e.texto ?? "—"}</td>}
-              {withNumber && <td className="py-1.5 font-semibold text-ink">{e.numero ?? "—"}</td>}
-              {withExtra && <td className="py-1.5 font-semibold text-ink">{e.extra ?? "—"}</td>}
+              {columns.map((c) => (
+                <td key={c.id} className="py-1.5 font-semibold text-ink">
+                  {e.valores?.[c.id] ?? "—"}
+                </td>
+              ))}
               {withOwn && <td className="py-1.5 text-ink">{e.propio ?? "—"}</td>}
               <td className="py-1.5 text-right text-ink">{e.cantidad}</td>
             </tr>

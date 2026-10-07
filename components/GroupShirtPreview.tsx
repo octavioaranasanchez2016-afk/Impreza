@@ -3,7 +3,7 @@
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
 import { MockupContent } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
-import { Ejemplos, GroupPersonal, PersonExtra, fieldContent, fieldTransform, zoneTitle } from "@/lib/group-names";
+import { GroupPersonal, PersonExtra, Valores, fieldContent, fieldTransform, zoneTitle } from "@/lib/group-names";
 import { getZonesForCategory } from "./GarmentShape";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 
@@ -42,7 +42,7 @@ export function PersonalLayer({
   category: ProductCategory;
   zone: DesignZone;
   personal: GroupPersonal;
-  valores?: Partial<Ejemplos>; // sin valores: la camisa de ejemplo
+  valores?: Valores; // sin valores: la camisa de ejemplo
   propio?: PersonExtra;
   skip?: number; // el campo que se está editando (no se dibuja dos veces)
   faded?: boolean;
@@ -51,14 +51,13 @@ export function PersonalLayer({
     <>
       {personal.campos.map((field, i) => {
         if (field.zona !== zone || i === skip) return null;
-        const own = valores?.[field.campo];
-        const texto = own || personal.ejemplos[field.campo] || (field.campo === "numero" ? "10" : "TEXTO");
+        const own = valores?.[field.id];
         return (
           <DesignLayer
-            key={i}
+            key={field.id}
             category={category}
             zone={zone}
-            content={fieldContent(field, texto, propio, personal.eligen)}
+            content={fieldContent(field, own || field.ejemplo, propio, personal.eligen)}
             transform={fieldTransform(field)}
             faded={faded || (Boolean(valores) && !own)}
           />
@@ -82,7 +81,7 @@ export function GroupShirtPreview({
   colorHex: string;
   designs?: GroupDesignPreview;
   personal: GroupPersonal | null;
-  valores?: Partial<Ejemplos>;
+  valores?: Valores;
   propio?: PersonExtra;
 }) {
   const zones = getZonesForCategory(category).filter(

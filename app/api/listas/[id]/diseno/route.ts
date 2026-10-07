@@ -3,7 +3,7 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
 import { SizeList, cleanName, exampleEntryId, listPersonal, listSizes, loadGroupDesign, newSecret } from "@/lib/size-lists";
 import { parseGroupDesign } from "@/lib/group-design";
-import { camposPedidos, cleanCampo, parsePersonExtra, parsePersonal, personalizadoDe, valoresDe } from "@/lib/group-names";
+import { cleanValores, parsePersonExtra, parsePersonal, personalizadoDe, valoresDePersona } from "@/lib/group-names";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -23,6 +23,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
   const ejemploId = exampleEntryId(list as SizeList);
   const mia = (rows ?? []).find((r) => r.id === ejemploId);
+  const personal = listPersonal(list as SizeList);
   const otros = (rows ?? []).filter((r) => r.id !== ejemploId);
   const estilo = list.estilo && typeof list.estilo === "object" ? (list.estilo as Record<string, unknown>) : {};
   return NextResponse.json({
@@ -31,11 +32,11 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     version: typeof estilo.actualizado === "string" ? estilo.actualizado : null,
     personas: otros.length,
     diseno: await loadGroupDesign(list as SizeList),
-    personal: listPersonal(list as SizeList),
+    personal,
     // Algunas camisas del grupo, para ver el pedido con lo que escribió cada quien.
     ejemplosGrupo: otros.slice(0, 6).map((r) => ({
       nombre: (r.nombre as string).split(" ")[0],
-      valores: valoresDe({ texto: r.texto, numero: r.numero, estilo: parsePersonExtra(r.estilo) }),
+      valores: valoresDePersona(personal, { texto: r.texto, numero: r.numero, estilo: parsePersonExtra(r.estilo) }),
     })),
     mia: mia ? { nombre: mia.nombre as string, talla: mia.talla as string } : null,
   });
@@ -66,17 +67,13 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { data: rows } = await service.from("listas_tallas_personas").select("id, talla").eq("lista_id", id);
   const otros = (rows ?? []).filter((r) => r.id !== ejemploId);
 
-  // Lo nuevo que se pide tiene que haberlo escrito ya quien se anotó.
+  // Con gente anotada no se agregan textos nuevos: ellos no los escribieron.
   if (otros.length > 0) {
-    const antes = camposPedidos(listPersonal(list as SizeList));
-    const ahora = camposPedidos(personal);
-    const nuevo = (["nombre", "numero", "texto"] as const).filter((c) => ahora[c] && !antes[c]);
-    if (nuevo.length > 0) {
+    const antes = new Set((listPersonal(list as SizeList)?.campos ?? []).map((f) => f.id));
+    if ((personal?.campos ?? []).some((f) => !antes.has(f.id))) {
       return NextResponse.json(
         {
-          error: `Ya hay ${otros.length} persona${otros.length === 1 ? "" : "s"} anotada${otros.length === 1 ? "" : "s"} y no escribieron ${nuevo
-            .map((c) => (c === "nombre" ? "su nombre" : c === "numero" ? "su número" : "ese otro texto"))
-            .join(" ni ")}. Quítalo o acomoda solo lo que ya escribieron.`,
+          error: `Ya hay ${otros.length} persona${otros.length === 1 ? "" : "s"} anotada${otros.length === 1 ? "" : "s"} y no escribieron ese texto nuevo. Quítalo o acomoda solo los que ya estaban.`,
         },
         { status: 409 }
       );
@@ -93,14 +90,14 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       );
     }
   }
-  // Otro texto y lo que elige cada quien se guardan en cada persona: la columna tiene que existir.
-  if (personal && (camposPedidos(personal).texto || personal.eligen.color || personal.eligen.fuente)) {
+  // Lo que escribe cada quien se guarda en cada persona: la columna tiene que existir.
+  if (personal) {
     const { error: columnError } = await service.from("listas_tallas_personas").select("estilo").limit(1);
     if (columnError) {
       return NextResponse.json(
         {
           error:
-            "Para «Otro texto» o para que cada quien elija su letra o color falta activar una parte en Supabase (la última línea de supabase/listas.sql).",
+            "Para lo que pone cada quien falta activar una parte en Supabase (la última línea de supabase/listas.sql).",
         },
         { status: 503 }
       );
@@ -115,19 +112,19 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
     const talla = typeof mia.talla === "string" ? mia.talla : "";
     if (nombre.length < 2) return NextResponse.json({ error: "Escribe tu nombre para tu camisa." }, { status: 400 });
     if (!listSizes(product.id, color).includes(talla)) return NextResponse.json({ error: "Elige tu talla." }, { status: 400 });
-    const pide = camposPedidos(personal);
-    const extra = pide.texto ? cleanCampo("texto", personal?.ejemplos.texto) : "";
+    // Lo que dice su camisa de ejemplo en cada texto es lo que lleva la suya.
+    const { valores, texto, numero } = cleanValores(personal, Object.fromEntries((personal?.campos ?? []).map((f) => [f.id, f.ejemplo])));
     const row: Record<string, unknown> = {
       nombre,
       talla,
       cantidad: 1,
-      texto: pide.nombre ? cleanCampo("nombre", personal?.ejemplos.nombre) || null : null,
-      numero: pide.numero ? cleanCampo("numero", personal?.ejemplos.numero) || null : null,
-      ...(extra ? { estilo: { extra } } : {}),
+      texto,
+      numero,
+      estilo: personal ? { valores } : null,
     };
     const existing = ejemploId && (rows ?? []).some((r) => r.id === ejemploId);
     const { data: saved, error: miaError } = existing
-      ? await service.from("listas_tallas_personas").update({ estilo: null, ...row }).eq("id", ejemploId!).select("id").single()
+      ? await service.from("listas_tallas_personas").update(row).eq("id", ejemploId!).select("id").single()
       : await service
           .from("listas_tallas_personas")
           .insert({ lista_id: id, token: newSecret(), ...row })
@@ -142,7 +139,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   // Todo en estilo; lo de antes (lugares, una letra y un color para todos) se reemplaza.
   const estilo: Record<string, unknown> = {
     ...(diseno ? { diseno } : {}),
-    ...(personal ? { campos: personal.campos, ejemplos: personal.ejemplos, etiqueta: personal.etiqueta, eligen: personal.eligen } : {}),
+    ...(personal ? { campos: personal.campos, eligen: personal.eligen } : {}),
     ...(nuevoEjemploId ? { ejemploId: nuevoEjemploId } : {}),
     actualizado: new Date().toISOString(),
   };

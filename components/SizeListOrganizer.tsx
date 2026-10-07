@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { shareWhatsAppUrl } from "@/lib/whatsapp";
-import { Campo, PersonExtra, describePersonStyle } from "@/lib/group-names";
+import { GroupPersonal, PersonExtra, describePersonStyle, describeValores, fieldHint, valoresDePersona } from "@/lib/group-names";
 
 interface Entry {
   id: string;
@@ -13,7 +13,7 @@ interface Entry {
   cantidad: number;
   texto?: string | null;
   numero?: string | null;
-  estilo?: PersonExtra; // su otro texto, y la letra y el color que eligió
+  estilo?: PersonExtra; // sus textos, y la letra y el color que eligió
 }
 
 function CopyButton({ text, label }: { text: string; label: string }) {
@@ -48,10 +48,8 @@ export function SizeListOrganizer({
   closed,
   orderHref,
   baseUrl,
-  campos = { nombre: false, numero: false, texto: false },
-  etiqueta,
+  personal = null,
   ejemploId,
-  labels = {},
 }: {
   listId: string;
   clave: string;
@@ -61,16 +59,14 @@ export function SizeListOrganizer({
   closed: boolean;
   orderHref: string;
   baseUrl: string; // dirección oficial del sitio, para que el enlace compartido sea el bueno
-  campos?: Record<Campo, boolean>; // lo que cada persona escribe para su camisa
-  etiqueta?: string; // lo que se pide en "otro texto"
+  personal?: GroupPersonal | null; // lo que pone cada quien en su camisa
   ejemploId?: string | null; // el registro del organizador (su camisa de ejemplo)
-  labels?: Partial<Record<Campo, string>>; // dónde va cada cosa: "Manga izquierda"
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
   // "y lo que dirá tu camisa": lo que cada quien tiene que escribir, para el mensaje al grupo.
-  const pide = [campos.nombre && "tu nombre", campos.numero && "tu número", campos.texto && etiqueta?.toLowerCase()].filter(Boolean);
+  const pide = [...new Set((personal?.campos ?? []).map((f) => (f.campo === "nombre" ? "tu nombre o apodo" : f.campo === "numero" ? "tu número" : fieldHint(f))))];
   const extra = pide.length ? ` y ${pide.join(" y ")} para la camisa` : "";
   const shareUrl = `${baseUrl}/lista-de-tallas/${listId}`;
   const organizerUrl = `${shareUrl}?clave=${encodeURIComponent(clave)}`;
@@ -85,14 +81,7 @@ export function SizeListOrganizer({
   const repeated = [...byNumber].filter(([, names]) => names.length > 1);
 
   // Lo que escribió cada quien, con el lugar donde va: "Manga izquierda: JUAN".
-  const escribio = (e: Entry) =>
-    [
-      e.texto && `${labels.nombre ?? "Nombre"}: ${e.texto}`,
-      e.numero && `${labels.numero ?? "Número"}: ${e.numero}`,
-      e.estilo?.extra && `${labels.texto ?? etiqueta ?? "Texto"}: ${e.estilo.extra}`,
-    ]
-      .filter(Boolean)
-      .join(" · ");
+  const escribio = (e: Entry) => describeValores(personal, valoresDePersona(personal, e));
 
   // La lista en texto, para pegarla en el chat o guardarla.
   const listText = [

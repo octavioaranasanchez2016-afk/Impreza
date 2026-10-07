@@ -58,13 +58,16 @@ import {
   CAMPOS,
   Campo,
   DEFAULT_ETIQUETA,
-  Ejemplos,
+  Valores,
   GroupPersonal,
   MAX_EXTRA,
   MAX_NUMERO,
   MAX_TEXTO,
   PersonalField,
   campoLabel,
+  fieldHint,
+  fieldsEnOrden,
+  newFieldId,
   describePersonal,
   fieldContent,
   fieldTransform,
@@ -267,22 +270,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // Camisas de grupo: la camisa de ejemplo tiene el diseño de todos (paso 1) y lo que
   // pone cada quien (paso 2): sus textos, cada uno en su lugar, que cada persona cambia
   // por lo suyo al anotarse. Se carga de la lista y solo se edita al diseñarla.
-  const [personal, setPersonal] = useState<GroupPersonal>({
-    campos: [],
-    ejemplos: { nombre: "JUAN", numero: "10", texto: "" },
-    etiqueta: DEFAULT_ETIQUETA,
-    eligen: { color: false, fuente: false },
-  });
+  const [personal, setPersonal] = useState<GroupPersonal>({ campos: [], eligen: { color: false, fuente: false } });
   const [step, setStep] = useState<"comun" | "personal">("comun");
   // El texto de cada quien que se está editando ("nuevo": se va a agregar otro).
   const [editingField, setEditingField] = useState<number | "nuevo" | null>(null);
   // Pedido de una lista: con quién del grupo se ve la camisa (-1: la de ejemplo).
-  const [groupExamples, setGroupExamples] = useState<{ nombre: string; valores: Ejemplos }[]>([]);
+  const [groupExamples, setGroupExamples] = useState<{ nombre: string; valores: Valores }[]>([]);
   const [shownExample, setShownExample] = useState(-1);
   // Al diseñar: la camisa de ejemplo es la del organizador y se manda a hacer con las demás.
   const [mia, setMia] = useState({ incluir: true, nombre: listDesign?.organizador ?? "", talla: "" });
-  // Con gente ya anotada solo se puede usar lo que ya escribieron.
-  const [pedidoAntes, setPedidoAntes] = useState<Record<Campo, boolean> | null>(null);
+  // Con gente ya anotada no se pueden agregar textos: ellos no los escribieron.
+  const lockedFields = Boolean(listDesign && listDesign.personas > 0);
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
@@ -384,8 +382,11 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     if (!selectedProduct) return;
     const t = defaultTransform(selectedProduct.category, currentZone);
     const field: PersonalField = {
+      id: newFieldId(),
       zona: currentZone,
       campo,
+      ejemplo: campo === "nombre" ? (mia.nombre.trim().split(" ")[0] || "JUAN").toUpperCase().slice(0, MAX_TEXTO) : campo === "numero" ? "10" : "TEXTO",
+      ...(campo === "texto" ? { etiqueta: DEFAULT_ETIQUETA } : {}),
       color: contrastInk,
       fuente: campo === "numero" ? "display" : "colegial",
       posX: t.x,
@@ -393,16 +394,12 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       escala: campo === "numero" ? 0.35 : 0.6,
       rotacion: 0,
     };
-    setPersonal((p) => ({
-      ...p,
-      campos: [...p.campos, field],
-      ejemplos: campo === "texto" && !p.ejemplos.texto ? { ...p.ejemplos, texto: "TEXTO" } : p.ejemplos,
-    }));
+    setPersonal((p) => ({ ...p, campos: [...p.campos, field] }));
     setEditingField(personal.campos.length);
   }
 
   // El diseñador edita el texto de cada quien como cualquier texto: lo que se escribe es
-  // lo que dice la camisa de ejemplo (la del organizador) en ese campo.
+  // lo que dice ahí la camisa de ejemplo (la del organizador).
   function handleFieldContent(next: DesignContent | null) {
     if (activeField === null || !editing) return;
     if (!next) {
@@ -417,9 +414,10 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         : next.texto.slice(0, editing.campo === "texto" ? MAX_EXTRA : MAX_TEXTO);
     setPersonal((p) => ({
       ...p,
-      ejemplos: { ...p.ejemplos, [editing.campo]: value },
       campos: p.campos.map((f, i) =>
-        i === activeField ? { ...f, color: next.color, fuente: next.fontFamily, contorno: next.outline ?? undefined } : f
+        i === activeField
+          ? { ...f, ejemplo: value, color: next.color, fuente: next.fontFamily, contorno: next.outline ?? undefined }
+          : f
       ),
     }));
   }
@@ -660,7 +658,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           version: string | null;
           diseno: GroupDesign | null;
           personal: unknown;
-          ejemplosGrupo: { nombre: string; valores: Ejemplos }[];
+          ejemplosGrupo: { nombre: string; valores: Valores }[];
           mia: { nombre: string; talla: string } | null;
         } = await res.json();
         const loadedValue = `${data.version ?? ""}|${searchParams.get("tallas") ?? ""}`;
@@ -678,13 +676,6 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         if (loadedPersonal) setPersonal(loadedPersonal);
         setGroupExamples(data.ejemplosGrupo ?? []);
         setListInfo({ nombre: data.nombre, conDiseno: Boolean(data.diseno || loadedPersonal) });
-        if (designMode && listDesign!.personas > 0) {
-          setPedidoAntes({
-            nombre: Boolean(loadedPersonal?.campos.some((f) => f.campo === "nombre")),
-            numero: Boolean(loadedPersonal?.campos.some((f) => f.campo === "numero")),
-            texto: Boolean(loadedPersonal?.campos.some((f) => f.campo === "texto")),
-          });
-        }
         if (designMode) {
           // Ya guardado sin la camisa del organizador: sigue sin ella hasta que la marque.
           if (data.mia) setMia({ incluir: true, nombre: data.mia.nombre, talla: data.mia.talla });
@@ -1673,7 +1664,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   onZoneChange={changeZone}
                   content={
                     personalStep
-                      ? editing && fieldContent(editing, personal.ejemplos[editing.campo])
+                      ? editing && fieldContent(editing, editing.ejemplo)
                       : currentContent
                   }
                   onContentChange={personalStep ? handleFieldContent : handleContentChange}
@@ -1699,17 +1690,35 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                                 index === activeField ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
                               }`}
                             >
-                              {campoLabel(field.campo)}
+                              {field.campo === "texto" ? field.etiqueta || campoLabel(field.campo) : campoLabel(field.campo)}
                             </button>
                           ))}
                           <button
                             type="button"
                             onClick={() => setEditingField("nuevo")}
-                            className="rounded-full border border-dashed border-black/25 px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink hover:text-ink"
+                            disabled={lockedFields}
+                            className="rounded-full border border-dashed border-black/25 px-3 py-1.5 text-xs font-semibold text-ink-soft hover:border-ink hover:text-ink disabled:opacity-40"
                           >
                             + Agregar otro
                           </button>
                         </div>
+                        {editing?.campo === "texto" && (
+                          <label className="mt-3 block">
+                            <span className="text-xs font-semibold text-ink-soft">¿Qué le pides a cada quien aquí?</span>
+                            <input
+                              value={editing.etiqueta ?? ""}
+                              maxLength={MAX_EXTRA}
+                              onChange={(e) =>
+                                setPersonal((p) => ({
+                                  ...p,
+                                  campos: p.campos.map((f, i) => (i === activeField ? { ...f, etiqueta: e.target.value } : f)),
+                                }))
+                              }
+                              placeholder="Ej. Tu frase, tu carrera, tu signo"
+                              className="input mt-1"
+                            />
+                          </label>
+                        )}
                       </div>
                     )
                   }
@@ -1729,16 +1738,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                                   key={c.value}
                                   type="button"
                                   onClick={() => addField(c.value)}
-                                  disabled={Boolean(pedidoAntes && !pedidoAntes[c.value])}
+                                  disabled={lockedFields}
                                   className="rounded-brand border border-ink/20 px-3 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-ink"
                                 >
                                   + {c.add}
                                 </button>
                               ))}
                             </div>
-                            {pedidoAntes && (
+                            {lockedFields && (
                               <p className="mt-2 text-[11px] text-ink-muted">
-                                Ya hay gente anotada: solo puedes poner lo que ellos ya escribieron.
+                                Ya hay gente anotada: no puedes agregar textos que ellos no escribieron. Sí puedes mover,
+                                cambiar o quitar los que ya están.
                               </p>
                             )}
                           </>
@@ -1764,7 +1774,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                                 z === currentZone ? "bg-ink text-paper" : here.length ? "bg-paper-soft text-ink" : "bg-paper-soft text-ink-muted"
                               }`}
                             >
-                              {zoneTitle(z)}: {here.length ? here.map((f) => campoLabel(f.campo).toLowerCase()).join(" + ") : "nada"}
+                              {zoneTitle(z)}: {here.length ? here.map((f) => fieldHint(f)).join(" + ") : "nada"}
                             </button>
                           );
                         })}
@@ -1773,18 +1783,6 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                         <p className="mt-2 text-xs text-ink-soft">
                           Si no agregas nada, todas las camisas salen iguales (solo cambia la talla).
                         </p>
-                      )}
-                      {personal.campos.some((f) => f.campo === "texto") && (
-                        <label className="mt-3 block">
-                          <span className="text-xs font-semibold text-ink-soft">¿Qué le pides a cada quien en «Otro texto»?</span>
-                          <input
-                            value={personal.etiqueta}
-                            maxLength={MAX_EXTRA}
-                            onChange={(e) => setPersonal((p) => ({ ...p, etiqueta: e.target.value }))}
-                            placeholder="Ej. Tu frase, tu carrera, tu signo"
-                            className="input mt-1"
-                          />
-                        </label>
                       )}
                       {hasPersonal && (
                         <div className="mt-3 rounded-brand bg-paper-soft p-3">
@@ -1862,10 +1860,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                     {hasPersonal && (
                       <span className="block text-[11px] text-paper/60">
                         Con lo que escribiste en ella:{" "}
-                        {personal.campos
-                          .map((f) => f.campo)
-                          .filter((c, i, all) => all.indexOf(c) === i)
-                          .map((c) => personal.ejemplos[c] || "—")
+                        {fieldsEnOrden(personal)
+                          .map((f) => `${zoneTitle(f.zona)}: ${f.ejemplo || "—"}`)
                           .join(" · ")}
                       </span>
                     )}

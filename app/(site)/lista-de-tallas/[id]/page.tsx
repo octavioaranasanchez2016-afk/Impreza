@@ -7,7 +7,7 @@ import { GroupDesignCard } from "@/components/GroupDesignCard";
 import { siteUrl } from "@/lib/site";
 import { SizeListSignup } from "@/components/SizeListSignup";
 import { SizeListOrganizer } from "@/components/SizeListOrganizer";
-import { campoLugares, camposEnOrden, camposPedidos, describePersonal } from "@/lib/group-names";
+import { describePersonal, describeValores, valoresDePersona } from "@/lib/group-names";
 
 export const dynamic = "force-dynamic";
 
@@ -126,10 +126,8 @@ export default async function ListaPage({
               closed={list.cerrada}
               orderHref={list.order_id ? "" : `/pedido?${order.toString()}`}
               baseUrl={siteUrl()}
-              campos={camposPedidos(personal)}
-              etiqueta={personal?.etiqueta}
+              personal={personal}
               ejemploId={ejemploId}
-              labels={personal ? Object.fromEntries(camposEnOrden(personal).map((c) => [c, campoLugares(personal, c)])) : {}}
             />
           </div>
         ) : (
@@ -147,13 +145,8 @@ export default async function ListaPage({
                     <span className="min-w-0 truncate text-ink">
                       {e.nombre}
                       {e.id === ejemploId ? <span className="text-ink-soft"> · organiza</span> : null}
-                      {e.texto || e.numero || e.estilo?.extra ? (
-                        <span className="text-ink-soft">
-                          {" "}
-                          · {[e.texto && `«${e.texto}»`, e.numero && `#${e.numero}`, e.estilo?.extra && `«${e.estilo.extra}»`]
-                            .filter(Boolean)
-                            .join(" ")}
-                        </span>
+                      {describeValores(personal, valoresDePersona(personal, e)) ? (
+                        <span className="text-ink-soft"> · {describeValores(personal, valoresDePersona(personal, e))}</span>
                       ) : null}
                     </span>
                     <span className="shrink-0 font-semibold text-ink">

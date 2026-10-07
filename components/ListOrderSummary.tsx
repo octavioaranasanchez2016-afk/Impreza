@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { ProductCategory } from "@/lib/types";
 import { GroupDesignPreview } from "@/lib/group-design";
-import { Ejemplos, GroupPersonal, describePersonal } from "@/lib/group-names";
+import { GroupPersonal, Valores, describePersonal } from "@/lib/group-names";
 import { GroupShirtPreview } from "./GroupShirtPreview";
 
 // Pedido armado desde una lista con su camisa de ejemplo: el organizador ya hizo el
@@ -33,7 +33,7 @@ export function ListOrderSummary({
   sizes: [string, number][]; // piezas en el pedido por talla
   designs: GroupDesignPreview;
   personal: GroupPersonal | null;
-  examples: { nombre: string; valores: Ejemplos }[];
+  examples: { nombre: string; valores: Valores }[];
   changeHref: string | null; // al diseño de la lista (solo con la clave del organizador)
   backHref: string;
   missingPieces: number; // piezas escritas en las tallas que todavía no están en el pedido
