@@ -3,7 +3,9 @@ import { MARK_SHIRT } from "@/components/Logo";
 import { loadGoogleFont } from "@/lib/google-font";
 
 // El logo completo en cuadrado (la camiseta y "impreza"), para Google y otros que piden
-// la imagen del negocio (ver businessJsonLd en lib/site.ts).
+// la imagen del negocio (ver businessJsonLd en lib/site.ts). Se arma una vez al publicar.
+export const dynamic = "force-static";
+
 export async function GET() {
   const interBlack = await loadGoogleFont("Inter:wght@900");
   return new ImageResponse(
