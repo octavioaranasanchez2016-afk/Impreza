@@ -1,7 +1,7 @@
 "use client";
 
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
-import { MockupContent } from "@/lib/design";
+import { ExtraText, MockupContent } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
 import { GroupPersonal, PersonExtra, Valores, fieldContent, fieldTransform, zoneTitle } from "@/lib/group-names";
 import { getZonesForCategory } from "./GarmentShape";
@@ -13,17 +13,29 @@ export function DesignLayer({
   zone,
   content,
   transform,
+  extras,
   faded = false,
 }: {
   category: ProductCategory;
   zone: DesignZone;
   content: MockupContent;
   transform: DesignTransform;
+  extras?: ExtraText[]; // los otros textos de esa parte
   faded?: boolean;
 }) {
   return (
     <div className={`absolute inset-0 ${faded ? "opacity-40" : ""}`}>
-      <DesignMockup category={category} zone={zone} color="#FFFFFF" content={content} transform={transform} interactive={false} compact bare />
+      <DesignMockup
+        category={category}
+        zone={zone}
+        color="#FFFFFF"
+        content={content}
+        transform={transform}
+        extras={extras}
+        interactive={false}
+        compact
+        bare
+      />
     </div>
   );
 }
@@ -102,6 +114,7 @@ export function GroupShirtPreview({
             color={colorHex}
             content={designs[zone]?.content ?? null}
             transform={designs[zone]?.transform ?? defaultTransform(category, zone)}
+            extras={designs[zone]?.extras}
             interactive={false}
             compact
             overlay={

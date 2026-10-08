@@ -6,9 +6,9 @@
 
 import { PRODUCTS } from "./catalog";
 import { BillingInfo } from "./billing";
-import { DesignContent, MockupTextContent } from "./design";
+import { DesignContent, ExtraText, MockupTextContent } from "./design";
 import { ShippingInfo } from "./shipping";
-import { LineDesigns, imageKey } from "./cart-designs";
+import { LineDesigns, ZoneExtras, imageKey } from "./cart-designs";
 import { DesignTransform, DesignZone, OrderItemInput, Technique } from "./types";
 
 export interface DraftImage {
@@ -23,7 +23,7 @@ export type DraftDesign = MockupTextContent | DraftImage;
 
 export interface DraftLine extends OrderItemInput {
   key: string;
-  designs: Partial<Record<DesignZone, { design: DraftDesign; transform: DesignTransform }>>;
+  designs: Partial<Record<DesignZone, { design: DraftDesign; transform: DesignTransform; extras?: ExtraText[] }>>;
 }
 
 export interface OrderDraft {
@@ -37,6 +37,7 @@ export interface OrderDraft {
   activeZone: DesignZone;
   designs: Partial<Record<DesignZone, DraftDesign>>;
   transforms: Partial<Record<DesignZone, DesignTransform>>;
+  extras?: ZoneExtras; // los otros textos de cada parte (son texto: se guardan tal cual)
   clienteNombre: string;
   clienteTelefono: string;
   clienteEmail: string;
@@ -63,7 +64,7 @@ export function fromDraftDesign(d: DraftDesign, files: Record<string, File>): De
 export function toDraftLineDesigns(designs: LineDesigns): DraftLine["designs"] {
   const out: DraftLine["designs"] = {};
   for (const [zone, d] of Object.entries(designs) as [DesignZone, LineDesigns[DesignZone]][]) {
-    if (d) out[zone] = { design: toDraftDesign(d.content), transform: d.transform };
+    if (d) out[zone] = { design: toDraftDesign(d.content), transform: d.transform, ...(d.extras ? { extras: d.extras } : {}) };
   }
   return out;
 }

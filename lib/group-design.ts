@@ -1,4 +1,4 @@
-import { FONT_OPTIONS, FontFamilyKey, MockupContent } from "./design";
+import { ExtraText, FONT_OPTIONS, FontFamilyKey, MAX_PIECES_PER_ZONE, MockupContent } from "./design";
 import { getFabric, getProductById } from "./catalog";
 import { DesignTransform, DesignZone, Technique } from "./types";
 
@@ -40,8 +40,11 @@ export interface GroupDesign {
   zonas: GroupDesignZone[];
 }
 
-// Lo que el diseñador (y la vista previa de la lista) necesita para dibujar cada zona.
-export type GroupDesignPreview = Partial<Record<DesignZone, { content: MockupContent; transform: DesignTransform }>>;
+// Lo que el diseñador (y la vista previa de la lista) necesita para dibujar cada zona:
+// el diseño principal y los otros textos de esa parte.
+export type GroupDesignPreview = Partial<
+  Record<DesignZone, { content: MockupContent; transform: DesignTransform; extras?: ExtraText[] }>
+>;
 
 const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"];
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -69,7 +72,9 @@ export function parseGroupDesign(value: unknown, productId: string, listId: stri
     if (!raw || typeof raw !== "object") continue;
     const z = raw as Record<string, unknown>;
     const zona = ZONES.find((zone) => zone === z.zona);
-    if (!zona || zonas.some((other) => other.zona === zona)) continue;
+    // Una parte lleva su diseño principal (el primero) y, después, otros textos.
+    const before = zonas.filter((other) => other.zona === zona).length;
+    if (!zona || before >= MAX_PIECES_PER_ZONE || (before > 0 && z.tipo !== "texto")) continue;
     const placement: Placement = {
       posX: clamp(z.posX, 0, 100),
       posY: clamp(z.posY, 0, 100),
@@ -111,9 +116,12 @@ export function groupDesignPreview(design: GroupDesign | null): GroupDesignPrevi
   const out: GroupDesignPreview = {};
   for (const z of design?.zonas ?? []) {
     const transform = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+    const main = out[z.zona];
     if (z.tipo === "texto") {
-      out[z.zona] = { content: { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null }, transform };
-    } else if (z.url) {
+      const content = { kind: "texto" as const, texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
+      if (main) main.extras = [...(main.extras ?? []), { content, transform }];
+      else out[z.zona] = { content, transform };
+    } else if (z.url && !main) {
       out[z.zona] = {
         content: { kind: "imagen", previewUrl: z.url, width: z.anchoPx, height: z.altoPx, fill: z.ajuste === "llenar" },
         transform,

@@ -311,6 +311,10 @@ function validate(body: CreateOrderBody): string | null {
   if (body.disenos != null && !Array.isArray(body.disenos)) {
     return "Diseños inválidos.";
   }
+  // Cada parte puede llevar varias cosas (el diseño y otros textos), pero no sin fin.
+  if ((body.disenos?.length ?? 0) > MAX_DESIGN_GROUPS * 12) {
+    return "El pedido trae demasiados diseños.";
+  }
   const groups = new Set<number>();
   for (const d of body.disenos ?? []) {
     if (!VALID_ZONES.includes(d.zona)) {

@@ -40,9 +40,21 @@ export function OrderDesigns({ disenos, items }: { disenos: SignedDiseno[]; item
             {product && (
               <>
                 <div className="grid gap-8 sm:grid-cols-2">
-                  {g.disenos.map((d) => (
-                    <DesignPreview key={d.zona} d={d} category={product.category} colorHex={colorHex} size={base?.size} />
-                  ))}
+                  {g.disenos.map((d, i) => {
+                    // Varias cosas en la misma parte: cada una con sus medidas, y las demás en tenue.
+                    const sameZone = g.disenos.filter((other) => other.zona === d.zona);
+                    return (
+                      <DesignPreview
+                        key={i}
+                        d={d}
+                        others={sameZone.filter((other) => other !== d)}
+                        position={sameZone.length > 1 ? `${sameZone.indexOf(d) + 1} de ${sameZone.length}` : null}
+                        category={product.category}
+                        colorHex={colorHex}
+                        size={base?.size}
+                      />
+                    );
+                  })}
                 </div>
                 <p className="mt-4 text-xs text-ink-muted">
                   Vista previa sobre {product.name}, {base?.color}, talla {base?.size}. Las medidas en cm son las mismas
@@ -79,34 +91,48 @@ function PiecesList({ items }: { items: OrderItemInput[] }) {
   );
 }
 
+const transformOf = (d: SignedDiseno) => ({ x: d.posX, y: d.posY, scale: d.escala || 1, rotation: d.rotacion ?? 0 });
+
+function contentOf(d: SignedDiseno): MockupContent | null {
+  return d.tipo === "imagen"
+    ? d.signedUrl
+      ? { kind: "imagen", previewUrl: d.signedUrl, width: d.anchoPx ?? 0, height: d.altoPx ?? 0, fill: d.ajuste === "llenar" }
+      : null
+    : {
+        kind: "texto",
+        texto: d.texto ?? "",
+        color: d.color ?? "#111111",
+        fontFamily: d.fuente ?? "sans",
+        outline: d.contorno ?? null,
+      };
+}
+
 function DesignPreview({
   d,
+  others,
+  position,
   category,
   colorHex,
   size,
 }: {
   d: SignedDiseno;
+  others: SignedDiseno[]; // lo demás que va en la misma parte
+  position: string | null; // "1 de 2" cuando la parte lleva varias cosas
   category: ProductCategory;
   colorHex: string;
   size?: string;
 }) {
-  const content: MockupContent | null =
-    d.tipo === "imagen"
-      ? d.signedUrl
-        ? { kind: "imagen", previewUrl: d.signedUrl, width: d.anchoPx ?? 0, height: d.altoPx ?? 0, fill: d.ajuste === "llenar" }
-        : null
-      : {
-          kind: "texto",
-          texto: d.texto ?? "",
-          color: d.color ?? "#111111",
-          fontFamily: d.fuente ?? "sans",
-          outline: d.contorno ?? null,
-        };
+  const content = contentOf(d);
+  const extras = others.flatMap((o) => {
+    const c = contentOf(o);
+    return c ? [{ content: c, transform: transformOf(o), faded: true }] : [];
+  });
 
   return (
     <div className="print:break-inside-avoid">
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">
         {ZONE_LABEL[d.zona]}
+        {position && ` · ${position}`}
         {d.tipo === "imagen" && d.ajuste === "llenar" && " · llenar área"}
       </p>
       {content ? (
@@ -116,7 +142,8 @@ function DesignPreview({
           color={colorHex}
           size={size}
           content={content}
-          transform={{ x: d.posX, y: d.posY, scale: d.escala || 1, rotation: d.rotacion ?? 0 }}
+          transform={transformOf(d)}
+          extras={extras}
           interactive={false}
           showPlacement
         />

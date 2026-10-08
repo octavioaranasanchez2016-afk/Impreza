@@ -6,12 +6,15 @@ import {
   ACCEPTED_DESIGN_TYPES,
   CropRect,
   DesignContent,
+  ExtraText,
+  MockupContent,
   centeredCrop,
   cropAspect,
   cropImageFile,
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
   MAX_DESIGN_SIZE_MB,
+  MAX_PIECES_PER_ZONE,
   MockupTextContent,
   TEXT_COLOR_OPTIONS,
   fontFamilyCss,
@@ -95,7 +98,7 @@ function sameTransform(a: DesignTransform, b: DesignTransform) {
 }
 
 // Lo que ya lleva cada zona, para dibujar las miniaturas de Frente / Espalda / Manga.
-export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform }>>;
+export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform; extras?: ExtraText[] }>>;
 
 export function DesignCanvas({
   category,
@@ -115,6 +118,10 @@ export function DesignCanvas({
   panelTop,
   contentTitle,
   textPlaceholder = "Escribe tu texto",
+  others,
+  pieces,
+  onAddText,
+  pieceKey,
   children,
 }: {
   technique?: Technique;
@@ -140,6 +147,15 @@ export function DesignCanvas({
   // En vez de "Texto" sobre las opciones de un texto.
   contentTitle?: string;
   textPlaceholder?: string;
+  // Lo demás que va en esta parte (otros textos): se ve en la vista grande y tocarlo lo elige.
+  others?: { content: MockupContent; transform: DesignTransform; onPick: () => void }[];
+  // Todo lo que lleva esta parte, para elegir cuál se edita.
+  pieces?: { label: string; active: boolean; onSelect: () => void }[];
+  // Agrega otro texto en esta parte (sin él no se ofrece).
+  onAddText?: () => void;
+  // Cuál de las cosas de la zona se edita: al cambiar, la vista grande empieza de cero
+  // (si no, mediría el texto nuevo con el tamaño del anterior y lo correría).
+  pieceKey?: string;
   children?: React.ReactNode; // debajo de las opciones de la zona
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -270,6 +286,7 @@ export function DesignCanvas({
   return (
     <div>
       <DesignMockup
+        key={`${zone}:${pieceKey ?? ""}`}
         category={category}
         zone={zone}
         color={color}
@@ -278,6 +295,7 @@ export function DesignCanvas({
         transform={transform}
         onTransformChange={onTransformChange}
         onSizeCm={setSizeCm}
+        extras={others}
         {...layers?.(zone, true)}
       />
 
@@ -307,6 +325,7 @@ export function DesignCanvas({
                     size={size}
                     content={preview?.content ?? null}
                     transform={preview?.transform ?? defaultTransform(category, z)}
+                    extras={preview?.extras}
                     interactive={false}
                     compact
                     {...layers?.(z, false)}
@@ -348,6 +367,41 @@ export function DesignCanvas({
 
       <div className="mt-4 rounded-brand border border-black/10 bg-white p-4">
         {panelTop}
+        {content && pieces && onAddText && (
+          <div className="mb-4 border-b border-black/10 pb-3">
+            <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">
+              {pieces.length > 1 ? `Lo que va en ${ZONE_NAME[zone]} · toca uno para editarlo` : `Lo que va en ${ZONE_NAME[zone]}`}
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {pieces.map((p, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-pressed={p.active}
+                  onClick={p.onSelect}
+                  className={`max-w-[11rem] truncate rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    p.active ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+              {pieces.length < MAX_PIECES_PER_ZONE && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null);
+                    focusText.current = true;
+                    onAddText();
+                  }}
+                  className="flex items-center gap-1 rounded-full border border-dashed border-ink/40 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink hover:bg-paper-soft"
+                >
+                  + Agregar otro texto
+                </button>
+              )}
+            </div>
+          </div>
+        )}
         {!content && emptyPanel ? (
           emptyPanel
         ) : !content ? (

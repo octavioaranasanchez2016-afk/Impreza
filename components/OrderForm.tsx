@@ -13,16 +13,17 @@ import { buildInvoiceLines, calculateOrderTotal, getUnitPrice, mainTechnique } f
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-import { DesignContent } from "@/lib/design";
+import { DesignContent, ExtraText, MAX_PIECES_PER_ZONE } from "@/lib/design";
 import { GroupDesign, groupImagePath } from "@/lib/group-design";
 import {
   LineDesign,
   LineDesigns,
+  ZoneExtras,
   designKey,
   hasAnyDesign,
-  hasDesign,
   imageKey,
   snapshotDesigns,
+  zoneDesign,
 } from "@/lib/cart-designs";
 import { ACCEPTED_RECEIPT_TYPES, validateReceiptFile } from "@/lib/bank";
 import { PRODUCTION_BUSINESS_DAYS, estimateReadyDate, formatReadyDate } from "@/lib/delivery";
@@ -76,7 +77,7 @@ import {
   zoneTitle,
 } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
-import { ZONE_NAME, getZonesForCategory, isDarkColor } from "./GarmentShape";
+import { ZONE_NAME, getPrintArea, getZonesForCategory, isDarkColor } from "./GarmentShape";
 
 interface CartLine extends OrderItemInput {
   key: string;
@@ -318,20 +319,30 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const [activeZone, setActiveZone] = useState<DesignZone>("frente");
   const [zoneContent, setZoneContent] = useState<ZoneContentMap>({});
   const [zoneTransform, setZoneTransform] = useState<ZoneTransformMap>({});
+  // Otros textos en cada parte, además del diseño principal (uno debajo de otro, por
+  // ejemplo), y cuál se está editando: 0 el principal, 1 en adelante los otros textos.
+  const [zoneExtras, setZoneExtras] = useState<ZoneExtras>({});
+  const [activePiece, setActivePiece] = useState<{ zone: DesignZone; index: number }>({ zone: "frente", index: 0 });
 
   const currentZone: DesignZone = zones.includes(activeZone) ? activeZone : "frente";
-  const currentContent = zoneContent[currentZone] ?? null;
-  const currentTransform =
-    zoneTransform[currentZone] ??
-    (selectedProduct ? defaultTransform(selectedProduct.category, currentZone) : { x: 50, y: 50, scale: 1, rotation: 0 });
-  const zonesWithContent = zones.filter((z) => hasDesign(zoneContent[z]));
+  const transformFor = (z: DesignZone) =>
+    zoneTransform[z] ?? (selectedProduct ? defaultTransform(selectedProduct.category, z) : { x: 50, y: 50, scale: 1, rotation: 0 });
+  const currentExtras = zoneExtras[currentZone] ?? [];
+  const pieceIndex = activePiece.zone === currentZone && activePiece.index <= currentExtras.length ? activePiece.index : 0;
+  const editingExtra = pieceIndex > 0 ? currentExtras[pieceIndex - 1] : null;
+  const currentContent = editingExtra ? editingExtra.content : zoneContent[currentZone] ?? null;
+  const currentTransform = editingExtra ? editingExtra.transform : transformFor(currentZone);
   const zonePreviews: ZonePreviews = {};
-  for (const z of zonesWithContent) {
-    zonePreviews[z] = {
-      content: zoneContent[z]!,
-      transform: zoneTransform[z] ?? (selectedProduct ? defaultTransform(selectedProduct.category, z) : currentTransform),
-    };
+  for (const z of zones) {
+    const design = zoneDesign(zoneContent[z], transformFor(z), zoneExtras[z]);
+    if (design) zonePreviews[z] = design;
   }
+  const zonesWithContent = zones.filter((z) => zonePreviews[z]);
+  // Todo lo que lleva la parte que se ve (el principal y sus otros textos).
+  const mainContent = zoneContent[currentZone];
+  const currentPieces: { content: DesignContent; transform: DesignTransform }[] = mainContent
+    ? [{ content: mainContent, transform: transformFor(currentZone) }, ...currentExtras]
+    : [];
 
   // Lo de cada quien en el lado que se está viendo, y cuál de esos textos se edita.
   const hasPersonal = personal.campos.length > 0;
@@ -345,6 +356,32 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         : zoneFields[0]?.index ?? null;
   const editing = activeField !== null ? personal.campos[activeField] : null;
   const contrastInk = isDarkColor(selectedVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111";
+
+  // Otro texto en esta parte, debajo de lo último que hay, con la letra y el color del
+  // último texto (para que combinen). El diseñador lo acomoda dentro del área.
+  function addExtraText() {
+    if (!selectedProduct || !mainContent || currentPieces.length >= MAX_PIECES_PER_ZONE) return;
+    const area = getPrintArea(selectedProduct.category, currentZone);
+    const last = currentPieces[currentPieces.length - 1];
+    const style = [...currentPieces].reverse().find((piece) => piece.content.kind === "texto")?.content;
+    const extra: ExtraText = {
+      content: {
+        kind: "texto",
+        texto: "",
+        color: style?.kind === "texto" ? style.color : contrastInk,
+        fontFamily: style?.kind === "texto" ? style.fontFamily : "sans",
+        outline: style?.kind === "texto" ? style.outline ?? null : null,
+      },
+      transform: {
+        x: area.x + area.w / 2,
+        y: Math.min(area.y + area.h * 0.92, last.transform.y + area.h * 0.22),
+        scale: 0.5,
+        rotation: 0,
+      },
+    };
+    setZoneExtras((prev) => ({ ...prev, [currentZone]: [...(prev[currentZone] ?? []), extra] }));
+    setActivePiece({ zone: currentZone, index: currentPieces.length });
+  }
 
   // Lo que va debajo o encima de lo que se edita: en el paso 2 se mueve un texto de
   // cada quien sobre el diseño de todos; en el paso 1, los textos de cada quien se ven
@@ -366,7 +403,9 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     const common = zonePreviews[zone];
     if (main && personalStep && common) {
       return {
-        underlay: <DesignLayer category={category} zone={zone} content={common.content} transform={common.transform} />,
+        underlay: (
+          <DesignLayer category={category} zone={zone} content={common.content} transform={common.transform} extras={common.extras} />
+        ),
         overlay: fields,
       };
     }
@@ -434,13 +473,14 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
 
   // El diseño de cada línea: el suyo, o si no tiene, el que está en el diseñador
   // (siempre que ese no lo lleve ya otra línea). Así el carrito muestra lo que se imprimirá.
-  const currentKeyFor = (category: ProductCategory) => designKey(snapshotDesigns(zoneContent, zoneTransform, category));
+  const currentKeyFor = (category: ProductCategory) =>
+    designKey(snapshotDesigns(zoneContent, zoneTransform, category, zoneExtras));
   const explicitKeys = new Set(items.filter((i) => hasAnyDesign(i.designs)).map((i) => designKey(i.designs)));
   function effectiveDesigns(line: CartLine): LineDesigns {
     if (hasAnyDesign(line.designs)) return line.designs;
     const category = getProductById(line.productId)?.category;
     if (!category) return {};
-    const floating = snapshotDesigns(zoneContent, zoneTransform, category);
+    const floating = snapshotDesigns(zoneContent, zoneTransform, category, zoneExtras);
     return explicitKeys.has(designKey(floating)) ? {} : floating;
   }
   const lineDesigns = items.map(effectiveDesigns);
@@ -504,7 +544,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         const designs: LineDesigns = {};
         for (const [zone, d] of Object.entries(line.designs ?? {}) as [DesignZone, DraftLineDesign][]) {
           const c = fromDraftDesign(d.design, files);
-          if (c) designs[zone] = { content: c, transform: d.transform };
+          if (c) designs[zone] = { content: c, transform: d.transform, ...(d.extras?.length ? { extras: d.extras } : {}) };
           else imagesLost = true;
         }
         const { key, productId: id, color: lineColor, size: lineSize, quantity, fabric: lineFabric } = line;
@@ -547,6 +587,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       setActiveZone(draft.activeZone);
       setZoneContent(content);
       setZoneTransform(draft.transforms);
+      setZoneExtras(draft.extras ?? {});
       setClienteNombre(draft.clienteNombre);
       setClienteTelefono(draft.clienteTelefono);
       setClienteEmail(draft.clienteEmail);
@@ -589,6 +630,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       activeZone,
       designs,
       transforms: zoneTransform,
+      extras: zoneExtras,
       clienteNombre,
       clienteTelefono,
       clienteEmail,
@@ -608,6 +650,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     activeZone,
     zoneContent,
     zoneTransform,
+    zoneExtras,
     clienteNombre,
     clienteTelefono,
     clienteEmail,
@@ -688,8 +731,18 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
 
         const content: ZoneContentMap = {};
         const transforms: ZoneTransformMap = {};
+        const extras: ZoneExtras = {};
         for (const z of data.diseno?.zonas ?? []) {
-          transforms[z.zona] = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+          const placed = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+          // Después del principal, los otros textos de esa parte.
+          if (content[z.zona]) {
+            if (z.tipo === "texto") {
+              const text = { kind: "texto" as const, texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
+              extras[z.zona] = [...(extras[z.zona] ?? []), { content: text, transform: placed }];
+            }
+            continue;
+          }
+          transforms[z.zona] = placed;
           if (z.tipo === "texto") {
             content[z.zona] = { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
           } else if (z.url) {
@@ -711,6 +764,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         if (data.diseno) {
           setZoneContent(content);
           setZoneTransform(transforms);
+          setZoneExtras(extras);
           setActiveZone((Object.keys(content) as DesignZone[])[0] ?? "frente");
           setTechnique(data.diseno.tecnica);
           setFabric(data.diseno.tela ?? defaultFabricFor(getProductById(preselected), data.diseno.tecnica));
@@ -752,8 +806,20 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       const supabase = createClient();
       const zonas = [];
       for (const zone of zonesWithContent) {
-        const { content, transform } = zonePreviews[zone]!;
+        const { content, transform, extras = [] } = zonePreviews[zone]!;
         const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
+        const extraTexts = extras.map((e) => ({
+          zona: zone,
+          tipo: "texto",
+          texto: e.content.texto.trim(),
+          color: e.content.color,
+          fuente: e.content.fontFamily,
+          ...(e.content.outline ? { contorno: e.content.outline } : {}),
+          posX: e.transform.x,
+          posY: e.transform.y,
+          escala: e.transform.scale,
+          rotacion: e.transform.rotation,
+        }));
         if (content.kind === "imagen") {
           let path = listImagePaths.current.get(imageKey(content.file));
           if (!path) {
@@ -784,6 +850,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             ...placement,
           });
         }
+        zonas.push(...extraTexts);
       }
       const res = await fetch(`/api/listas/${listDesign.listId}/diseno`, {
         method: "PUT",
@@ -821,6 +888,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setActiveZone("frente");
     setZoneContent({});
     setZoneTransform({});
+    setZoneExtras({});
     setClienteNombre("");
     setClienteTelefono("");
     setClienteEmail("");
@@ -844,6 +912,27 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   }, [comprobante]);
 
   function handleContentChange(next: DesignContent | null, resetTransform: boolean) {
+    // Uno de los otros textos: se cambia o se quita.
+    if (pieceIndex > 0) {
+      if (next && next.kind !== "texto") return;
+      const i = pieceIndex - 1;
+      setZoneExtras((prev) => {
+        const list = [...(prev[currentZone] ?? [])];
+        if (next) list[i] = { ...list[i], content: next };
+        else list.splice(i, 1);
+        return { ...prev, [currentZone]: list };
+      });
+      if (!next) setActivePiece({ zone: currentZone, index: pieceIndex - 1 });
+      return;
+    }
+    // Se quita el principal y hay otros textos: el primero pasa a ser el principal.
+    if (!next && currentExtras.length > 0) {
+      const [first, ...rest] = currentExtras;
+      setZoneContent((prev) => ({ ...prev, [currentZone]: first.content }));
+      setZoneTransform((prev) => ({ ...prev, [currentZone]: first.transform }));
+      setZoneExtras((prev) => ({ ...prev, [currentZone]: rest }));
+      return;
+    }
     setZoneContent((prev) => {
       const copy = { ...prev };
       if (next) copy[currentZone] = next;
@@ -856,6 +945,16 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   }
 
   function handleTransformChange(t: DesignTransform) {
+    if (pieceIndex > 0) {
+      const i = pieceIndex - 1;
+      setZoneExtras((prev) => {
+        const list = [...(prev[currentZone] ?? [])];
+        if (!list[i]) return prev;
+        list[i] = { ...list[i], transform: t };
+        return { ...prev, [currentZone]: list };
+      });
+      return;
+    }
     setZoneTransform((prev) => ({ ...prev, [currentZone]: t }));
   }
 
@@ -927,7 +1026,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // juntan líneas de la misma prenda, color, talla y diseño.
   function addItem() {
     if (!selectedProduct || !color || pendingTotal === 0) return;
-    const designs = snapshotDesigns(zoneContent, zoneTransform, selectedProduct.category);
+    const designs = snapshotDesigns(zoneContent, zoneTransform, selectedProduct.category, zoneExtras);
     const key = designKey(designs);
     // Las líneas sin diseño propio que ya mostraban este mismo diseño se quedan con él.
     let next = items.map((i) =>
@@ -991,7 +1090,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       prev.map((i) => {
         if (i.key !== lineKey) return i;
         const category = getProductById(i.productId)?.category;
-        return category ? { ...i, designs: snapshotDesigns(zoneContent, zoneTransform, category) } : i;
+        return category ? { ...i, designs: snapshotDesigns(zoneContent, zoneTransform, category, zoneExtras) } : i;
       })
     );
   }
@@ -1003,9 +1102,11 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     if (!product) return;
     const content: ZoneContentMap = {};
     const transforms: ZoneTransformMap = {};
+    const extras: ZoneExtras = {};
     for (const [zone, d] of Object.entries(line.designs) as [DesignZone, LineDesign][]) {
       content[zone] = d.content;
       transforms[zone] = d.transform;
+      if (d.extras?.length) extras[zone] = d.extras;
     }
     setProductId(product.id);
     if (line.technique) setTechnique(line.technique);
@@ -1015,6 +1116,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setSizeQty(initialSizeQty(product.variants.find((v) => v.color === line.color)?.sizes ?? []));
     setZoneContent(content);
     setZoneTransform(transforms);
+    setZoneExtras(extras);
     setActiveZone((Object.keys(content)[0] as DesignZone | undefined) ?? "frente");
     document.getElementById("diseno")?.scrollIntoView({ behavior: "smooth" });
   }
@@ -1105,9 +1207,22 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       const uploaded = new Map<string, string>();
       const disenos = [];
       for (const [index, designs] of groups.entries()) {
-        for (const [zone, { content, transform }] of Object.entries(designs) as [DesignZone, LineDesign][]) {
+        for (const [zone, { content, transform, extras = [] }] of Object.entries(designs) as [DesignZone, LineDesign][]) {
           const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
           const grupo = index + 1;
+          const extraTexts = extras.map((e) => ({
+            zona: zone,
+            tipo: "texto" as const,
+            texto: e.content.texto.trim(),
+            color: e.content.color,
+            fuente: e.content.fontFamily,
+            ...(e.content.outline ? { contorno: e.content.outline } : {}),
+            grupo,
+            posX: e.transform.x,
+            posY: e.transform.y,
+            escala: e.transform.scale,
+            rotacion: e.transform.rotation,
+          }));
           if (content.kind === "imagen") {
             let path = uploaded.get(imageKey(content.file));
             if (!path) {
@@ -1140,6 +1255,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
               ...placement,
             });
           }
+          disenos.push(...extraTexts);
         }
       }
 
@@ -1672,6 +1788,26 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   onTransformChange={personalStep ? handleFieldTransform : handleTransformChange}
                   technique={technique}
                   layers={hasPersonal || personalStep ? groupLayers : undefined}
+                  pieceKey={personalStep ? `p${activeField}` : String(pieceIndex)}
+                  others={
+                    personalStep
+                      ? undefined
+                      : currentPieces.flatMap((piece, i) =>
+                          i === pieceIndex
+                            ? []
+                            : [{ ...piece, onPick: () => setActivePiece({ zone: currentZone, index: i }) }]
+                        )
+                  }
+                  pieces={
+                    personalStep
+                      ? undefined
+                      : currentPieces.map((piece, i) => ({
+                          label: piece.content.kind === "imagen" ? "Imagen" : piece.content.texto.trim() || "Texto nuevo",
+                          active: i === pieceIndex,
+                          onSelect: () => setActivePiece({ zone: currentZone, index: i }),
+                        }))
+                  }
+                  onAddText={personalStep ? undefined : addExtraText}
                   contentTitle={editing ? `${campoLabel(editing.campo)} de cada quien` : undefined}
                   textPlaceholder={personalStep ? "Lo que dice tu camisa de ejemplo" : undefined}
                   panelTop={

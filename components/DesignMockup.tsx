@@ -90,6 +90,8 @@ export function DesignMockup({
   overlay,
   underlay,
   bare = false,
+  extras,
+  onPick,
 }: {
   category: ProductCategory;
   zone: DesignZone;
@@ -111,6 +113,11 @@ export function DesignMockup({
   underlay?: React.ReactNode;
   // Solo el diseño, sin la prenda ni el fondo: para ponerlo como capa sobre otra vista.
   bare?: boolean;
+  // Lo demás que va en la misma parte (otros textos), debajo del diseño. onPick: tocarlo
+  // lo elige para editarlo.
+  extras?: { content: MockupContent; transform: DesignTransform; onPick?: () => void; faded?: boolean }[];
+  // Sin mover el diseño: tocarlo avisa (para elegirlo entre varios).
+  onPick?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overlayRef = useRef<HTMLDivElement>(null);
@@ -245,7 +252,14 @@ export function DesignMockup({
   }, [mode, handlePointerMove, stopInteraction]);
 
   function begin(e: React.PointerEvent, next: Mode) {
-    if (!interactive) return;
+    if (!interactive) {
+      if (onPick) {
+        e.preventDefault();
+        e.stopPropagation();
+        onPick();
+      }
+      return;
+    }
     e.preventDefault();
     e.stopPropagation();
     const base = { ...dragStart.current, pointerX: e.clientX, pointerY: e.clientY, x: transform.x, y: transform.y, scale: transform.scale, rotation: transform.rotation };
@@ -303,6 +317,22 @@ export function DesignMockup({
 
           {underlay && <div className="pointer-events-none absolute inset-0">{underlay}</div>}
 
+          {extras?.map((extra, i) => (
+            <div key={i} className={`pointer-events-none absolute inset-0 ${extra.faded ? "opacity-40" : ""}`}>
+              <DesignMockup
+                category={category}
+                zone={zone}
+                color={color}
+                content={extra.content}
+                transform={extra.transform}
+                interactive={false}
+                compact
+                bare
+                onPick={extra.onPick}
+              />
+            </div>
+          ))}
+
           {content && (
             <div
               ref={overlayRef}
@@ -322,14 +352,14 @@ export function DesignMockup({
                   draggable={false}
                   onLoad={measure}
                   onPointerDown={(e) => begin(e, "dragging")}
-                  className={`block w-full ${imageFill ? "h-full object-cover" : ""} ${interactive ? "cursor-move" : ""}`}
+                  className={`block w-full ${imageFill ? "h-full object-cover" : ""} ${interactive ? "cursor-move" : onPick ? "pointer-events-auto cursor-pointer" : ""}`}
                   style={{ touchAction: "none" }}
                 />
               ) : (
                 <p
                   ref={textRef}
                   onPointerDown={(e) => begin(e, "dragging")}
-                  className={`whitespace-nowrap leading-none ${interactive ? "cursor-move" : ""} ${
+                  className={`whitespace-nowrap leading-none ${interactive ? "cursor-move" : onPick ? "pointer-events-auto cursor-pointer" : ""} ${
                     content.texto ? "" : "opacity-40"
                   }`}
                   style={{

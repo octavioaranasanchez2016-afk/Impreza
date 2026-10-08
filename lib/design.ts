@@ -1,3 +1,5 @@
+import { DesignTransform } from "./types";
+
 export const ACCEPTED_DESIGN_TYPES = ["image/jpeg"];
 export const MAX_DESIGN_SIZE_MB = 25;
 const MIN_SHORT_SIDE_PX = 1000;
@@ -101,6 +103,16 @@ export interface MockupTextContent {
   fontFamily: FontFamilyKey;
   outline?: string | null; // color del contorno de las letras; sin valor = sin contorno
 }
+
+// Otro texto en la misma parte de la prenda, además del diseño principal (por ejemplo,
+// "SENIOR" arriba y "2026" debajo). Cada uno se mueve, se agranda y se gira aparte.
+export interface ExtraText {
+  content: MockupTextContent;
+  transform: DesignTransform;
+}
+
+// Cuántas cosas puede llevar una misma parte (el diseño principal y los otros textos).
+export const MAX_PIECES_PER_ZONE = 6;
 
 // Grosor del contorno, relativo al tamaño de la letra.
 export const TEXT_OUTLINE_WIDTH = "0.07em";
