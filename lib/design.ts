@@ -104,10 +104,12 @@ export interface MockupTextContent {
   outline?: string | null; // color del contorno de las letras; sin valor = sin contorno
 }
 
-// Otro texto en la misma parte de la prenda, además del diseño principal (por ejemplo,
-// "SENIOR" arriba y "2026" debajo). Cada uno se mueve, se agranda y se gira aparte.
-export interface ExtraText {
-  content: MockupTextContent;
+// Otra cosa en la misma parte de la prenda, además del diseño principal: un texto o una
+// imagen (por ejemplo, "SENIOR" arriba y el logo debajo). Cada una se mueve, se agranda
+// y se gira aparte. En el diseñador lleva el archivo (DesignContent); para dibujarla
+// basta MockupContent.
+export interface ExtraPiece<C extends MockupContent = DesignContent> {
+  content: C;
   transform: DesignTransform;
 }
 

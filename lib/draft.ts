@@ -6,7 +6,7 @@
 
 import { PRODUCTS } from "./catalog";
 import { BillingInfo } from "./billing";
-import { DesignContent, ExtraText, MockupTextContent } from "./design";
+import { DesignContent, ExtraPiece, MockupTextContent } from "./design";
 import { ShippingInfo } from "./shipping";
 import { LineDesigns, ZoneExtras, imageKey } from "./cart-designs";
 import { DesignTransform, DesignZone, OrderItemInput, Technique } from "./types";
@@ -23,7 +23,14 @@ export type DraftDesign = MockupTextContent | DraftImage;
 
 export interface DraftLine extends OrderItemInput {
   key: string;
-  designs: Partial<Record<DesignZone, { design: DraftDesign; transform: DesignTransform; extras?: ExtraText[] }>>;
+  designs: Partial<Record<DesignZone, { design: DraftDesign; transform: DesignTransform; extras?: DraftExtra[] }>>;
+}
+
+// Lo demás de una parte (otros textos o imágenes). Las imágenes van por referencia, como
+// la principal.
+export interface DraftExtra {
+  design: DraftDesign;
+  transform: DesignTransform;
 }
 
 export interface OrderDraft {
@@ -37,7 +44,7 @@ export interface OrderDraft {
   activeZone: DesignZone;
   designs: Partial<Record<DesignZone, DraftDesign>>;
   transforms: Partial<Record<DesignZone, DesignTransform>>;
-  extras?: ZoneExtras; // los otros textos de cada parte (son texto: se guardan tal cual)
+  extras?: Partial<Record<DesignZone, DraftExtra[]>>; // lo demás de cada parte
   clienteNombre: string;
   clienteTelefono: string;
   clienteEmail: string;
@@ -64,9 +71,39 @@ export function fromDraftDesign(d: DraftDesign, files: Record<string, File>): De
 export function toDraftLineDesigns(designs: LineDesigns): DraftLine["designs"] {
   const out: DraftLine["designs"] = {};
   for (const [zone, d] of Object.entries(designs) as [DesignZone, LineDesigns[DesignZone]][]) {
-    if (d) out[zone] = { design: toDraftDesign(d.content), transform: d.transform, ...(d.extras ? { extras: d.extras } : {}) };
+    if (d) out[zone] = { design: toDraftDesign(d.content), transform: d.transform, ...(d.extras ? { extras: toDraftExtras(d.extras) } : {}) };
   }
   return out;
+}
+
+export function toDraftExtras(extras: ExtraPiece[]): DraftExtra[] {
+  return extras.map((e) => ({ design: toDraftDesign(e.content), transform: e.transform }));
+}
+
+export function toDraftZoneExtras(extras: ZoneExtras): Partial<Record<DesignZone, DraftExtra[]>> {
+  const out: Partial<Record<DesignZone, DraftExtra[]>> = {};
+  for (const [zone, list] of Object.entries(extras) as [DesignZone, ExtraPiece[]][]) {
+    if (list?.length) out[zone] = toDraftExtras(list);
+  }
+  return out;
+}
+
+// lost: alguna imagen no se pudo recuperar. Acepta también los borradores de antes, que
+// guardaban los textos tal cual ({ content, transform }).
+export function fromDraftExtras(
+  list: unknown[] | undefined,
+  files: Record<string, File>
+): { pieces: ExtraPiece[]; lost: boolean } {
+  const pieces: ExtraPiece[] = [];
+  let lost = false;
+  for (const raw of list ?? []) {
+    const e = raw as { design?: DraftDesign; content?: MockupTextContent; transform: DesignTransform };
+    const d = e.design ?? e.content;
+    const c = d ? fromDraftDesign(d, files) : null;
+    if (c) pieces.push({ content: c, transform: e.transform });
+    else lost = true;
+  }
+  return { pieces, lost };
 }
 
 export function loadDraft(): OrderDraft | null {

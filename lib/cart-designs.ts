@@ -3,7 +3,7 @@
 // diseños distintos. Una línea agregada sin diseño toma el del diseñador (el flujo
 // "primero agrego, después diseño"), salvo que ese diseño ya lo lleve otra línea.
 
-import { DesignContent, ExtraText, MockupTextContent } from "./design";
+import { DesignContent, ExtraPiece } from "./design";
 import { DesignTransform, DesignZone, ProductCategory } from "./types";
 import { getZonesForCategory } from "@/components/GarmentShape";
 import { defaultTransform } from "@/components/DesignMockup";
@@ -11,13 +11,13 @@ import { defaultTransform } from "@/components/DesignMockup";
 export interface LineDesign {
   content: DesignContent;
   transform: DesignTransform;
-  extras?: ExtraText[]; // otros textos en la misma parte
+  extras?: ExtraPiece[]; // otros textos o imágenes en la misma parte
 }
 
 export type LineDesigns = Partial<Record<DesignZone, LineDesign>>;
 
-// Los otros textos de cada parte, en el diseñador.
-export type ZoneExtras = Partial<Record<DesignZone, ExtraText[]>>;
+// Lo demás de cada parte (otros textos o imágenes), en el diseñador.
+export type ZoneExtras = Partial<Record<DesignZone, ExtraPiece[]>>;
 
 // Un texto vacío no cuenta como diseño.
 export function hasDesign(content: DesignContent | undefined): content is DesignContent {
@@ -29,21 +29,20 @@ export function imageKey(file: File): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }
 
-// Lo que lleva una parte: el diseño principal y sus otros textos, sin los vacíos. Si el
-// principal está vacío, el primer texto pasa a ser el principal.
+// Lo que lleva una parte: el diseño principal y lo demás, sin los textos vacíos. Si el
+// principal está vacío, lo siguiente pasa a ser el principal.
 export function zoneDesign(
   content: DesignContent | undefined,
   transform: DesignTransform,
-  extras: ExtraText[] = []
+  extras: ExtraPiece[] = []
 ): LineDesign | null {
-  const pieces: { content: DesignContent; transform: DesignTransform }[] = [
+  const pieces: ExtraPiece[] = [
     ...(hasDesign(content) ? [{ content, transform }] : []),
     ...extras.filter((e) => hasDesign(e.content)),
   ];
   if (pieces.length === 0) return null;
   const [main, ...rest] = pieces;
-  const others = rest as { content: MockupTextContent; transform: DesignTransform }[];
-  return others.length ? { ...main, extras: others } : main;
+  return rest.length ? { ...main, extras: rest } : main;
 }
 
 // Lo que hay en el diseñador, solo en las zonas que tiene esta prenda.

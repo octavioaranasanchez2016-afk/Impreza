@@ -113,9 +113,9 @@ export function DesignMockup({
   underlay?: React.ReactNode;
   // Solo el diseño, sin la prenda ni el fondo: para ponerlo como capa sobre otra vista.
   bare?: boolean;
-  // Lo demás que va en la misma parte (otros textos), debajo del diseño. onPick: tocarlo
-  // lo elige para editarlo.
-  extras?: { content: MockupContent; transform: DesignTransform; onPick?: () => void; faded?: boolean }[];
+  // Lo demás que va en la misma parte (otros textos o imágenes), encima del diseño, o
+  // debajo si below (lo que se agregó antes que él). onPick: tocarlo lo elige para editarlo.
+  extras?: { content: MockupContent; transform: DesignTransform; onPick?: () => void; faded?: boolean; below?: boolean }[];
   // Sin mover el diseño: tocarlo avisa (para elegirlo entre varios).
   onPick?: () => void;
 }) {
@@ -317,21 +317,7 @@ export function DesignMockup({
 
           {underlay && <div className="pointer-events-none absolute inset-0">{underlay}</div>}
 
-          {extras?.map((extra, i) => (
-            <div key={i} className={`pointer-events-none absolute inset-0 ${extra.faded ? "opacity-40" : ""}`}>
-              <DesignMockup
-                category={category}
-                zone={zone}
-                color={color}
-                content={extra.content}
-                transform={extra.transform}
-                interactive={false}
-                compact
-                bare
-                onPick={extra.onPick}
-              />
-            </div>
-          ))}
+          {extras?.map((extra, i) => extra.below && <ExtraLayer key={i} category={category} zone={zone} extra={extra} />)}
 
           {content && (
             <div
@@ -395,6 +381,8 @@ export function DesignMockup({
               )}
             </div>
           )}
+
+          {extras?.map((extra, i) => !extra.below && <ExtraLayer key={i} category={category} zone={zone} extra={extra} />)}
 
           {overlay && <div className="pointer-events-none absolute inset-0">{overlay}</div>}
         </div>
@@ -461,6 +449,33 @@ export function DesignMockup({
           A este tamaño la imagen quedaría a {dpi} ppp y podría verse borrosa. Achica el diseño o sube una imagen más grande.
         </p>
       )}
+    </div>
+  );
+}
+
+// Otra cosa de la misma parte, dibujada como capa (solo se puede tocar, no mover).
+function ExtraLayer({
+  category,
+  zone,
+  extra,
+}: {
+  category: ProductCategory;
+  zone: DesignZone;
+  extra: { content: MockupContent; transform: DesignTransform; onPick?: () => void; faded?: boolean };
+}) {
+  return (
+    <div className={`pointer-events-none absolute inset-0 ${extra.faded ? "opacity-40" : ""}`}>
+      <DesignMockup
+        category={category}
+        zone={zone}
+        color="#FFFFFF"
+        content={extra.content}
+        transform={extra.transform}
+        interactive={false}
+        compact
+        bare
+        onPick={extra.onPick}
+      />
     </div>
   );
 }

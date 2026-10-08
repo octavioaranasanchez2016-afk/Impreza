@@ -1,4 +1,4 @@
-import { ExtraText, FONT_OPTIONS, FontFamilyKey, MAX_PIECES_PER_ZONE, MockupContent } from "./design";
+import { ExtraPiece, FONT_OPTIONS, FontFamilyKey, MAX_PIECES_PER_ZONE, MockupContent } from "./design";
 import { getFabric, getProductById } from "./catalog";
 import { DesignTransform, DesignZone, Technique } from "./types";
 
@@ -41,9 +41,9 @@ export interface GroupDesign {
 }
 
 // Lo que el diseñador (y la vista previa de la lista) necesita para dibujar cada zona:
-// el diseño principal y los otros textos de esa parte.
+// el diseño principal y lo demás de esa parte (otros textos o imágenes).
 export type GroupDesignPreview = Partial<
-  Record<DesignZone, { content: MockupContent; transform: DesignTransform; extras?: ExtraText[] }>
+  Record<DesignZone, { content: MockupContent; transform: DesignTransform; extras?: ExtraPiece<MockupContent>[] }>
 >;
 
 const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der", "etiqueta"];
@@ -72,9 +72,8 @@ export function parseGroupDesign(value: unknown, productId: string, listId: stri
     if (!raw || typeof raw !== "object") continue;
     const z = raw as Record<string, unknown>;
     const zona = ZONES.find((zone) => zone === z.zona);
-    // Una parte lleva su diseño principal (el primero) y, después, otros textos.
-    const before = zonas.filter((other) => other.zona === zona).length;
-    if (!zona || before >= MAX_PIECES_PER_ZONE || (before > 0 && z.tipo !== "texto")) continue;
+    // Una parte lleva su diseño principal (el primero) y, después, otros textos o imágenes.
+    if (!zona || zonas.filter((other) => other.zona === zona).length >= MAX_PIECES_PER_ZONE) continue;
     const placement: Placement = {
       posX: clamp(z.posX, 0, 100),
       posY: clamp(z.posY, 0, 100),
@@ -116,17 +115,17 @@ export function groupDesignPreview(design: GroupDesign | null): GroupDesignPrevi
   const out: GroupDesignPreview = {};
   for (const z of design?.zonas ?? []) {
     const transform = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+    const content: MockupContent | null =
+      z.tipo === "texto"
+        ? { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null }
+        : z.url
+          ? { kind: "imagen", previewUrl: z.url, width: z.anchoPx, height: z.altoPx, fill: z.ajuste === "llenar" }
+          : null;
+    if (!content) continue;
+    // El primero de cada parte es el principal; lo demás va encima, en orden.
     const main = out[z.zona];
-    if (z.tipo === "texto") {
-      const content = { kind: "texto" as const, texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
-      if (main) main.extras = [...(main.extras ?? []), { content, transform }];
-      else out[z.zona] = { content, transform };
-    } else if (z.url && !main) {
-      out[z.zona] = {
-        content: { kind: "imagen", previewUrl: z.url, width: z.anchoPx, height: z.altoPx, fill: z.ajuste === "llenar" },
-        transform,
-      };
-    }
+    if (main) main.extras = [...(main.extras ?? []), { content, transform }];
+    else out[z.zona] = { content, transform };
   }
   return out;
 }

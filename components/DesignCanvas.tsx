@@ -6,7 +6,8 @@ import {
   ACCEPTED_DESIGN_TYPES,
   CropRect,
   DesignContent,
-  ExtraText,
+  ExtraPiece,
+  ImageDesignContent,
   MockupContent,
   centeredCrop,
   cropAspect,
@@ -98,7 +99,7 @@ function sameTransform(a: DesignTransform, b: DesignTransform) {
 }
 
 // Lo que ya lleva cada zona, para dibujar las miniaturas de Frente / Espalda / Manga.
-export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform; extras?: ExtraText[] }>>;
+export type ZonePreviews = Partial<Record<DesignZone, { content: DesignContent; transform: DesignTransform; extras?: ExtraPiece[] }>>;
 
 export function DesignCanvas({
   category,
@@ -121,6 +122,7 @@ export function DesignCanvas({
   others,
   pieces,
   onAddText,
+  onAddImage,
   pieceKey,
   children,
 }: {
@@ -153,6 +155,8 @@ export function DesignCanvas({
   pieces?: { label: string; active: boolean; onSelect: () => void }[];
   // Agrega otro texto en esta parte (sin él no se ofrece).
   onAddText?: () => void;
+  // Agrega otra imagen en esta parte (ya revisada).
+  onAddImage?: (content: ImageDesignContent) => void;
   // Cuál de las cosas de la zona se edita: al cambiar, la vista grande empieza de cero
   // (si no, mediría el texto nuevo con el tamaño del anterior y lo correría).
   pieceKey?: string;
@@ -161,6 +165,8 @@ export function DesignCanvas({
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
   const focusText = useRef(false);
+  // La imagen que se elija: cambia la que se edita, o se agrega como otra cosa en la parte.
+  const fileAdds = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
   const [cropping, setCropping] = useState(false);
@@ -182,11 +188,18 @@ export function DesignCanvas({
     setError(null);
     if (!file) return;
     const { content: validated, error: validationError } = await validateDesignFile(file);
-    if (validationError) {
+    if (validationError || !validated) {
       setError(validationError);
       return;
     }
-    onContentChange(validated, true);
+    if (fileAdds.current && onAddImage) onAddImage(validated);
+    else onContentChange(validated, true);
+  }
+
+  function pickFile(add: boolean) {
+    setError(null);
+    fileAdds.current = add;
+    fileRef.current?.click();
   }
 
   function addText() {
@@ -396,7 +409,16 @@ export function DesignCanvas({
                   }}
                   className="flex items-center gap-1 rounded-full border border-dashed border-ink/40 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink hover:bg-paper-soft"
                 >
-                  + Agregar otro texto
+                  + Agregar texto
+                </button>
+              )}
+              {pieces.length < MAX_PIECES_PER_ZONE && onAddImage && (
+                <button
+                  type="button"
+                  onClick={() => pickFile(true)}
+                  className="flex items-center gap-1 rounded-full border border-dashed border-ink/40 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink hover:bg-paper-soft"
+                >
+                  + Agregar imagen
                 </button>
               )}
             </div>
@@ -415,7 +437,7 @@ export function DesignCanvas({
             <div className="mt-3 grid gap-2 sm:grid-cols-2">
               <button
                 type="button"
-                onClick={() => fileRef.current?.click()}
+                onClick={() => pickFile(false)}
                 className="flex items-center justify-center gap-2 rounded-brand bg-ink px-4 py-3 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
               >
                 <UploadIcon /> Subir imagen JPG
@@ -440,7 +462,7 @@ export function DesignCanvas({
               </p>
               <div className="flex shrink-0 gap-3 text-xs">
                 {content.kind === "imagen" && (
-                  <button type="button" onClick={() => fileRef.current?.click()} className="font-semibold text-ink hover:underline">
+                  <button type="button" onClick={() => pickFile(false)} className="font-semibold text-ink hover:underline">
                     Cambiar imagen
                   </button>
                 )}

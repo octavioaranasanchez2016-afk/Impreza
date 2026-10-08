@@ -13,8 +13,8 @@ import { buildInvoiceLines, calculateOrderTotal, getUnitPrice, mainTechnique } f
 import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
-import { DesignContent, ExtraText, MAX_PIECES_PER_ZONE } from "@/lib/design";
-import { GroupDesign, groupImagePath } from "@/lib/group-design";
+import { DesignContent, ExtraPiece, MAX_PIECES_PER_ZONE } from "@/lib/design";
+import { GroupDesign, GroupDesignZone, groupImagePath } from "@/lib/group-design";
 import {
   LineDesign,
   LineDesigns,
@@ -35,12 +35,14 @@ import {
   clearDraft,
   draftHasProgress,
   fromDraftDesign,
+  fromDraftExtras,
   loadDraft,
   loadDraftImages,
   saveDraft,
   saveDraftImages,
   toDraftDesign,
   toDraftLineDesigns,
+  toDraftZoneExtras,
 } from "@/lib/draft";
 import { DesignCanvas, ZonePreviews } from "./DesignCanvas";
 import { PricingSummary } from "./PricingSummary";
@@ -102,6 +104,36 @@ function newPendingOrderId(): string {
     // Sin almacenamiento: el código vale mientras la página siga abierta.
   }
   return id;
+}
+
+// Una cosa del diseño (imagen o texto) como la guardan el pedido y la lista. upload sube
+// la imagen (una sola vez por archivo) y dice dónde quedó.
+async function toStoredPiece(
+  zone: DesignZone,
+  { content, transform }: ExtraPiece,
+  upload: (file: File, zone: DesignZone) => Promise<string>
+) {
+  const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
+  if (content.kind === "imagen") {
+    return {
+      zona: zone,
+      tipo: "imagen" as const,
+      path: await upload(content.file, zone),
+      ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
+      anchoPx: content.width,
+      altoPx: content.height,
+      ...placement,
+    };
+  }
+  return {
+    zona: zone,
+    tipo: "texto" as const,
+    texto: content.texto.trim(),
+    color: content.color,
+    fuente: content.fontFamily,
+    ...(content.outline ? { contorno: content.outline } : {}),
+    ...placement,
+  };
 }
 
 function defaultSize(sizes: string[]): string {
@@ -340,9 +372,10 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const zonesWithContent = zones.filter((z) => zonePreviews[z]);
   // Todo lo que lleva la parte que se ve (el principal y sus otros textos).
   const mainContent = zoneContent[currentZone];
-  const currentPieces: { content: DesignContent; transform: DesignTransform }[] = mainContent
+  const currentPieces: ExtraPiece[] = mainContent
     ? [{ content: mainContent, transform: transformFor(currentZone) }, ...currentExtras]
     : [];
+  const imageCount = currentPieces.filter((piece) => piece.content.kind === "imagen").length;
 
   // Lo de cada quien en el lado que se está viendo, y cuál de esos textos se edita.
   const hasPersonal = personal.campos.length > 0;
@@ -357,30 +390,38 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const editing = activeField !== null ? personal.campos[activeField] : null;
   const contrastInk = isDarkColor(selectedVariant?.colorHex ?? "#FFFFFF") ? "#FFFFFF" : "#111111";
 
-  // Otro texto en esta parte, debajo de lo último que hay, con la letra y el color del
-  // último texto (para que combinen). El diseñador lo acomoda dentro del área.
-  function addExtraText() {
+  // Otra cosa en esta parte (texto o imagen), debajo de lo último que hay. El diseñador
+  // la acomoda dentro del área.
+  function addExtra(content: DesignContent, scale: number) {
     if (!selectedProduct || !mainContent || currentPieces.length >= MAX_PIECES_PER_ZONE) return;
     const area = getPrintArea(selectedProduct.category, currentZone);
     const last = currentPieces[currentPieces.length - 1];
+    const extra: ExtraPiece = {
+      content,
+      transform: {
+        x: area.x + area.w / 2,
+        y: Math.min(area.y + area.h * 0.92, last.transform.y + area.h * 0.22),
+        scale,
+        rotation: 0,
+      },
+    };
+    setZoneExtras((prev) => ({ ...prev, [currentZone]: [...(prev[currentZone] ?? []), extra] }));
+    setActivePiece({ zone: currentZone, index: currentPieces.length });
+  }
+
+  // Un texto nuevo con la letra y el color del último texto, para que combinen.
+  function addExtraText() {
     const style = [...currentPieces].reverse().find((piece) => piece.content.kind === "texto")?.content;
-    const extra: ExtraText = {
-      content: {
+    addExtra(
+      {
         kind: "texto",
         texto: "",
         color: style?.kind === "texto" ? style.color : contrastInk,
         fontFamily: style?.kind === "texto" ? style.fontFamily : "sans",
         outline: style?.kind === "texto" ? style.outline ?? null : null,
       },
-      transform: {
-        x: area.x + area.w / 2,
-        y: Math.min(area.y + area.h * 0.92, last.transform.y + area.h * 0.22),
-        scale: 0.5,
-        rotation: 0,
-      },
-    };
-    setZoneExtras((prev) => ({ ...prev, [currentZone]: [...(prev[currentZone] ?? []), extra] }));
-    setActivePiece({ zone: currentZone, index: currentPieces.length });
+      0.5
+    );
   }
 
   // Lo que va debajo o encima de lo que se edita: en el paso 2 se mueve un texto de
@@ -539,12 +580,20 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         if (restoredContent) content[zone] = restoredContent;
         else imagesLost = true;
       }
+      const restoredExtras: ZoneExtras = {};
+      for (const [zone, list] of Object.entries(draft.extras ?? {}) as [DesignZone, unknown[]][]) {
+        const more = fromDraftExtras(list, files);
+        if (more.lost) imagesLost = true;
+        if (more.pieces.length) restoredExtras[zone] = more.pieces;
+      }
       type DraftLineDesign = NonNullable<DraftLine["designs"][DesignZone]>;
       const restoredItems: CartLine[] = draft.items.map((line) => {
         const designs: LineDesigns = {};
         for (const [zone, d] of Object.entries(line.designs ?? {}) as [DesignZone, DraftLineDesign][]) {
           const c = fromDraftDesign(d.design, files);
-          if (c) designs[zone] = { content: c, transform: d.transform, ...(d.extras?.length ? { extras: d.extras } : {}) };
+          const more = fromDraftExtras(d.extras, files);
+          if (more.lost) imagesLost = true;
+          if (c) designs[zone] = { content: c, transform: d.transform, ...(more.pieces.length ? { extras: more.pieces } : {}) };
           else imagesLost = true;
         }
         const { key, productId: id, color: lineColor, size: lineSize, quantity, fabric: lineFabric } = line;
@@ -587,7 +636,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       setActiveZone(draft.activeZone);
       setZoneContent(content);
       setZoneTransform(draft.transforms);
-      setZoneExtras(draft.extras ?? {});
+      setZoneExtras(restoredExtras);
       setClienteNombre(draft.clienteNombre);
       setClienteTelefono(draft.clienteTelefono);
       setClienteEmail(draft.clienteEmail);
@@ -630,7 +679,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       activeZone,
       designs,
       transforms: zoneTransform,
-      extras: zoneExtras,
+      extras: toDraftZoneExtras(zoneExtras),
       clienteNombre,
       clienteTelefono,
       clienteEmail,
@@ -669,12 +718,18 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       if (c?.kind === "imagen") files[imageKey(c.file)] = c.file;
     };
     Object.values(zoneContent).forEach(collect);
-    for (const line of items) Object.values(line.designs).forEach((d) => collect(d?.content));
+    Object.values(zoneExtras).forEach((list) => list?.forEach((e) => collect(e.content)));
+    for (const line of items) {
+      for (const d of Object.values(line.designs)) {
+        collect(d?.content);
+        d?.extras?.forEach((e) => collect(e.content));
+      }
+    }
     const keys = Object.keys(files).sort().join("|");
     if (keys === savedImageKeys.current) return;
     savedImageKeys.current = keys;
     void saveDraftImages(files);
-  }, [draftReady, zoneContent, items]);
+  }, [draftReady, zoneContent, zoneExtras, items]);
 
   // El diseño que el organizador guardó en la lista: se carga en el diseñador para
   // cambiarlo (página de diseño de la lista) o para hacer el pedido sin volver a
@@ -732,32 +787,27 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         const content: ZoneContentMap = {};
         const transforms: ZoneTransformMap = {};
         const extras: ZoneExtras = {};
-        for (const z of data.diseno?.zonas ?? []) {
-          const placed = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
-          // Después del principal, los otros textos de esa parte.
-          if (content[z.zona]) {
-            if (z.tipo === "texto") {
-              const text = { kind: "texto" as const, texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
-              extras[z.zona] = [...(extras[z.zona] ?? []), { content: text, transform: placed }];
-            }
-            continue;
-          }
-          transforms[z.zona] = placed;
+        const toContent = async (z: GroupDesignZone, i: number): Promise<DesignContent | null> => {
           if (z.tipo === "texto") {
-            content[z.zona] = { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
-          } else if (z.url) {
-            const imageRes = await fetch(z.url);
-            if (!imageRes.ok) throw new Error();
-            const file = new File([await imageRes.blob()], `diseno-${z.zona}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
-            listImagePaths.current.set(imageKey(file), z.path);
-            content[z.zona] = {
-              kind: "imagen",
-              file,
-              previewUrl: URL.createObjectURL(file),
-              width: z.anchoPx,
-              height: z.altoPx,
-              fill: z.ajuste === "llenar",
-            };
+            return { kind: "texto", texto: z.texto, color: z.color, fontFamily: z.fuente, outline: z.contorno ?? null };
+          }
+          if (!z.url) return null;
+          const imageRes = await fetch(z.url);
+          if (!imageRes.ok) throw new Error();
+          const file = new File([await imageRes.blob()], `diseno-${z.zona}-${i + 1}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+          listImagePaths.current.set(imageKey(file), z.path);
+          return { kind: "imagen", file, previewUrl: URL.createObjectURL(file), width: z.anchoPx, height: z.altoPx, fill: z.ajuste === "llenar" };
+        };
+        for (const [i, z] of (data.diseno?.zonas ?? []).entries()) {
+          const c = await toContent(z, i);
+          if (!c) continue;
+          const placed = { x: z.posX, y: z.posY, scale: z.escala, rotation: z.rotacion };
+          // El primero de cada parte es el principal; lo demás va después, en orden.
+          if (content[z.zona]) {
+            extras[z.zona] = [...(extras[z.zona] ?? []), { content: c, transform: placed }];
+          } else {
+            content[z.zona] = c;
+            transforms[z.zona] = placed;
           }
         }
         if (cancelled) return;
@@ -804,53 +854,26 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setError(null);
     try {
       const supabase = createClient();
+      const listId = listDesign.listId;
+      // Las imágenes que ya estaban en la lista no se vuelven a subir.
+      const uploadListImage = async (file: File, zone: DesignZone) => {
+        let path = listImagePaths.current.get(imageKey(file));
+        if (!path) {
+          path = groupImagePath(listId, zone);
+          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, file, {
+            contentType: "image/jpeg",
+          });
+          if (uploadError) throw new Error(`No se pudo subir la imagen (${zone}): ${uploadError.message}`);
+          listImagePaths.current.set(imageKey(file), path);
+        }
+        return path;
+      };
       const zonas = [];
       for (const zone of zonesWithContent) {
         const { content, transform, extras = [] } = zonePreviews[zone]!;
-        const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
-        const extraTexts = extras.map((e) => ({
-          zona: zone,
-          tipo: "texto",
-          texto: e.content.texto.trim(),
-          color: e.content.color,
-          fuente: e.content.fontFamily,
-          ...(e.content.outline ? { contorno: e.content.outline } : {}),
-          posX: e.transform.x,
-          posY: e.transform.y,
-          escala: e.transform.scale,
-          rotacion: e.transform.rotation,
-        }));
-        if (content.kind === "imagen") {
-          let path = listImagePaths.current.get(imageKey(content.file));
-          if (!path) {
-            path = groupImagePath(listDesign.listId, zone);
-            const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
-              contentType: "image/jpeg",
-            });
-            if (uploadError) throw new Error(`No se pudo subir la imagen (${zone}): ${uploadError.message}`);
-            listImagePaths.current.set(imageKey(content.file), path);
-          }
-          zonas.push({
-            zona: zone,
-            tipo: "imagen",
-            path,
-            ajuste: content.fill ? "llenar" : "completa",
-            anchoPx: content.width,
-            altoPx: content.height,
-            ...placement,
-          });
-        } else {
-          zonas.push({
-            zona: zone,
-            tipo: "texto",
-            texto: content.texto.trim(),
-            color: content.color,
-            fuente: content.fontFamily,
-            ...(content.outline ? { contorno: content.outline } : {}),
-            ...placement,
-          });
+        for (const piece of [{ content, transform }, ...extras]) {
+          zonas.push(await toStoredPiece(zone, piece, uploadListImage));
         }
-        zonas.push(...extraTexts);
       }
       const res = await fetch(`/api/listas/${listDesign.listId}/diseno`, {
         method: "PUT",
@@ -912,9 +935,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   }, [comprobante]);
 
   function handleContentChange(next: DesignContent | null, resetTransform: boolean) {
-    // Uno de los otros textos: se cambia o se quita.
+    // Otra cosa de la parte (texto o imagen): se cambia o se quita.
     if (pieceIndex > 0) {
-      if (next && next.kind !== "texto") return;
       const i = pieceIndex - 1;
       setZoneExtras((prev) => {
         const list = [...(prev[currentZone] ?? [])];
@@ -1205,57 +1227,25 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
 
       // La misma imagen se sube una sola vez aunque la lleven varios diseños.
       const uploaded = new Map<string, string>();
+      const uploadOrderImage = async (file: File, zone: DesignZone) => {
+        let path = uploaded.get(imageKey(file));
+        if (!path) {
+          path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
+          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, file, {
+            contentType: "image/jpeg",
+          });
+          if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
+          uploaded.set(imageKey(file), path);
+        }
+        return path;
+      };
       const disenos = [];
       for (const [index, designs] of groups.entries()) {
         for (const [zone, { content, transform, extras = [] }] of Object.entries(designs) as [DesignZone, LineDesign][]) {
-          const placement = { posX: transform.x, posY: transform.y, escala: transform.scale, rotacion: transform.rotation };
-          const grupo = index + 1;
-          const extraTexts = extras.map((e) => ({
-            zona: zone,
-            tipo: "texto" as const,
-            texto: e.content.texto.trim(),
-            color: e.content.color,
-            fuente: e.content.fontFamily,
-            ...(e.content.outline ? { contorno: e.content.outline } : {}),
-            grupo,
-            posX: e.transform.x,
-            posY: e.transform.y,
-            escala: e.transform.scale,
-            rotacion: e.transform.rotation,
-          }));
-          if (content.kind === "imagen") {
-            let path = uploaded.get(imageKey(content.file));
-            if (!path) {
-              path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
-              const { error: uploadError } = await supabase.storage.from("disenos").upload(path, content.file, {
-                contentType: "image/jpeg",
-              });
-              if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
-              uploaded.set(imageKey(content.file), path);
-            }
-            disenos.push({
-              zona: zone,
-              tipo: "imagen" as const,
-              path,
-              ajuste: content.fill ? ("llenar" as const) : ("completa" as const),
-              anchoPx: content.width,
-              altoPx: content.height,
-              grupo,
-              ...placement,
-            });
-          } else {
-            disenos.push({
-              zona: zone,
-              tipo: "texto" as const,
-              texto: content.texto.trim(),
-              color: content.color,
-              fuente: content.fontFamily,
-              ...(content.outline ? { contorno: content.outline } : {}),
-              grupo,
-              ...placement,
-            });
+          // El principal y después lo demás de esa parte, en el orden en que se dibuja.
+          for (const piece of [{ content, transform }, ...extras]) {
+            disenos.push({ ...(await toStoredPiece(zone, piece, uploadOrderImage)), grupo: index + 1 });
           }
-          disenos.push(...extraTexts);
         }
       }
 
@@ -1795,19 +1785,25 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                       : currentPieces.flatMap((piece, i) =>
                           i === pieceIndex
                             ? []
-                            : [{ ...piece, onPick: () => setActivePiece({ zone: currentZone, index: i }) }]
+                            : [{ ...piece, below: i < pieceIndex, onPick: () => setActivePiece({ zone: currentZone, index: i }) }]
                         )
                   }
                   pieces={
                     personalStep
                       ? undefined
                       : currentPieces.map((piece, i) => ({
-                          label: piece.content.kind === "imagen" ? "Imagen" : piece.content.texto.trim() || "Texto nuevo",
+                          label:
+                            piece.content.kind === "imagen"
+                              ? imageCount > 1
+                                ? `Imagen ${currentPieces.slice(0, i + 1).filter((other) => other.content.kind === "imagen").length}`
+                                : "Imagen"
+                              : piece.content.texto.trim() || "Texto nuevo",
                           active: i === pieceIndex,
                           onSelect: () => setActivePiece({ zone: currentZone, index: i }),
                         }))
                   }
                   onAddText={personalStep ? undefined : addExtraText}
+                  onAddImage={personalStep ? undefined : (image) => addExtra(image, 0.45)}
                   contentTitle={editing ? `${campoLabel(editing.campo)} de cada quien` : undefined}
                   textPlaceholder={personalStep ? "Lo que dice tu camisa de ejemplo" : undefined}
                   panelTop={

@@ -1,7 +1,7 @@
 "use client";
 
 import { DesignTransform, DesignZone, ProductCategory } from "@/lib/types";
-import { ExtraText, MockupContent } from "@/lib/design";
+import { ExtraPiece, MockupContent } from "@/lib/design";
 import { GroupDesignPreview } from "@/lib/group-design";
 import { GroupPersonal, PersonExtra, Valores, fieldContent, fieldTransform, zoneTitle } from "@/lib/group-names";
 import { getZonesForCategory } from "./GarmentShape";
@@ -20,7 +20,7 @@ export function DesignLayer({
   zone: DesignZone;
   content: MockupContent;
   transform: DesignTransform;
-  extras?: ExtraText[]; // los otros textos de esa parte
+  extras?: ExtraPiece<MockupContent>[]; // lo demás de esa parte
   faded?: boolean;
 }) {
   return (

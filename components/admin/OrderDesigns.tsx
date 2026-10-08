@@ -43,12 +43,13 @@ export function OrderDesigns({ disenos, items }: { disenos: SignedDiseno[]; item
                   {g.disenos.map((d, i) => {
                     // Varias cosas en la misma parte: cada una con sus medidas, y las demás en tenue.
                     const sameZone = g.disenos.filter((other) => other.zona === d.zona);
+                    const at = sameZone.indexOf(d);
                     return (
                       <DesignPreview
                         key={i}
                         d={d}
-                        others={sameZone.filter((other) => other !== d)}
-                        position={sameZone.length > 1 ? `${sameZone.indexOf(d) + 1} de ${sameZone.length}` : null}
+                        others={sameZone.flatMap((other, j) => (j === at ? [] : [{ d: other, below: j < at }]))}
+                        position={sameZone.length > 1 ? `${at + 1} de ${sameZone.length}` : null}
                         category={product.category}
                         colorHex={colorHex}
                         size={base?.size}
@@ -116,7 +117,7 @@ function DesignPreview({
   size,
 }: {
   d: SignedDiseno;
-  others: SignedDiseno[]; // lo demás que va en la misma parte
+  others: { d: SignedDiseno; below: boolean }[]; // lo demás que va en la misma parte
   position: string | null; // "1 de 2" cuando la parte lleva varias cosas
   category: ProductCategory;
   colorHex: string;
@@ -124,8 +125,8 @@ function DesignPreview({
 }) {
   const content = contentOf(d);
   const extras = others.flatMap((o) => {
-    const c = contentOf(o);
-    return c ? [{ content: c, transform: transformOf(o), faded: true }] : [];
+    const c = contentOf(o.d);
+    return c ? [{ content: c, transform: transformOf(o.d), faded: true, below: o.below }] : [];
   });
 
   return (
