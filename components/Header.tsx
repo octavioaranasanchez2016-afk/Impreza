@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
 import { SocialLinks } from "./SocialLinks";
+import { Logo } from "./Logo";
 
 // wideOnly: en pantallas medianas no cabe; se muestra desde lg y siempre en el menú del celular.
 // mobileOnly: solo en el menú del celular (en computadora está en el pie de página).
@@ -26,14 +26,7 @@ export function Header() {
     <header className="sticky top-0 z-40 border-b border-black/5 bg-paper/95 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 md:px-6">
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo/impreza-wordmark.png"
-            alt="Impreza"
-            width={613}
-            height={160}
-            priority
-            className="h-6 w-auto md:h-7"
-          />
+          <Logo className="text-[24px] md:text-[28px]" />
         </Link>
 
         <nav className="hidden items-center gap-5 text-sm font-medium text-ink md:flex lg:gap-8">

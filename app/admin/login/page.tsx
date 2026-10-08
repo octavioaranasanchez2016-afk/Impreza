@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Logo } from "@/components/Logo";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -38,7 +39,7 @@ export default function AdminLoginPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-sm rounded-brand bg-white p-8 shadow-lg"
       >
-        <img src="/logo/impreza-wordmark.png" alt="Impreza" className="h-7" />
+        <Logo className="text-[26px]" />
         <h1 className="mt-6 text-xl font-bold text-ink">Panel de administración</h1>
         <p className="mt-1 text-sm text-ink-soft">Entra con tu correo y contraseña.</p>
 

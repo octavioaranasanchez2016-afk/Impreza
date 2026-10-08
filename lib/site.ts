@@ -31,7 +31,7 @@ export function businessJsonLd() {
     name: SITE_NAME,
     description: SITE_DESCRIPTION,
     url,
-    logo: `${url}/logo/impreza.png`,
+    logo: `${url}/marca.png`,
     image: `${url}/opengraph-image`,
     ...(phone ? { telephone: `+${phone}` } : {}),
     priceRange: "C$",

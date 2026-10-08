@@ -2,6 +2,7 @@ import Link from "next/link";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
 import { SocialLinks } from "./SocialLinks";
 import { WORKSHOP } from "@/lib/shipping";
+import { Logo } from "./Logo";
 
 export function Footer() {
   return (
@@ -9,7 +10,7 @@ export function Footer() {
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 md:px-6">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div>
-            <p className="font-display text-6xl uppercase leading-none tracking-wide">Impreza</p>
+            <Logo invert className="text-[44px]" />
             <p className="mt-3 max-w-xs text-sm text-paper/70">
               Camisas, polos, hoodies, gorras y tote bags con tu diseño. Serigrafía, DTF, sublimado y bordado en Managua, Nicaragua.
             </p>
