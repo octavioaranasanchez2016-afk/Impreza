@@ -10,6 +10,22 @@ export const MIN_SCALE = 0.15;
 export const MAX_SCALE = 1;
 export const DEFAULT_SCALE = 0.8;
 const RESIZE_SENSITIVITY = 1.1;
+// Imán: al arrastrar, el centro del diseño se pega a los ejes de simetría si pasa a
+// menos de estos píxeles; al girar, se pega a 0°, 90°, 180° y 270°.
+const SNAP_PX = 8;
+const SNAP_DEGREES = 4;
+const GUIDE_COLOR = "#E6007E";
+
+// El eje más cercano a value dentro de la tolerancia, o null si no hay ninguno.
+function nearestAxis(value: number, axes: number[], tolerance: number): number | null {
+  let best: number | null = null;
+  for (const axis of axes) {
+    if (Math.abs(value - axis) <= tolerance && (best === null || Math.abs(value - axis) < Math.abs(value - best))) {
+      best = axis;
+    }
+  }
+  return best;
+}
 const ZOOM_LEVELS = [1, 1.5, 2];
 
 // Ancho "contain" del diseño dentro del área de impresión, en % del lienzo.
@@ -145,6 +161,8 @@ export function DesignMockup({
   const [mode, setMode] = useState<Mode>("idle");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
+  // Los ejes a los que quedó pegado el diseño mientras se arrastra, para dibujarlos.
+  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
   const dragStart = useRef({ pointerX: 0, pointerY: 0, x: 0, y: 0, scale: 1, rotation: 0, centerX: 0, centerY: 0, startAngle: 0 });
 
   const area = getPrintArea(category, zone);
@@ -232,6 +250,19 @@ export function DesignMockup({
     }
   }, [interactive, content, mode, transform, clampTransform, onTransformChange]);
 
+  // Ejes de simetría: el centro del área de impresión, el centro de la prenda (el cuello,
+  // si cae dentro del área) y el centro de lo demás que hay en la misma parte.
+  const extraCenters = (extras ?? []).filter((e) => !e.faded).map((e) => e.transform);
+  const garmentCenter = 50;
+  const snapAxes = {
+    x: [
+      area.x + area.w / 2,
+      ...(garmentCenter > area.x && garmentCenter < area.x + area.w ? [garmentCenter] : []),
+      ...extraCenters.map((t) => t.x),
+    ],
+    y: [area.y + area.h / 2, ...extraCenters.map((t) => t.y)],
+  };
+
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
       const rect = containerRef.current?.getBoundingClientRect();
@@ -239,27 +270,36 @@ export function DesignMockup({
       const start = dragStart.current;
 
       if (mode === "dragging") {
-        onTransformChange?.(
-          clampTransform({
-            ...transform,
-            x: start.x + ((e.clientX - start.pointerX) / rect.width) * 100,
-            y: start.y + ((e.clientY - start.pointerY) / rect.height) * 100,
-          })
-        );
+        const rawX = start.x + ((e.clientX - start.pointerX) / rect.width) * 100;
+        const rawY = start.y + ((e.clientY - start.pointerY) / rect.height) * 100;
+        const axisX = nearestAxis(rawX, snapAxes.x, (SNAP_PX / rect.width) * 100);
+        const axisY = nearestAxis(rawY, snapAxes.y, (SNAP_PX / rect.height) * 100);
+        const next = clampTransform({ ...transform, x: axisX ?? rawX, y: axisY ?? rawY });
+        // Solo se dibuja el eje si el diseño de verdad quedó sobre él (el área puede correrlo).
+        setGuides({
+          x: axisX !== null && Math.abs(next.x - axisX) < 0.05 ? axisX : null,
+          y: axisY !== null && Math.abs(next.y - axisY) < 0.05 ? axisY : null,
+        });
+        onTransformChange?.(next);
       } else if (mode === "resizing") {
         const deltaXPct = ((e.clientX - start.pointerX) / rect.width) * 100;
         const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, start.scale + (deltaXPct / 100) * RESIZE_SENSITIVITY * 2));
         onTransformChange?.({ ...transform, scale });
       } else if (mode === "rotating") {
         const angle = Math.atan2(e.clientY - start.centerY, e.clientX - start.centerX) * (180 / Math.PI);
-        const rotation = (((start.rotation + angle - start.startAngle) % 360) + 360) % 360;
+        const free = (((start.rotation + angle - start.startAngle) % 360) + 360) % 360;
+        const straight = Math.round(free / 90) * 90;
+        const rotation = Math.abs(free - straight) <= SNAP_DEGREES ? straight % 360 : free;
         onTransformChange?.({ ...transform, rotation });
       }
     },
-    [mode, onTransformChange, transform, clampTransform]
+    [mode, onTransformChange, transform, clampTransform, snapAxes]
   );
 
-  const stopInteraction = useCallback(() => setMode("idle"), []);
+  const stopInteraction = useCallback(() => {
+    setMode("idle");
+    setGuides({ x: null, y: null });
+  }, []);
 
   useEffect(() => {
     if (mode === "idle") return;
@@ -403,6 +443,21 @@ export function DesignMockup({
           )}
 
           {extras?.map((extra, i) => !extra.below && <ExtraLayer key={i} category={category} zone={zone} extra={extra} />)}
+
+          {/* Ejes de simetría donde quedó pegado el diseño: de arriba a abajo de la prenda
+              y de lado a lado del área de impresión. */}
+          {mode === "dragging" && guides.x !== null && (
+            <div
+              className="pointer-events-none absolute inset-y-0"
+              style={{ left: `${guides.x}%`, borderLeft: `1.5px dashed ${GUIDE_COLOR}` }}
+            />
+          )}
+          {mode === "dragging" && guides.y !== null && (
+            <div
+              className="pointer-events-none absolute"
+              style={{ top: `${guides.y}%`, left: `${area.x}%`, width: `${area.w}%`, borderTop: `1.5px dashed ${GUIDE_COLOR}` }}
+            />
+          )}
 
           {overlay && <div className="pointer-events-none absolute inset-0">{overlay}</div>}
         </div>

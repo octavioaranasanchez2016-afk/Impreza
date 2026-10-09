@@ -96,19 +96,22 @@ interface ViewSpec {
 
 const VIEWS: Record<string, ViewSpec> = {
   "camisa:frente": { span: 110, top: 14, print: { w: 30, h: 40, top: 12 } },
-  "camisa:espalda": { span: 110, top: 14, print: { w: 30, h: 40, top: 8 } },
+  // La espalda llega más abajo que el frente: termina a 58 cm del cuello, y aun en la S
+  // quedan 13 cm hasta el ruedo.
+  "camisa:espalda": { span: 110, top: 14, print: { w: 30, h: 50, top: 8 } },
   "camisa:manga": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
   "camisa:manga-izq": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
   "camisa:manga-der": { span: 40, top: 10, print: { w: 10, h: 10, top: 5 } },
   // Etiqueta: la espalda por dentro, cerca del cuello. (0, 0) es la costura del cuello.
   "camisa:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "hoodie:frente": { span: 115, top: 24, print: { w: 30, h: 22, top: 12 } },
-  "hoodie:espalda": { span: 115, top: 24, print: { w: 34, h: 28, top: 32 } },
+  // Empieza debajo de la capucha y termina justo arriba del puño de la S.
+  "hoodie:espalda": { span: 115, top: 24, print: { w: 34, h: 30, top: 32 } },
   // Etiqueta del hoodie: por dentro, debajo de la costura donde se une la capucha.
   "hoodie:etiqueta": { span: 30, top: 7, print: { w: 8, h: 8, top: 2 } },
   "tote:frente": { span: 70, top: 26, print: { w: 30, h: 30, top: 5 } },
   "polo:frente": { span: 110, top: 14, print: { w: 10, h: 10, top: 12, dx: 10 } },
-  "polo:espalda": { span: 110, top: 14, print: { w: 25, h: 20, top: 10 } },
+  "polo:espalda": { span: 110, top: 14, print: { w: 28, h: 38, top: 10 } },
   "polo:manga": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
   "polo:manga-izq": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
   "polo:manga-der": { span: 40, top: 10, print: { w: 8, h: 8, top: 5 } },
