@@ -27,6 +27,7 @@ import { formatBoth, formatCordobas, formatInDollars } from "@/lib/currency";
 import { DesignTransform, DesignZone, OrderItemInput, Product, ProductCategory, Technique } from "@/lib/types";
 import { createClient } from "@/lib/supabase/client";
 import { DesignContent, ExtraPiece, MAX_PIECES_PER_ZONE } from "@/lib/design";
+import { designExtension, flattenToJpeg } from "@/lib/image-effects";
 import { GroupDesign, GroupDesignZone, groupImagePath } from "@/lib/group-design";
 import {
   LineDesign,
@@ -117,6 +118,20 @@ function newPendingOrderId(): string {
     // Sin almacenamiento: el código vale mientras la página siga abierta.
   }
   return id;
+}
+
+// Sube una imagen de diseño a base + su extensión. Las que tienen transparencia (forma o
+// fondo quitado) van en PNG; si el almacenamiento todavía no acepta PNG, se sube en JPG
+// con lo transparente en blanco, para que el pedido no se pierda.
+async function uploadDesignImage(supabase: ReturnType<typeof createClient>, base: string, file: File) {
+  const ext = designExtension(file);
+  const first = await supabase.storage
+    .from("disenos")
+    .upload(`${base}.${ext}`, file, { contentType: ext === "png" ? "image/png" : "image/jpeg" });
+  if (!first.error || ext !== "png") return { path: `${base}.${ext}`, error: first.error };
+  const flat = await flattenToJpeg(file);
+  const second = await supabase.storage.from("disenos").upload(`${base}.jpg`, flat, { contentType: "image/jpeg" });
+  return { path: `${base}.jpg`, error: second.error };
 }
 
 // Una cosa del diseño (imagen o texto) como la guardan el pedido y la lista. upload sube
@@ -851,7 +866,9 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           if (!z.url) return null;
           const imageRes = await fetch(z.url);
           if (!imageRes.ok) throw new Error();
-          const file = new File([await imageRes.blob()], `diseno-${z.zona}-${i + 1}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+          const blob = await imageRes.blob();
+          const type = z.path.endsWith(".png") ? "image/png" : "image/jpeg";
+          const file = new File([blob], `diseno-${z.zona}-${i + 1}.${type === "image/png" ? "png" : "jpg"}`, { type, lastModified: Date.now() });
           listImagePaths.current.set(imageKey(file), z.path);
           return { kind: "imagen", file, previewUrl: URL.createObjectURL(file), width: z.anchoPx, height: z.altoPx, fill: z.ajuste === "llenar" };
         };
@@ -916,11 +933,9 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       const uploadListImage = async (file: File, zone: DesignZone) => {
         let path = listImagePaths.current.get(imageKey(file));
         if (!path) {
-          path = groupImagePath(listId, zone);
-          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, file, {
-            contentType: "image/jpeg",
-          });
+          const { path: saved, error: uploadError } = await uploadDesignImage(supabase, groupImagePath(listId, zone), file);
           if (uploadError) throw new Error(`No se pudo subir la imagen (${zone}): ${uploadError.message}`);
+          path = saved;
           listImagePaths.current.set(imageKey(file), path);
         }
         return path;
@@ -1295,11 +1310,9 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       const uploadOrderImage = async (file: File, zone: DesignZone) => {
         let path = uploaded.get(imageKey(file));
         if (!path) {
-          path = `disenos/${crypto.randomUUID()}-${zone}.jpg`;
-          const { error: uploadError } = await supabase.storage.from("disenos").upload(path, file, {
-            contentType: "image/jpeg",
-          });
+          const { path: saved, error: uploadError } = await uploadDesignImage(supabase, `disenos/${crypto.randomUUID()}-${zone}`, file);
           if (uploadError) throw new Error(`No se pudo subir el diseño (${zone}): ${uploadError.message}`);
+          path = saved;
           uploaded.set(imageKey(file), path);
         }
         return path;

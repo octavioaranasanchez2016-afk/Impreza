@@ -56,7 +56,7 @@ const isGroup = (n: unknown): n is number => Number.isInteger(n) && (n as number
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Los archivos que sube el navegador, con el nombre que les pone el formulario.
 const RECEIPT_PATH = /^comprobantes\/[0-9a-f-]{36}\.(jpg|png)$/;
-const DESIGN_PATH = /^disenos\/[0-9a-f-]{36}-[a-z-]{4,12}\.jpg$/;
+const DESIGN_PATH = /^disenos\/[0-9a-f-]{36}-[a-z-]{4,12}\.(jpg|png)$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 const isText = (value: unknown, max: number): value is string => typeof value === "string" && value.length <= max;
 

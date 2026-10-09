@@ -50,8 +50,9 @@ const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der", "eti
 const HEX = /^#[0-9a-f]{6}$/i;
 const clamp = (n: unknown, min: number, max: number) => Math.min(max, Math.max(min, Number(n) || 0));
 
+// Dónde va una imagen de la lista, sin la extensión (.jpg o .png, según la imagen).
 export function groupImagePath(listId: string, zone: DesignZone): string {
-  return `listas/${listId}/${crypto.randomUUID()}-${zone}.jpg`;
+  return `listas/${listId}/${crypto.randomUUID()}-${zone}`;
 }
 
 // Revisa lo que llega (del navegador o de la base) y deja solo lo válido para
@@ -82,7 +83,7 @@ export function parseGroupDesign(value: unknown, productId: string, listId: stri
     };
     if (z.tipo === "imagen") {
       const path = typeof z.path === "string" ? z.path : "";
-      if (!path.startsWith(pathPrefix) || path.includes("..") || !/\.jpg$/.test(path)) continue;
+      if (!path.startsWith(pathPrefix) || path.includes("..") || !/\.(jpg|png)$/.test(path)) continue;
       zonas.push({
         zona,
         tipo: "imagen",

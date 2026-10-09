@@ -192,7 +192,7 @@ export async function loadDraftImages(): Promise<Record<string, File>> {
         if (!c) return resolve(out);
         const value = c.value as Blob;
         const key = String(c.key);
-        out[key] = value instanceof File ? value : new File([value], key.split(":")[0] || "diseno.jpg", { type: "image/jpeg" });
+        out[key] = value instanceof File ? value : new File([value], key.split(":")[0] || "diseno.jpg", { type: value.type || "image/jpeg" });
         c.continue();
       };
       cursor.onerror = () => reject(cursor.error);

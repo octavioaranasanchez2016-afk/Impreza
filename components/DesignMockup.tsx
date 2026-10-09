@@ -16,15 +16,30 @@ const SNAP_PX = 8;
 const SNAP_DEGREES = 4;
 const GUIDE_COLOR = "#E6007E";
 
-// El eje más cercano a value dentro de la tolerancia, o null si no hay ninguno.
-function nearestAxis(value: number, axes: number[], tolerance: number): number | null {
-  let best: number | null = null;
-  for (const axis of axes) {
-    if (Math.abs(value - axis) <= tolerance && (best === null || Math.abs(value - axis) < Math.abs(value - best))) {
-      best = axis;
+// Una línea a la que se puede pegar el diseño: el centro de la prenda, el centro o un
+// borde del área de impresión, o el centro de otra pieza.
+type GuideKind = "centro" | "borde" | "pieza";
+interface GuideLine {
+  at: number; // % del lienzo
+  kind: GuideKind;
+}
+
+// Pega el diseño a la línea más cercana: su centro o cualquiera de sus dos bordes (half =
+// la mitad de su ancho o alto). Devuelve el nuevo centro, o null si nada quedó cerca.
+function snapToLines(center: number, half: number, lines: GuideLine[], tolerance: number): number | null {
+  let best: { center: number; distance: number } | null = null;
+  for (const line of lines) {
+    for (const offset of [0, -half, half]) {
+      const distance = Math.abs(center + offset - line.at);
+      if (distance <= tolerance && (!best || distance < best.distance)) best = { center: line.at - offset, distance };
     }
   }
-  return best;
+  return best ? best.center : null;
+}
+
+// Las líneas sobre las que quedó el diseño (por su centro o un borde), para dibujarlas.
+function touchedLines(center: number, half: number, lines: GuideLine[]): GuideLine[] {
+  return lines.filter((line) => [0, -half, half].some((offset) => Math.abs(center + offset - line.at) < 0.05));
 }
 const ZOOM_LEVELS = [1, 1.5, 2];
 
@@ -161,8 +176,8 @@ export function DesignMockup({
   const [mode, setMode] = useState<Mode>("idle");
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
-  // Los ejes a los que quedó pegado el diseño mientras se arrastra, para dibujarlos.
-  const [guides, setGuides] = useState<{ x: number | null; y: number | null }>({ x: null, y: null });
+  // Las líneas a las que quedó pegado el diseño mientras se arrastra, para dibujarlas.
+  const [guides, setGuides] = useState<{ x: GuideLine[]; y: GuideLine[] }>({ x: [], y: [] });
   const dragStart = useRef({ pointerX: 0, pointerY: 0, x: 0, y: 0, scale: 1, rotation: 0, centerX: 0, centerY: 0, startAngle: 0 });
 
   const area = getPrintArea(category, zone);
@@ -250,17 +265,24 @@ export function DesignMockup({
     }
   }, [interactive, content, mode, transform, clampTransform, onTransformChange]);
 
-  // Ejes de simetría: el centro del área de impresión, el centro de la prenda (el cuello,
-  // si cae dentro del área) y el centro de lo demás que hay en la misma parte.
+  // Líneas guía: el centro y los bordes del área de impresión, el centro de la prenda (el
+  // cuello, si cae dentro del área) y el centro de lo demás que hay en la misma parte.
   const extraCenters = (extras ?? []).filter((e) => !e.faded).map((e) => e.transform);
   const garmentCenter = 50;
-  const snapAxes = {
+  const snapLines: { x: GuideLine[]; y: GuideLine[] } = {
     x: [
-      area.x + area.w / 2,
-      ...(garmentCenter > area.x && garmentCenter < area.x + area.w ? [garmentCenter] : []),
-      ...extraCenters.map((t) => t.x),
+      { at: area.x + area.w / 2, kind: "centro" },
+      ...(garmentCenter > area.x && garmentCenter < area.x + area.w ? [{ at: garmentCenter, kind: "centro" as const }] : []),
+      { at: area.x, kind: "borde" },
+      { at: area.x + area.w, kind: "borde" },
+      ...extraCenters.map((t) => ({ at: t.x, kind: "pieza" as const })),
     ],
-    y: [area.y + area.h / 2, ...extraCenters.map((t) => t.y)],
+    y: [
+      { at: area.y + area.h / 2, kind: "centro" },
+      { at: area.y, kind: "borde" },
+      { at: area.y + area.h, kind: "borde" },
+      ...extraCenters.map((t) => ({ at: t.y, kind: "pieza" as const })),
+    ],
   };
 
   const handlePointerMove = useCallback(
@@ -272,14 +294,12 @@ export function DesignMockup({
       if (mode === "dragging") {
         const rawX = start.x + ((e.clientX - start.pointerX) / rect.width) * 100;
         const rawY = start.y + ((e.clientY - start.pointerY) / rect.height) * 100;
-        const axisX = nearestAxis(rawX, snapAxes.x, (SNAP_PX / rect.width) * 100);
-        const axisY = nearestAxis(rawY, snapAxes.y, (SNAP_PX / rect.height) * 100);
-        const next = clampTransform({ ...transform, x: axisX ?? rawX, y: axisY ?? rawY });
-        // Solo se dibuja el eje si el diseño de verdad quedó sobre él (el área puede correrlo).
-        setGuides({
-          x: axisX !== null && Math.abs(next.x - axisX) < 0.05 ? axisX : null,
-          y: axisY !== null && Math.abs(next.y - axisY) < 0.05 ? axisY : null,
-        });
+        const box = rotatedBox(liveW, liveH, transform.rotation);
+        const snappedX = snapToLines(rawX, box.w / 2, snapLines.x, (SNAP_PX / rect.width) * 100);
+        const snappedY = snapToLines(rawY, box.h / 2, snapLines.y, (SNAP_PX / rect.height) * 100);
+        const next = clampTransform({ ...transform, x: snappedX ?? rawX, y: snappedY ?? rawY });
+        // Se dibujan las líneas que el diseño de verdad toca (el área puede correrlo).
+        setGuides({ x: touchedLines(next.x, box.w / 2, snapLines.x), y: touchedLines(next.y, box.h / 2, snapLines.y) });
         onTransformChange?.(next);
       } else if (mode === "resizing") {
         const deltaXPct = ((e.clientX - start.pointerX) / rect.width) * 100;
@@ -293,12 +313,12 @@ export function DesignMockup({
         onTransformChange?.({ ...transform, rotation });
       }
     },
-    [mode, onTransformChange, transform, clampTransform, snapAxes]
+    [mode, onTransformChange, transform, clampTransform, snapLines, liveW, liveH]
   );
 
   const stopInteraction = useCallback(() => {
     setMode("idle");
-    setGuides({ x: null, y: null });
+    setGuides({ x: [], y: [] });
   }, []);
 
   useEffect(() => {
@@ -444,20 +464,7 @@ export function DesignMockup({
 
           {extras?.map((extra, i) => !extra.below && <ExtraLayer key={i} category={category} zone={zone} extra={extra} />)}
 
-          {/* Ejes de simetría donde quedó pegado el diseño: de arriba a abajo de la prenda
-              y de lado a lado del área de impresión. */}
-          {mode === "dragging" && guides.x !== null && (
-            <div
-              className="pointer-events-none absolute inset-y-0"
-              style={{ left: `${guides.x}%`, borderLeft: `1.5px dashed ${GUIDE_COLOR}` }}
-            />
-          )}
-          {mode === "dragging" && guides.y !== null && (
-            <div
-              className="pointer-events-none absolute"
-              style={{ top: `${guides.y}%`, left: `${area.x}%`, width: `${area.w}%`, borderTop: `1.5px dashed ${GUIDE_COLOR}` }}
-            />
-          )}
+          {mode === "dragging" && <SnapGuides area={area} guides={guides} />}
 
           {overlay && <div className="pointer-events-none absolute inset-0">{overlay}</div>}
         </div>
@@ -529,6 +536,99 @@ export function DesignMockup({
 }
 
 // Otra cosa de la misma parte, dibujada como capa (solo se puede tocar, no mover).
+// Mientras se arrastra: las esquinas del área de impresión y las líneas a las que quedó
+// pegado el diseño. La esquina que toca el diseño (dos bordes a la vez) se resalta.
+const GUIDE_HALO = "0 0 0 0.5px rgba(255,255,255,0.8)";
+const CORNER_LEN = 3.2; // % del lienzo
+const GUIDE_OVERHANG = 3; // cuánto pasan las líneas más allá del área, en %
+
+function SnapGuides({
+  area,
+  guides,
+}: {
+  area: { x: number; y: number; w: number; h: number };
+  guides: { x: GuideLine[]; y: GuideLine[] };
+}) {
+  const corners = [
+    { x: area.x, y: area.y, sx: 1, sy: 1 },
+    { x: area.x + area.w, y: area.y, sx: -1, sy: 1 },
+    { x: area.x, y: area.y + area.h, sx: 1, sy: -1 },
+    { x: area.x + area.w, y: area.y + area.h, sx: -1, sy: -1 },
+  ];
+  const onLine = (lines: GuideLine[], at: number) => lines.some((l) => l.kind === "borde" && Math.abs(l.at - at) < 0.05);
+  const centerLine = guides.x.find((l) => l.kind === "centro");
+
+  return (
+    <div className="pointer-events-none absolute inset-0">
+      {corners.map((c, i) => {
+        const hit = onLine(guides.x, c.x) && onLine(guides.y, c.y);
+        const thick = hit ? 3 : 2;
+        const style = { position: "absolute" as const, background: GUIDE_COLOR, boxShadow: GUIDE_HALO, opacity: hit ? 1 : 0.55 };
+        return (
+          <div key={i}>
+            <div
+              style={{
+                ...style,
+                left: c.sx > 0 ? `${c.x}%` : `${c.x - CORNER_LEN}%`,
+                top: `calc(${c.y}% - ${c.sy > 0 ? 0 : thick}px)`,
+                width: `${CORNER_LEN}%`,
+                height: thick,
+              }}
+            />
+            <div
+              style={{
+                ...style,
+                left: `calc(${c.x}% - ${c.sx > 0 ? 0 : thick}px)`,
+                top: c.sy > 0 ? `${c.y}%` : `${c.y - CORNER_LEN}%`,
+                width: thick,
+                height: `${CORNER_LEN}%`,
+              }}
+            />
+          </div>
+        );
+      })}
+
+      {guides.x.map((l, i) => (
+        <div
+          key={`x${i}`}
+          className="absolute"
+          style={{
+            left: `${l.at}%`,
+            top: l.kind === "centro" ? 0 : `${area.y - GUIDE_OVERHANG}%`,
+            height: l.kind === "centro" ? "100%" : `${area.h + GUIDE_OVERHANG * 2}%`,
+            width: 1,
+            background: GUIDE_COLOR,
+            boxShadow: GUIDE_HALO,
+          }}
+        />
+      ))}
+      {guides.y.map((l, i) => (
+        <div
+          key={`y${i}`}
+          className="absolute"
+          style={{
+            top: `${l.at}%`,
+            left: `${area.x - GUIDE_OVERHANG}%`,
+            width: `${area.w + GUIDE_OVERHANG * 2}%`,
+            height: 1,
+            background: GUIDE_COLOR,
+            boxShadow: GUIDE_HALO,
+          }}
+        />
+      ))}
+
+      {centerLine && (
+        <span
+          className="absolute -translate-x-1/2 rounded-full px-1.5 py-0.5 text-[10px] font-semibold text-white"
+          style={{ left: `${centerLine.at}%`, top: `${Math.max(1, area.y - 7)}%`, background: GUIDE_COLOR }}
+        >
+          Centro
+        </span>
+      )}
+    </div>
+  );
+}
+
 function ExtraLayer({
   category,
   zone,

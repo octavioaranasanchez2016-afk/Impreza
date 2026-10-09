@@ -17,6 +17,7 @@ import {
   FONTS_SHOWN_FIRST,
   MAX_PIECES_PER_ZONE,
   MockupTextContent,
+  SourceImage,
   TEXT_COLOR_OPTIONS,
   fontFamilyCss,
   prepareDesignFile,
@@ -32,6 +33,14 @@ import {
   getZonesForCategory,
   isDarkColor,
 } from "./GarmentShape";
+import {
+  BACKGROUND_STRENGTHS,
+  BackgroundStrength,
+  IMAGE_SHAPES,
+  ImageShape,
+  applyImageEffects,
+  hasEffects,
+} from "@/lib/image-effects";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
 import { ImageCropper } from "./ImageCropper";
 
@@ -173,6 +182,8 @@ export function DesignCanvas({
   const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
   const [cropping, setCropping] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
+  const [effectsBusy, setEffectsBusy] = useState(false);
+  const [effectsNote, setEffectsNote] = useState<string | null>(null);
   const [allFonts, setAllFonts] = useState(false);
 
   const zones = getZonesForCategory(category);
@@ -240,8 +251,9 @@ export function DesignCanvas({
   const presets = PLACEMENT_PRESETS[`${category}:${zone}`];
   const maxCm = sizeCm && transform.scale > 0 ? { w: (sizeCm.w / transform.scale) * MAX_SCALE, h: (sizeCm.h / transform.scale) * MAX_SCALE } : null;
 
-  // La imagen completa que subió el cliente (si ya la recortó, la original).
-  const sourceImage =
+  // La imagen completa que subió el cliente (si ya la recortó, la original; si le dio
+  // forma o le quitó el fondo, la de antes de eso).
+  const sourceImage: SourceImage | null =
     content?.kind === "imagen"
       ? content.source
         ? {
@@ -250,15 +262,43 @@ export function DesignCanvas({
             width: content.source.width,
             height: content.source.height,
           }
-        : { file: content.file, previewUrl: content.previewUrl, width: content.width, height: content.height }
+        : content.effects?.base ?? { file: content.file, previewUrl: content.previewUrl, width: content.width, height: content.height }
       : null;
   const fillTransform = { x: area.x + area.w / 2, y: area.y + area.h / 2, scale: MAX_SCALE, rotation: 0 };
+  const shape: ImageShape = content?.kind === "imagen" ? content.effects?.shape ?? "original" : "original";
+  const removeBg: BackgroundStrength | null = content?.kind === "imagen" ? content.effects?.removeBackground ?? null : null;
 
-  function showWholeImage() {
+  // La imagen con la forma y el fondo elegidos encima (o tal cual, si no hay nada).
+  async function withEffects(image: SourceImage, nextShape: ImageShape, nextBg: BackgroundStrength | null) {
+    if (!hasEffects({ shape: nextShape, removeBackground: nextBg })) return { image, effects: undefined, removed: 0 };
+    const { image: done, removed } = await applyImageEffects(image, nextShape, nextBg);
+    return { image: done, effects: { base: image, shape: nextShape, removeBackground: nextBg }, removed };
+  }
+
+  async function changeEffects(nextShape: ImageShape, nextBg: BackgroundStrength | null) {
+    if (content?.kind !== "imagen") return;
+    const base = content.effects?.base ?? { file: content.file, previewUrl: content.previewUrl, width: content.width, height: content.height };
+    setEffectsBusy(true);
+    setCropError(null);
+    setEffectsNote(null);
+    try {
+      const { image, effects, removed } = await withEffects(base, nextShape, nextBg);
+      onContentChange({ ...content, ...image, fill: nextShape === "original" ? content.fill : false, effects }, false);
+      if (nextBg && removed < 0.01) {
+        setEffectsNote("No encontramos un fondo de un solo color en los bordes. Funciona mejor con logos o fotos sobre un fondo liso.");
+      }
+    } catch (err) {
+      setCropError(err instanceof Error ? err.message : "No se pudo editar la imagen.");
+    }
+    setEffectsBusy(false);
+  }
+
+  async function showWholeImage() {
     if (content?.kind !== "imagen" || !sourceImage) return;
     setCropError(null);
     if (content.source) {
-      onContentChange({ kind: "imagen", ...sourceImage, fill: false }, false);
+      const { image, effects } = await withEffects(sourceImage, shape, removeBg);
+      onContentChange({ kind: "imagen", ...image, fill: false, effects }, false);
       onTransformChange(defaultTransform(category, zone));
     } else {
       onContentChange({ ...content, fill: false }, false);
@@ -288,7 +328,8 @@ export function DesignCanvas({
     if (!sourceImage) return;
     try {
       const cropped = await cropImageFile(sourceImage, crop);
-      onContentChange({ kind: "imagen", ...cropped, fill: false, source: { ...sourceImage, crop } }, false);
+      const { image, effects } = await withEffects(cropped, shape, removeBg);
+      onContentChange({ kind: "imagen", ...image, fill: false, source: { ...sourceImage, crop }, effects }, false);
       onTransformChange(fillsArea ? fillTransform : defaultTransform(category, zone));
       setCropError(null);
     } catch (err) {
@@ -630,6 +671,57 @@ export function DesignCanvas({
                 {cropError && <p className="mt-1.5 text-xs font-medium text-red-600">{cropError}</p>}
               </Section>
             )}
+
+            {content.kind === "imagen" && (
+              <Section title="Forma">
+                <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+                  {IMAGE_SHAPES.map((s) => (
+                    <button
+                      key={s.value}
+                      type="button"
+                      disabled={effectsBusy}
+                      onClick={() => changeEffects(s.value, removeBg)}
+                      aria-pressed={shape === s.value}
+                      className={`flex flex-col items-center gap-1 rounded-brand border px-1 py-2 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+                        shape === s.value ? "border-ink bg-ink text-paper" : "border-black/15 text-ink-soft hover:border-ink hover:text-ink"
+                      }`}
+                    >
+                      <ShapeIcon shape={s.value} />
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {content.kind === "imagen" && (
+              <Section title="Fondo">
+                <div className="flex flex-wrap gap-1.5">
+                  <Chip active={!removeBg} onClick={() => !effectsBusy && changeEffects(shape, null)}>
+                    Con fondo
+                  </Chip>
+                  <Chip active={Boolean(removeBg)} onClick={() => !effectsBusy && !removeBg && changeEffects(shape, "normal")}>
+                    Quitar fondo
+                  </Chip>
+                </div>
+                {removeBg && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-ink-muted">Cuánto quitar:</span>
+                    {BACKGROUND_STRENGTHS.map((s) => (
+                      <Chip key={s.value} active={removeBg === s.value} onClick={() => !effectsBusy && changeEffects(shape, s.value)}>
+                        {s.label}
+                      </Chip>
+                    ))}
+                  </div>
+                )}
+                <p className="mt-2 text-[11px] text-ink-muted">
+                  Quita el fondo de un solo color que toca los bordes, como el blanco detrás de un logo. Si se borra parte del
+                  dibujo, usa Suave; si queda fondo, usa Fuerte; si queda dentro de las letras, usa Todo ese color.
+                </p>
+                {effectsBusy && <p className="mt-1.5 text-xs font-medium text-ink-soft">Preparando tu imagen…</p>}
+                {effectsNote && <p className="mt-1.5 text-xs font-medium text-amber-800">{effectsNote}</p>}
+              </Section>
+            )}
             {cropping && sourceImage && content?.kind === "imagen" && (
               <ImageCropper
                 src={sourceImage.previewUrl}
@@ -856,6 +948,21 @@ function CmInput({ label, value, onCommit }: { label: string; value: number; onC
       />
       cm
     </label>
+  );
+}
+
+// Dibujito de cada forma para los botones.
+function ShapeIcon({ shape }: { shape: ImageShape }) {
+  const common = { fill: "currentColor", opacity: 0.85 };
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
+      {shape === "original" && <rect x="3" y="5" width="18" height="14" {...common} />}
+      {shape === "circulo" && <circle cx="12" cy="12" r="9" {...common} />}
+      {shape === "redondeada" && <rect x="3" y="5" width="18" height="14" rx="4" {...common} />}
+      {shape === "corazon" && <path d="M12 21 C3 14 2.5 7.5 7 5.5 C9.5 4.5 11.3 6 12 7.5 C12.7 6 14.5 4.5 17 5.5 C21.5 7.5 21 14 12 21Z" {...common} />}
+      {shape === "estrella" && <path d="M12 2.5l2.8 6.1 6.7.7-5 4.5 1.4 6.6L12 17l-5.9 3.4 1.4-6.6-5-4.5 6.7-.7z" {...common} />}
+      {shape === "hexagono" && <path d="M12 2.5l8.2 4.75v9.5L12 21.5l-8.2-4.75v-9.5z" {...common} />}
+    </svg>
   );
 }
 

@@ -1,4 +1,5 @@
 import { DesignTransform } from "./types";
+import type { ImageEffects } from "./image-effects";
 
 // Se acepta cualquier imagen; prepareDesignFile la pasa a JPG si hace falta.
 export const ACCEPTED_DESIGN_TYPES = ["image/*"];
@@ -186,6 +187,9 @@ export interface ImageDesignContent extends MockupImageContent {
   // Si el cliente eligió qué parte de su imagen usar: la original y el recorte, para
   // poder cambiarlo. Lo que se sube e imprime es file (ya recortado).
   source?: SourceImage & { crop: CropRect };
+  // Si se le dio forma o se le quitó el fondo: la imagen de antes (ya recortada) y lo
+  // que se aplicó. Lo que se sube e imprime es file (el PNG con transparencia).
+  effects?: ImageEffects;
 }
 
 // El recorte más grande con esa proporción (ancho/alto en píxeles), centrado.
