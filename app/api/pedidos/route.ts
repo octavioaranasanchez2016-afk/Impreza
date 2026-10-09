@@ -10,6 +10,7 @@ import { addressText, deliveryQuote, missingAddressField, parseShipping } from "
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 import { sessionEmail } from "@/lib/accounts";
 import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
+import { normalizeStoredPhone } from "@/lib/phone";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
   const row = {
     ...(body.orderId && UUID.test(body.orderId) ? { id: body.orderId.toLowerCase() } : {}),
     cliente_nombre: body.clienteNombre.trim(),
-    cliente_telefono: body.clienteTelefono.trim(),
+    cliente_telefono: normalizeStoredPhone(body.clienteTelefono)!,
     cliente_email: clienteEmail,
     tecnica: body.tecnica,
     disenos,
@@ -290,7 +291,7 @@ export async function POST(req: NextRequest) {
       sendNewOrderEmail({
         orderId: order.id,
         clienteNombre,
-        clienteTelefono: body.clienteTelefono.trim(),
+        clienteTelefono: normalizeStoredPhone(body.clienteTelefono)!,
         clienteEmail,
         total,
         tecnica: techniquesText(body.items, body.tecnica),
@@ -327,8 +328,9 @@ function validate(body: CreateOrderBody): string | null {
   if (!isText(body.clienteNombre, 120) || body.clienteNombre.trim().length < 2) {
     return "El nombre del cliente es requerido.";
   }
-  if (!isText(body.clienteTelefono, 40) || body.clienteTelefono.trim().length < 6) {
-    return "El teléfono del cliente es requerido.";
+  // Con el largo y los primeros números de su país (sin letras ni números incompletos).
+  if (!isText(body.clienteTelefono, 40) || !normalizeStoredPhone(body.clienteTelefono)) {
+    return "Revisa tu teléfono: le faltan números o no es de ese país.";
   }
   if (body.clienteEmail != null && !isText(body.clienteEmail, 200)) {
     return "El correo no es válido.";

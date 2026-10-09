@@ -47,6 +47,7 @@ export interface OrderDraft {
   extras?: Partial<Record<DesignZone, DraftExtra[]>>; // lo demás de cada parte
   clienteNombre: string;
   clienteTelefono: string;
+  telefonoPais?: string; // país del teléfono (los borradores de antes no lo traen)
   clienteEmail: string;
   notas: string;
   wantsRuc: boolean;

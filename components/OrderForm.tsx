@@ -5,6 +5,16 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AccountData, fetchAccount } from "@/lib/account-client";
 import {
+  DEFAULT_PHONE_COUNTRY,
+  OTHER_COUNTRY,
+  PHONE_COUNTRIES,
+  cleanPhoneInput,
+  formatPhone,
+  phoneCountry,
+  phoneProblem,
+  splitPhone,
+} from "@/lib/phone";
+import {
   PRODUCTS,
   TECHNIQUE_HINT,
   TECHNIQUE_LABEL,
@@ -319,6 +329,13 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const lockedFields = Boolean(listDesign && listDesign.personas > 0);
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
+  // El país del teléfono: cada país tiene su largo y sus primeros números.
+  const [telefonoPais, setTelefonoPais] = useState(DEFAULT_PHONE_COUNTRY);
+  const [telefonoTocado, setTelefonoTocado] = useState(false);
+  const telefonoRef = useRef("");
+  telefonoRef.current = clienteTelefono;
+  // "+505 8888 8888", o null mientras no sea un número válido de ese país.
+  const telefonoFinal = formatPhone(telefonoPais, clienteTelefono);
   const [clienteEmail, setClienteEmail] = useState("");
   // La cuenta abierta (opcional): el pedido va con su correo y aparece en "Mi cuenta".
   const [account, setAccount] = useState<AccountData | null>(null);
@@ -643,7 +660,14 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       setZoneTransform(draft.transforms);
       setZoneExtras(restoredExtras);
       setClienteNombre(draft.clienteNombre);
-      setClienteTelefono(draft.clienteTelefono);
+      if (draft.telefonoPais) {
+        setTelefonoPais(draft.telefonoPais);
+        setClienteTelefono(draft.clienteTelefono);
+      } else {
+        const split = splitPhone(draft.clienteTelefono);
+        setTelefonoPais(split.country);
+        setClienteTelefono(split.local);
+      }
       setClienteEmail(draft.clienteEmail);
       setNotas(draft.notas || urlNota);
       setWantsRuc(draft.wantsRuc);
@@ -687,6 +711,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       extras: toDraftZoneExtras(zoneExtras),
       clienteNombre,
       clienteTelefono,
+      telefonoPais,
       clienteEmail,
       notas,
       wantsRuc,
@@ -707,6 +732,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     zoneExtras,
     clienteNombre,
     clienteTelefono,
+    telefonoPais,
     clienteEmail,
     notas,
     wantsRuc,
@@ -726,7 +752,11 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       if (found.perfil) {
         const { nombre, telefono } = found.perfil;
         setClienteNombre((v) => (v.trim() ? v : nombre));
-        setClienteTelefono((v) => (v.trim() ? v : telefono));
+        if (!telefonoRef.current.trim()) {
+          const split = splitPhone(telefono);
+          setTelefonoPais(split.country);
+          setClienteTelefono(split.local);
+        }
       }
     });
     return () => {
@@ -939,6 +969,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     setZoneExtras({});
     setClienteNombre("");
     setClienteTelefono("");
+    setTelefonoPais(DEFAULT_PHONE_COUNTRY);
+    setTelefonoTocado(false);
     setClienteEmail("");
     setNotas("");
     setWantsRuc(false);
@@ -1205,7 +1237,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       section: "diseno",
     },
     clienteNombre.trim().length < 2 && { label: "tu nombre", section: "datos" },
-    clienteTelefono.trim().length < 6 && { label: "tu teléfono", section: "datos" },
+    !telefonoFinal && { label: clienteTelefono.trim() ? "revisar tu teléfono" : "tu teléfono", section: "datos" },
     emailInvalid && { label: "revisar tu correo", section: "datos" },
     wantsRuc && missingBillingField(billing) && { label: missingBillingField(billing)!, section: "datos" },
     !shipping && { label: "cómo quieres recibir tu pedido", section: "entrega" },
@@ -1287,7 +1319,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clienteNombre,
-          clienteTelefono,
+          clienteTelefono: telefonoFinal,
           clienteEmail: orderEmail || null,
           tecnica: mainTechnique(items, technique),
           disenos,
@@ -2120,13 +2152,39 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
                 </Field>
                 <Field label="Teléfono / WhatsApp *">
-                  <input
-                    value={clienteTelefono}
-                    onChange={(e) => setClienteTelefono(e.target.value)}
-                    className="input"
-                    placeholder="Ej. 8888 8888"
-                    inputMode="tel"
-                  />
+                  <span className="flex gap-2">
+                    <select
+                      value={telefonoPais}
+                      onChange={(e) => setTelefonoPais(e.target.value)}
+                      aria-label="País del teléfono"
+                      className="input !w-[6.75rem] shrink-0 !px-2"
+                    >
+                      {PHONE_COUNTRIES.map((c) => (
+                        <option key={c.code} value={c.code}>
+                          {c.flag} +{c.dial} {c.name}
+                        </option>
+                      ))}
+                      <option value={OTHER_COUNTRY}>🌎 Otro país</option>
+                    </select>
+                    <input
+                      type="tel"
+                      value={clienteTelefono}
+                      onChange={(e) => setClienteTelefono(cleanPhoneInput(e.target.value))}
+                      onBlur={() => setTelefonoTocado(true)}
+                      className="input min-w-0 flex-1"
+                      placeholder={
+                        telefonoPais === OTHER_COUNTRY ? "+44 20 7946 0958" : `Ej. ${phoneCountry(telefonoPais)?.example ?? ""}`
+                      }
+                      inputMode="tel"
+                      autoComplete={telefonoPais === OTHER_COUNTRY ? "tel" : "tel-national"}
+                      aria-invalid={telefonoTocado && !telefonoFinal}
+                    />
+                  </span>
+                  {telefonoTocado && phoneProblem(telefonoPais, clienteTelefono) ? (
+                    <span className="mt-1 block text-xs font-medium text-red-600">{phoneProblem(telefonoPais, clienteTelefono)}</span>
+                  ) : telefonoFinal ? (
+                    <span className="mt-1 block text-xs text-ink-muted">Te escribimos al {telefonoFinal}</span>
+                  ) : null}
                 </Field>
                 <Field label={account ? "Correo de tu cuenta" : "Correo (opcional, recomendado)"}>
                   <input
