@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
@@ -69,6 +70,14 @@ export default async function SeguimientoPage({ searchParams }: { searchParams: 
         </div>
         {error && <p className="mt-3 text-sm font-medium text-red-600">{error}</p>}
       </form>
+
+      <p className="mt-4 text-sm text-ink-soft">
+        ¿Quieres ver todos tus pedidos juntos?{" "}
+        <Link href="/cuenta" className="font-semibold text-ink underline">
+          Entra a tu cuenta
+        </Link>{" "}
+        con tu correo (opcional).
+      </p>
 
       <div className="mt-8 rounded-brand bg-paper-soft p-5 text-sm text-ink-soft">
         <p className="font-semibold text-ink">¿No tienes tu código?</p>

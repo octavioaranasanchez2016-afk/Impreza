@@ -8,6 +8,7 @@ import { describePersonal } from "@/lib/group-names";
 import { SizeList, listPersonal } from "@/lib/size-lists";
 import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
+import { sessionEmail } from "@/lib/accounts";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -123,13 +124,17 @@ export async function POST(req: NextRequest) {
     rotacion: ((clamp(d.rotacion ?? 0, -3600, 3600) % 360) + 360) % 360,
   }));
 
+  // Con la cuenta abierta, el pedido queda con su correo y aparece en "Mi cuenta".
+  const cuentaEmail = await sessionEmail().catch(() => null);
+  const clienteEmail = cuentaEmail ?? (body.clienteEmail?.trim() || null);
+
   const supabase = createServiceClient();
 
   const row = {
     ...(body.orderId && UUID.test(body.orderId) ? { id: body.orderId.toLowerCase() } : {}),
     cliente_nombre: body.clienteNombre.trim(),
     cliente_telefono: body.clienteTelefono.trim(),
-    cliente_email: body.clienteEmail?.trim() || null,
+    cliente_email: clienteEmail,
     tecnica: body.tecnica,
     disenos,
     notas: body.notas,
@@ -256,7 +261,6 @@ export async function POST(req: NextRequest) {
   // after() responde al cliente de inmediato y mantiene viva la función en
   // Vercel hasta que los correos terminen; sin él se cortaban a medio envío.
   const clienteNombre = body.clienteNombre.trim();
-  const clienteEmail = body.clienteEmail?.trim() || null;
   after(async () => {
     await Promise.all([
       sendNewOrderEmail({

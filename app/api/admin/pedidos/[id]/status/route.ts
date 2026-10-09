@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { OrderStatus, PaymentStatus } from "@/lib/types";
 import { sendStatusUpdateEmail, StatusEmailKind } from "@/lib/email";
 
@@ -18,17 +18,11 @@ const PAYMENT_EMAIL: Partial<Record<PaymentStatus, StatusEmailKind>> = {
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const supabase = await createClient();
-
-  // createClient() usa las cookies de sesión del admin logueado, así que este
-  // update pasa por RLS normalmente (policy "admins actualizan pedidos") —
-  // no se usa la service role aquí, un admin no autenticado no puede llegar.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  }
+  // La sesión del admin: el update pasa además por RLS (policy "admins actualizan
+  // pedidos"); no se usa la service role aquí.
+  const auth = await requireAdmin();
+  if (auth.denied) return auth.denied;
+  const { supabase } = auth;
 
   const body = await req.json().catch(() => null);
   const update: { status?: OrderStatus; payment_status?: PaymentStatus; updated_at: string } = {

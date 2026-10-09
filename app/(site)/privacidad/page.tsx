@@ -36,6 +36,14 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Tu cuenta (opcional)",
+    items: [
+      "Puedes pedir sin cuenta. Si quieres una, entras con tu correo y un código que te enviamos; no hay contraseñas.",
+      "Con tu cuenta ves los pedidos que hiciste con ese correo. Solo tú los ves, porque solo tú recibes el código.",
+      "Mientras tengas la sesión abierta, tu navegador guarda una cookie para recordarla. Al tocar «Salir» se borra.",
+    ],
+  },
+  {
     title: "Tus derechos",
     items: [
       "Puedes pedirnos por WhatsApp ver, corregir o borrar tus datos cuando quieras.",

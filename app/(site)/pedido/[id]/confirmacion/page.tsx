@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
+import { AccountOrderPrompt } from "@/components/AccountOrderPrompt";
 import { Invoice } from "@/components/Invoice";
 import { ReviewForm } from "@/components/ReviewForm";
 import { ReceiptReupload } from "@/components/ReceiptReupload";
@@ -128,6 +129,8 @@ export default async function ConfirmacionPage({ params }: { params: Promise<{ i
           .
         </p>
       </div>
+
+      <AccountOrderPrompt orderId={order.id} hasEmail={Boolean(order.cliente_email)} />
 
       {entrega && (
         <div className="mt-4 flex items-start gap-3 rounded-brand border border-black/10 bg-white px-5 py-4 text-sm">

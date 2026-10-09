@@ -160,6 +160,23 @@ interface CustomerParams {
 // sin él Resend los rechaza y los avisos van por WhatsApp desde el panel.
 const canEmailCustomers = () => Boolean(process.env.EMAIL_FROM);
 
+// El código para entrar a "Mi cuenta". Devuelve si salió, para avisarle al cliente.
+export async function sendLoginCodeEmail(to: string, code: string): Promise<boolean> {
+  if (!canEmailCustomers()) return false;
+  const result = await send(
+    to,
+    `Tu código para entrar: ${code} — Impreza`,
+    layout(`
+      <h2 style="margin:0 0 12px;">Tu código para entrar</h2>
+      <p>Escríbelo en Impreza para ver tus pedidos:</p>
+      <p style="margin:20px 0;font-family:'Courier New',monospace;font-size:34px;font-weight:bold;letter-spacing:8px;">${escapeHtml(code)}</p>
+      <p style="color:#555;">Vale por una hora y sirve una sola vez. Si no lo pediste, ignora este correo: nadie
+      puede entrar sin el código.</p>
+    `)
+  );
+  return result.ok;
+}
+
 export async function sendCustomerConfirmationEmail(params: CustomerParams) {
   if (!canEmailCustomers()) return;
   const { subject, html } = buildCustomerConfirmationEmail(params);

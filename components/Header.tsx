@@ -45,6 +45,16 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <Link
+            href="/cuenta"
+            aria-label="Mi cuenta"
+            title="Mi cuenta"
+            className={`hidden h-9 w-9 items-center justify-center rounded-brand border transition-colors md:flex ${
+              pathname.startsWith("/cuenta") ? "border-ink" : "border-black/10 hover:border-ink"
+            }`}
+          >
+            <AccountIcon />
+          </Link>
+          <Link
             href="/pedido"
             className="rounded-brand bg-ink px-4 py-2 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
           >
@@ -74,6 +84,13 @@ export function Header() {
               {link.label}
             </Link>
           ))}
+          <Link
+            href="/cuenta"
+            onClick={() => setOpen(false)}
+            className={`flex items-center gap-2 py-2.5 text-base text-ink ${pathname.startsWith("/cuenta") ? "font-bold" : "font-medium"}`}
+          >
+            <AccountIcon /> Mi cuenta
+          </Link>
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-black/5 pt-4">
             <p className="text-xs text-ink-soft">
               Lun – Vie 8am – 5pm
@@ -104,6 +121,15 @@ function MenuIcon({ open }: { open: boolean }) {
       ) : (
         <path d="M3 6h14M3 10h14M3 14h14" strokeLinecap="round" />
       )}
+    </svg>
+  );
+}
+
+function AccountIcon() {
+  return (
+    <svg viewBox="0 0 20 20" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+      <circle cx="10" cy="7" r="3.2" />
+      <path d="M3.8 16.5c.9-3 3.3-4.6 6.2-4.6s5.3 1.6 6.2 4.6" strokeLinecap="round" />
     </svg>
   );
 }

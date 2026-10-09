@@ -1,15 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "@/lib/review-rules";
 
 // Moderación y edición de reseñas desde el panel: pasa por RLS con la sesión del admin.
 async function adminClient() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ? supabase : null;
+  const auth = await requireAdmin();
+  return auth.denied ? null : auth.supabase;
 }
 
 // Las páginas públicas guardan las reseñas por 5 minutos: se refrescan al momento.

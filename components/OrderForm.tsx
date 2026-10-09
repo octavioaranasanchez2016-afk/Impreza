@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { AccountData, fetchAccount } from "@/lib/account-client";
 import {
   PRODUCTS,
   TECHNIQUE_HINT,
@@ -251,6 +253,7 @@ export interface ListDesignMode {
 
 export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; query?: string } = {}) {
   const router = useRouter();
+  const pathname = usePathname();
   const urlParams = useSearchParams();
   // En la página de diseño de una lista, los datos llegan del servidor en vez de la URL.
   const searchParams = useMemo(() => (query !== undefined ? new URLSearchParams(query) : urlParams), [query, urlParams]);
@@ -317,6 +320,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   const [clienteNombre, setClienteNombre] = useState("");
   const [clienteTelefono, setClienteTelefono] = useState("");
   const [clienteEmail, setClienteEmail] = useState("");
+  // La cuenta abierta (opcional): el pedido va con su correo y aparece en "Mi cuenta".
+  const [account, setAccount] = useState<AccountData | null>(null);
   const [notas, setNotas] = useState(urlNota);
   const [wantsRuc, setWantsRuc] = useState(false);
   const [billing, setBilling] = useState<BillingInfo>({ razonSocial: "", ruc: "" });
@@ -708,6 +713,26 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
     billing,
     shipping,
   ]);
+
+  // Con la cuenta abierta, el pedido va con su correo y, si están vacíos, con el nombre y
+  // el teléfono de su último pedido.
+  useEffect(() => {
+    if (!draftReady || designMode) return;
+    let cancelled = false;
+    fetchAccount().then((found) => {
+      if (cancelled || !found) return;
+      setAccount(found);
+      setClienteEmail(found.email);
+      if (found.perfil) {
+        const { nombre, telefono } = found.perfil;
+        setClienteNombre((v) => (v.trim() ? v : nombre));
+        setClienteTelefono((v) => (v.trim() ? v : telefono));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [draftReady, designMode]);
 
   // Las imágenes (del diseñador y de cada línea) solo se vuelven a guardar cuando
   // cambia algún archivo, no al moverlas.
@@ -1172,7 +1197,8 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // Lo que falta para confirmar, con la sección del formulario donde se completa.
   const addressGap = shipping ? missingAddressField(shipping) : null;
   // Misma regla que el servidor: un correo mal escrito haría fallar el pedido al final.
-  const emailInvalid = clienteEmail.trim().length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clienteEmail.trim());
+  const orderEmail = account?.email ?? clienteEmail.trim();
+  const emailInvalid = !account && orderEmail.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orderEmail);
   const missingSteps = [
     items.length === 0 && {
       label: pendingTotal > 0 ? `tocar «${addLabel(pendingTotal)}» en el paso 1` : "al menos un producto",
@@ -1262,7 +1288,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
         body: JSON.stringify({
           clienteNombre,
           clienteTelefono,
-          clienteEmail: clienteEmail.trim() || null,
+          clienteEmail: orderEmail || null,
           tecnica: mainTechnique(items, technique),
           disenos,
           notas: notas.trim() || null,
@@ -2070,6 +2096,25 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           <>
             <section id="datos" className="scroll-mt-28">
               <h2 className="font-display text-3xl uppercase tracking-wide text-ink">2. Tus datos</h2>
+              {account ? (
+                <p className="mt-1 text-sm text-ink-soft">
+                  Este pedido se guarda en tu cuenta.{" "}
+                  <Link href="/cuenta" className="font-semibold text-ink underline">
+                    Ver mis pedidos
+                  </Link>
+                </p>
+              ) : (
+                <p className="mt-1 text-sm text-ink-soft">
+                  ¿Quieres ver tus pedidos después en un solo lugar?{" "}
+                  <Link
+                    href={`/cuenta?volver=${encodeURIComponent(`${pathname}${urlParams.size ? `?${urlParams}` : ""}#datos`)}`}
+                    className="font-semibold text-ink underline"
+                  >
+                    Entra a tu cuenta
+                  </Link>{" "}
+                  (opcional: puedes pedir sin cuenta).
+                </p>
+              )}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <Field label="Nombre completo *">
                   <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
@@ -2083,17 +2128,22 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                     inputMode="tel"
                   />
                 </Field>
-                <Field label="Correo (opcional, recomendado)">
+                <Field label={account ? "Correo de tu cuenta" : "Correo (opcional, recomendado)"}>
                   <input
                     type="email"
-                    value={clienteEmail}
+                    value={account ? account.email : clienteEmail}
                     onChange={(e) => setClienteEmail(e.target.value)}
-                    className="input"
+                    readOnly={Boolean(account)}
+                    className={`input ${account ? "bg-paper-soft text-ink-soft" : ""}`}
                     placeholder="correo@ejemplo.com"
                     inputMode="email"
                     autoComplete="email"
                   />
-                  {emailInvalid ? (
+                  {account ? (
+                    <span className="mt-1 block text-xs text-ink-muted">
+                      Aquí te avisamos cómo va tu pedido, y lo ves en Mi cuenta.
+                    </span>
+                  ) : emailInvalid ? (
                     <span className="mt-1 block text-xs font-medium text-red-600">
                       Revisa tu correo: parece incompleto. Si prefieres, déjalo vacío.
                     </span>
