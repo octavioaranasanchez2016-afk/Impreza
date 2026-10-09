@@ -273,7 +273,18 @@ export function personalDeLista(estilo: unknown, category: ProductCategory, pers
 // --- Lo que escribe cada persona ----------------------------------------------------
 
 // Letras y colores que cada persona puede elegir para sus textos, si se lo permiten.
-export const NAME_FONTS: FontFamilyKey[] = ["display", "colegial", "bloque", "script", "gotica", "sans"];
+export const NAME_FONTS: FontFamilyKey[] = [
+  "display",
+  "colegial",
+  "bloque",
+  "script",
+  "gotica",
+  "sans",
+  "deportiva",
+  "slab",
+  "cursiva",
+  "clasica",
+];
 
 export const NAME_COLORS = [
   { name: "Blanco", hex: "#FFFFFF" },

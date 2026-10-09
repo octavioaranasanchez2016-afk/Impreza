@@ -14,6 +14,7 @@ import {
   cropImageFile,
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
+  FONTS_SHOWN_FIRST,
   MAX_DESIGN_SIZE_MB,
   MAX_PIECES_PER_ZONE,
   MockupTextContent,
@@ -171,6 +172,7 @@ export function DesignCanvas({
   const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
   const [cropping, setCropping] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
+  const [allFonts, setAllFonts] = useState(false);
 
   const zones = getZonesForCategory(category);
   const measure = getMeasure(category, size);
@@ -503,7 +505,9 @@ export function DesignCanvas({
                 <div>
                   <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Letra</p>
                   <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
-                    {FONT_OPTIONS.map((f) => (
+                    {FONT_OPTIONS.filter(
+                      (f, i) => allFonts || i < FONTS_SHOWN_FIRST || f.value === content.fontFamily,
+                    ).map((f) => (
                       <button
                         key={f.value}
                         type="button"
@@ -519,6 +523,14 @@ export function DesignCanvas({
                       </button>
                     ))}
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setAllFonts((v) => !v)}
+                    aria-expanded={allFonts}
+                    className="mt-2 text-xs font-semibold text-ink underline underline-offset-2"
+                  >
+                    {allFonts ? "Ver menos letras" : `Ver las ${FONT_OPTIONS.length} letras`}
+                  </button>
                 </div>
 
                 <div>

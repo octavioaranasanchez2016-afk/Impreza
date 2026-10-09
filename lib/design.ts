@@ -36,25 +36,69 @@ export type FontFamilyKey =
   | "retro"
   | "bloque"
   | "militar"
-  | "redonda";
+  | "redonda"
+  | "condensada"
+  | "deportiva"
+  | "carreras"
+  | "slab"
+  | "comic"
+  | "caricatura"
+  | "grafiti"
+  | "pincel"
+  | "cursiva"
+  | "caligrafia"
+  | "firma"
+  | "vintage"
+  | "vaquera"
+  | "clasica"
+  | "revista"
+  | "setentas"
+  | "futurista"
+  | "pixel"
+  | "terror"
+  | "metal";
 
 // weight: grosor con que se dibuja. Las fuentes que solo vienen en un grosor van en
 // 400; si se les pide negrita, el navegador la inventa y se ve mal.
-export const FONT_OPTIONS: { label: string; value: FontFamilyKey; cssVar: string; weight: number }[] = [
-  { label: "Moderna", value: "sans", cssVar: "var(--font-sans)", weight: 700 },
-  { label: "Impacto", value: "display", cssVar: "var(--font-display)", weight: 700 },
-  { label: "Colegial", value: "colegial", cssVar: "var(--font-colegial)", weight: 400 },
-  { label: "Gótica", value: "gotica", cssVar: "var(--font-gotica)", weight: 400 },
-  { label: "Script", value: "script", cssVar: "var(--font-script)", weight: 400 },
-  { label: "Retro", value: "retro", cssVar: "var(--font-retro)", weight: 400 },
-  { label: "Marcador", value: "marcador", cssVar: "var(--font-marcador)", weight: 400 },
-  { label: "Manuscrita", value: "manuscrita", cssVar: "var(--font-manuscrita)", weight: 700 },
-  { label: "Bloque", value: "bloque", cssVar: "var(--font-bloque)", weight: 400 },
-  { label: "Militar", value: "militar", cssVar: "var(--font-militar)", weight: 400 },
-  { label: "Redonda", value: "redonda", cssVar: "var(--font-redonda)", weight: 600 },
-  { label: "Elegante", value: "serif", cssVar: "var(--font-serif)", weight: 700 },
-  { label: "Mono", value: "mono", cssVar: "var(--font-mono)", weight: 700 },
+// name: el nombre real de la fuente (Google Fonts), para que el taller la encuentre.
+export const FONT_OPTIONS: { label: string; value: FontFamilyKey; cssVar: string; weight: number; name: string }[] = [
+  { label: "Moderna", value: "sans", cssVar: "var(--font-sans)", weight: 700, name: "Inter" },
+  { label: "Impacto", value: "display", cssVar: "var(--font-display)", weight: 700, name: "Bebas Neue" },
+  { label: "Colegial", value: "colegial", cssVar: "var(--font-colegial)", weight: 400, name: "Graduate" },
+  { label: "Gótica", value: "gotica", cssVar: "var(--font-gotica)", weight: 400, name: "UnifrakturMaguntia" },
+  { label: "Script", value: "script", cssVar: "var(--font-script)", weight: 400, name: "Pacifico" },
+  { label: "Retro", value: "retro", cssVar: "var(--font-retro)", weight: 400, name: "Lobster" },
+  { label: "Marcador", value: "marcador", cssVar: "var(--font-marcador)", weight: 400, name: "Permanent Marker" },
+  { label: "Manuscrita", value: "manuscrita", cssVar: "var(--font-manuscrita)", weight: 700, name: "Caveat" },
+  { label: "Bloque", value: "bloque", cssVar: "var(--font-bloque)", weight: 400, name: "Bungee" },
+  { label: "Militar", value: "militar", cssVar: "var(--font-militar)", weight: 400, name: "Black Ops One" },
+  { label: "Redonda", value: "redonda", cssVar: "var(--font-redonda)", weight: 600, name: "Fredoka" },
+  { label: "Elegante", value: "serif", cssVar: "var(--font-serif)", weight: 700, name: "Playfair Display" },
+  { label: "Mono", value: "mono", cssVar: "var(--font-mono)", weight: 700, name: "JetBrains Mono" },
+  { label: "Condensada", value: "condensada", cssVar: "var(--font-condensada)", weight: 400, name: "Anton" },
+  { label: "Deportiva", value: "deportiva", cssVar: "var(--font-deportiva)", weight: 400, name: "Russo One" },
+  { label: "Carreras", value: "carreras", cssVar: "var(--font-carreras)", weight: 400, name: "Racing Sans One" },
+  { label: "Slab", value: "slab", cssVar: "var(--font-slab)", weight: 400, name: "Alfa Slab One" },
+  { label: "Cómic", value: "comic", cssVar: "var(--font-comic)", weight: 400, name: "Bangers" },
+  { label: "Caricatura", value: "caricatura", cssVar: "var(--font-caricatura)", weight: 400, name: "Luckiest Guy" },
+  { label: "Grafiti", value: "grafiti", cssVar: "var(--font-grafiti)", weight: 400, name: "Sedgwick Ave Display" },
+  { label: "Pincel", value: "pincel", cssVar: "var(--font-pincel)", weight: 400, name: "Kaushan Script" },
+  { label: "Cursiva", value: "cursiva", cssVar: "var(--font-cursiva)", weight: 700, name: "Dancing Script" },
+  { label: "Caligrafía", value: "caligrafia", cssVar: "var(--font-caligrafia)", weight: 400, name: "Great Vibes" },
+  { label: "Firma", value: "firma", cssVar: "var(--font-firma)", weight: 400, name: "Satisfy" },
+  { label: "Vintage", value: "vintage", cssVar: "var(--font-vintage)", weight: 400, name: "Yellowtail" },
+  { label: "Vaquera", value: "vaquera", cssVar: "var(--font-vaquera)", weight: 400, name: "Rye" },
+  { label: "Clásica", value: "clasica", cssVar: "var(--font-clasica)", weight: 700, name: "Cinzel" },
+  { label: "Revista", value: "revista", cssVar: "var(--font-revista)", weight: 400, name: "Abril Fatface" },
+  { label: "Años 70", value: "setentas", cssVar: "var(--font-setentas)", weight: 400, name: "Righteous" },
+  { label: "Futurista", value: "futurista", cssVar: "var(--font-futurista)", weight: 700, name: "Orbitron" },
+  { label: "Pixel", value: "pixel", cssVar: "var(--font-pixel)", weight: 400, name: "Press Start 2P" },
+  { label: "Terror", value: "terror", cssVar: "var(--font-terror)", weight: 400, name: "Creepster" },
+  { label: "Metal", value: "metal", cssVar: "var(--font-metal)", weight: 400, name: "Metal Mania" },
 ];
+
+// Cuántas letras se ven en el diseñador antes de tocar "Ver todas".
+export const FONTS_SHOWN_FIRST = 12;
 
 export function fontFamilyCss(key: FontFamilyKey): string {
   return FONT_OPTIONS.find((f) => f.value === key)?.cssVar ?? "var(--font-sans)";

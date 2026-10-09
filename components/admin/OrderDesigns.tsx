@@ -92,6 +92,12 @@ function PiecesList({ items }: { items: OrderItemInput[] }) {
   );
 }
 
+// El nombre en la web y el de la fuente real, para que el taller la encuentre.
+function fontLabel(fuente?: string) {
+  const font = FONT_OPTIONS.find((f) => f.value === fuente) ?? FONT_OPTIONS[0];
+  return `${font.label} (${font.name})`;
+}
+
 const transformOf = (d: SignedDiseno) => ({ x: d.posX, y: d.posY, scale: d.escala || 1, rotation: d.rotacion ?? 0 });
 
 function contentOf(d: SignedDiseno): MockupContent | null {
@@ -171,7 +177,7 @@ function DesignPreview({
             </>
           )}
           {" · letra "}
-          {FONT_OPTIONS.find((f) => f.value === d.fuente)?.label ?? "Moderna"}
+          {fontLabel(d.fuente)}
         </p>
       )}
       {d.tipo === "imagen" && d.signedUrl && (

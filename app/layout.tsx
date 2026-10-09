@@ -13,6 +13,26 @@ import {
   Bungee,
   Black_Ops_One,
   Fredoka,
+  Anton,
+  Russo_One,
+  Racing_Sans_One,
+  Alfa_Slab_One,
+  Bangers,
+  Luckiest_Guy,
+  Sedgwick_Ave_Display,
+  Kaushan_Script,
+  Dancing_Script,
+  Great_Vibes,
+  Satisfy,
+  Yellowtail,
+  Rye,
+  Cinzel,
+  Abril_Fatface,
+  Righteous,
+  Orbitron,
+  Press_Start_2P,
+  Creepster,
+  Metal_Mania,
 } from "next/font/google";
 import "./globals.css";
 import { SITE_DESCRIPTION, SITE_NAME, siteUrl } from "@/lib/site";
@@ -34,7 +54,56 @@ const retro = Lobster({ subsets: ["latin"], weight: "400", variable: "--font-ret
 const bloque = Bungee({ subsets: ["latin"], weight: "400", variable: "--font-bloque", preload: false });
 const militar = Black_Ops_One({ subsets: ["latin"], weight: "400", variable: "--font-militar", preload: false });
 const redonda = Fredoka({ subsets: ["latin"], weight: "600", variable: "--font-redonda", preload: false });
-const designerFonts = [colegial, gotica, marcador, manuscrita, retro, bloque, militar, redonda]
+const condensada = Anton({ subsets: ["latin"], weight: "400", variable: "--font-condensada", preload: false });
+const deportiva = Russo_One({ subsets: ["latin"], weight: "400", variable: "--font-deportiva", preload: false });
+const carreras = Racing_Sans_One({ subsets: ["latin"], weight: "400", variable: "--font-carreras", preload: false });
+const slab = Alfa_Slab_One({ subsets: ["latin"], weight: "400", variable: "--font-slab", preload: false });
+const comic = Bangers({ subsets: ["latin"], weight: "400", variable: "--font-comic", preload: false });
+const caricatura = Luckiest_Guy({ subsets: ["latin"], weight: "400", variable: "--font-caricatura", preload: false });
+const grafiti = Sedgwick_Ave_Display({ subsets: ["latin"], weight: "400", variable: "--font-grafiti", preload: false });
+const pincel = Kaushan_Script({ subsets: ["latin"], weight: "400", variable: "--font-pincel", preload: false });
+const cursiva = Dancing_Script({ subsets: ["latin"], weight: "700", variable: "--font-cursiva", preload: false });
+const caligrafia = Great_Vibes({ subsets: ["latin"], weight: "400", variable: "--font-caligrafia", preload: false });
+const firma = Satisfy({ subsets: ["latin"], weight: "400", variable: "--font-firma", preload: false });
+const vintage = Yellowtail({ subsets: ["latin"], weight: "400", variable: "--font-vintage", preload: false });
+const vaquera = Rye({ subsets: ["latin"], weight: "400", variable: "--font-vaquera", preload: false });
+const clasica = Cinzel({ subsets: ["latin"], weight: "700", variable: "--font-clasica", preload: false });
+const revista = Abril_Fatface({ subsets: ["latin"], weight: "400", variable: "--font-revista", preload: false });
+const setentas = Righteous({ subsets: ["latin"], weight: "400", variable: "--font-setentas", preload: false });
+const futurista = Orbitron({ subsets: ["latin"], weight: "700", variable: "--font-futurista", preload: false });
+const pixel = Press_Start_2P({ subsets: ["latin"], weight: "400", variable: "--font-pixel", preload: false });
+const terror = Creepster({ subsets: ["latin"], weight: "400", variable: "--font-terror", preload: false });
+const metal = Metal_Mania({ subsets: ["latin"], weight: "400", variable: "--font-metal", preload: false });
+const designerFonts = [
+  colegial,
+  gotica,
+  marcador,
+  manuscrita,
+  retro,
+  bloque,
+  militar,
+  redonda,
+  condensada,
+  deportiva,
+  carreras,
+  slab,
+  comic,
+  caricatura,
+  grafiti,
+  pincel,
+  cursiva,
+  caligrafia,
+  firma,
+  vintage,
+  vaquera,
+  clasica,
+  revista,
+  setentas,
+  futurista,
+  pixel,
+  terror,
+  metal,
+]
   .map((f) => f.variable)
   .join(" ");
 

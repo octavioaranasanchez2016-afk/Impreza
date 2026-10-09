@@ -14,6 +14,7 @@ import {
   ProductGallery,
   ProductOrderLink,
 } from "@/components/ProductShowcase";
+import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 import { Product } from "@/lib/types";
 
 export function generateStaticParams() {
@@ -250,6 +251,13 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             >
               Personalizar y pedir →
             </ProductOrderLink>
+            {/* Para quien no quiere armarlo solo: lo ayuda una persona por WhatsApp. */}
+            <WhatsAppLinkButton
+              message={`Hola, quiero hablar con un diseñador sobre «${product.name}». ${url}`}
+              className="mt-3 block rounded-brand border border-black/15 px-6 py-3.5 text-center text-base font-semibold text-ink transition-colors hover:border-ink"
+            >
+              Contactar con diseñador
+            </WhatsAppLinkButton>
             <p className="mt-3 text-center text-xs text-ink-soft">
               Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Pago en C$ o US$
             </p>
