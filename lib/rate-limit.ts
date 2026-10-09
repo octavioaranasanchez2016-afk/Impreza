@@ -1,5 +1,5 @@
 // Límites para que nadie abuse del sitio: pedir códigos sin fin, mandar pedidos falsos
-// en masa, crear listas de a montón. Se cuentan en la tabla "limites" (ver
+// en masa, crear listas de a montón. Se cuentan en la tabla "cuenta_limites" (ver
 // supabase/seguridad.sql), por correo o por conexión. Solo para el servidor.
 
 import { createServiceClient } from "@/lib/supabase/server";
@@ -21,8 +21,8 @@ export function clientIp(headers: Headers): string {
 // Cuenta uno más si cabe en el límite. Lanza si la tabla no existe todavía.
 export async function takeLimit({ clave, max, windowMs, gapMs = 0 }: Limit): Promise<LimitResult> {
   const supabase = createServiceClient();
-  const { data, error } = await supabase.from("limites").select("*").eq("clave", clave).maybeSingle();
-  if (error) throw new Error(`limites: ${error.code} ${error.message}`);
+  const { data, error } = await supabase.from("cuenta_limites").select("*").eq("clave", clave).maybeSingle();
+  if (error) throw new Error(`cuenta_limites: ${error.code} ${error.message}`);
   const now = Date.now();
   let enviados = 0;
   let ventana = now;
@@ -34,13 +34,13 @@ export async function takeLimit({ clave, max, windowMs, gapMs = 0 }: Limit): Pro
     }
   }
   if (enviados >= max) return "muchos";
-  const { error: saveError } = await supabase.from("limites").upsert({
+  const { error: saveError } = await supabase.from("cuenta_limites").upsert({
     clave,
     enviados: enviados + 1,
     ventana_at: new Date(ventana).toISOString(),
     ultimo_at: new Date(now).toISOString(),
   });
-  if (saveError) throw new Error(`limites: ${saveError.code} ${saveError.message}`);
+  if (saveError) throw new Error(`cuenta_limites: ${saveError.code} ${saveError.message}`);
   return "ok";
 }
 
