@@ -118,7 +118,7 @@ const SECTIONS = [
     faqs: [
       {
         q: "¿Qué archivo necesito para mi diseño?",
-        a: "Una imagen JPG de al menos 1000 píxeles por lado. También puedes escribir un texto directamente en el sitio, sin subir nada.",
+        a: "Cualquier imagen: JPG, PNG o WEBP. Lo ideal es que mida al menos 1000 píxeles por lado; si no es JPG o es más pequeña, el diseñador la ajusta solo y te avisa qué cambió. También puedes escribir un texto directamente en el sitio, sin subir nada.",
       },
       {
         q: "¿De qué tamaño se imprime mi diseño?",

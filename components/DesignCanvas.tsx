@@ -15,12 +15,11 @@ import {
   EMOJI_QUICK_PICKS,
   FONT_OPTIONS,
   FONTS_SHOWN_FIRST,
-  MAX_DESIGN_SIZE_MB,
   MAX_PIECES_PER_ZONE,
   MockupTextContent,
   TEXT_COLOR_OPTIONS,
   fontFamilyCss,
-  validateDesignFile,
+  prepareDesignFile,
 } from "@/lib/design";
 import {
   ZONE_LABEL,
@@ -169,6 +168,8 @@ export function DesignCanvas({
   // La imagen que se elija: cambia la que se edita, o se agrega como otra cosa en la parte.
   const fileAdds = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  // Lo que se le ajustó a la última imagen (formato, tamaño), para que el cliente lo sepa.
+  const [notice, setNotice] = useState<string | null>(null);
   const [sizeCm, setSizeCm] = useState<SizeCm | null>(null);
   const [cropping, setCropping] = useState(false);
   const [cropError, setCropError] = useState<string | null>(null);
@@ -188,12 +189,14 @@ export function DesignCanvas({
 
   async function handleFile(file: File | undefined) {
     setError(null);
+    setNotice(null);
     if (!file) return;
-    const { content: validated, error: validationError } = await validateDesignFile(file);
+    const { content: validated, error: validationError, notice: changes } = await prepareDesignFile(file);
     if (validationError || !validated) {
       setError(validationError);
       return;
     }
+    setNotice(changes);
     if (fileAdds.current && onAddImage) onAddImage(validated);
     else onContentChange(validated, true);
   }
@@ -206,6 +209,7 @@ export function DesignCanvas({
 
   function addText() {
     setError(null);
+    setNotice(null);
     focusText.current = true;
     onContentChange(
       { kind: "texto", texto: "", color: isDarkColor(color) ? "#FFFFFF" : "#111111", fontFamily: "sans" },
@@ -442,7 +446,7 @@ export function DesignCanvas({
                 onClick={() => pickFile(false)}
                 className="flex items-center justify-center gap-2 rounded-brand bg-ink px-4 py-3 text-sm font-semibold text-paper transition-opacity hover:opacity-80"
               >
-                <UploadIcon /> Subir imagen JPG
+                <UploadIcon /> Subir imagen
               </button>
               <button
                 type="button"
@@ -453,7 +457,7 @@ export function DesignCanvas({
               </button>
             </div>
             <p className="mt-2 text-xs text-ink-muted">
-              Solo JPG · máximo {MAX_DESIGN_SIZE_MB} MB · mínimo 1000 px por lado
+              JPG, PNG o WEBP · si hace falta, la ajustamos para imprimir y te avisamos
             </p>
           </div>
         ) : (
@@ -721,7 +725,7 @@ export function DesignCanvas({
       <input
         ref={fileRef}
         type="file"
-        accept={[...ACCEPTED_DESIGN_TYPES, ".jpg", ".jpeg"].join(",")}
+        accept={ACCEPTED_DESIGN_TYPES.join(",")}
         className="hidden"
         onChange={(e) => {
           handleFile(e.target.files?.[0]);
@@ -729,6 +733,25 @@ export function DesignCanvas({
         }}
       />
 
+      {notice && (
+        <div
+          role="status"
+          className="mt-2 flex items-start gap-2 rounded-brand border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+        >
+          <p className="flex-1">
+            <span className="font-semibold">Ajustamos tu imagen. </span>
+            {notice}
+          </p>
+          <button
+            type="button"
+            onClick={() => setNotice(null)}
+            aria-label="Cerrar aviso"
+            className="shrink-0 px-1 font-semibold text-amber-900/70 hover:text-amber-900"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
     </div>
   );

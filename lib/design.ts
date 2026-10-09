@@ -1,6 +1,7 @@
 import { DesignTransform } from "./types";
 
-export const ACCEPTED_DESIGN_TYPES = ["image/jpeg"];
+// Se acepta cualquier imagen; prepareDesignFile la pasa a JPG si hace falta.
+export const ACCEPTED_DESIGN_TYPES = ["image/*"];
 export const MAX_DESIGN_SIZE_MB = 25;
 const MIN_SHORT_SIDE_PX = 1000;
 // Por debajo de esto, al tamaño real de impresión, la imagen se ve pixelada.
@@ -234,7 +235,15 @@ export type DesignContent = ImageDesignContent | MockupTextContent;
 export interface DesignFileResult {
   content: ImageDesignContent | null;
   error: string | null;
+  // Qué se le cambió a la imagen para poder imprimirla, para contárselo al cliente.
+  notice: string | null;
 }
+
+// Más que esto ni se intenta abrir: el celular se puede quedar sin memoria.
+const MAX_INPUT_SIZE_MB = 60;
+// Por debajo de esto, aunque se agrande, en la prenda se ve borrosa.
+const BLURRY_SHORT_SIDE_PX = 500;
+const IMAGE_NAME = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif)$/i;
 
 // Algunos navegadores dejan file.type vacío; en ese caso se decide por la extensión.
 function isJpeg(file: File): boolean {
@@ -242,38 +251,105 @@ function isJpeg(file: File): boolean {
   return /\.jpe?g$/i.test(file.name);
 }
 
-export async function validateDesignFile(file: File): Promise<DesignFileResult> {
-  if (!isJpeg(file)) {
-    return { content: null, error: "Formato no válido. Solo aceptamos imágenes JPG." };
+function loadImage(url: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = url;
+  });
+}
+
+// true si alguna parte de la imagen es transparente (se revisa en chico, es rápido).
+function hasTransparency(img: HTMLImageElement): boolean {
+  const ratio = Math.min(1, 256 / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * ratio));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * ratio));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return false;
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  for (let i = 3; i < data.length; i += 4) if (data[i] < 250) return true;
+  return false;
+}
+
+// Acepta cualquier imagen que el navegador pueda abrir y, si hace falta, la deja lista para
+// imprimir: la pasa a JPG, la agranda hasta 1000 px en su lado corto o la achica si es enorme.
+// Todo lo que se cambió va en notice, para que el cliente lo sepa.
+export async function prepareDesignFile(file: File): Promise<DesignFileResult> {
+  const fail = (error: string): DesignFileResult => ({ content: null, error, notice: null });
+  if (!file.type.startsWith("image/") && !IMAGE_NAME.test(file.name)) {
+    return fail("Ese archivo no es una imagen. Sube una foto o imagen (JPG, PNG o WEBP).");
+  }
+  if (file.size > MAX_INPUT_SIZE_MB * 1024 * 1024) {
+    return fail(`La imagen pesa demasiado (máximo ${MAX_INPUT_SIZE_MB} MB).`);
   }
 
-  if (file.size > MAX_DESIGN_SIZE_MB * 1024 * 1024) {
-    return { content: null, error: `El archivo pesa demasiado (máximo ${MAX_DESIGN_SIZE_MB}MB).` };
+  const sourceUrl = URL.createObjectURL(file);
+  const img = await loadImage(sourceUrl);
+  if (!img || !img.naturalWidth || !img.naturalHeight) {
+    URL.revokeObjectURL(sourceUrl);
+    return fail("No pudimos abrir esta imagen. Guárdala como JPG o PNG y vuelve a subirla.");
   }
 
-  const previewUrl = URL.createObjectURL(file);
-  const dimensions = await getImageDimensions(previewUrl);
-  const shortSide = Math.min(dimensions.width, dimensions.height);
+  const w = img.naturalWidth;
+  const h = img.naturalHeight;
+  const shortSide = Math.min(w, h);
+  const longSide = Math.max(w, h);
+  const jpeg = isJpeg(file);
+  const tooSmall = shortSide < MIN_SHORT_SIDE_PX;
+  const tooBig = longSide > MAX_CROP_SIDE || file.size > MAX_DESIGN_SIZE_MB * 1024 * 1024;
 
-  if (shortSide < MIN_SHORT_SIDE_PX) {
-    URL.revokeObjectURL(previewUrl);
-    return {
-      content: null,
-      error: `La imagen es muy pequeña (${dimensions.width}×${dimensions.height}px). Sube un archivo de al menos ${MIN_SHORT_SIDE_PX}px en su lado más corto para que la impresión salga nítida.`,
-    };
+  if (jpeg && !tooSmall && !tooBig) {
+    return { content: { kind: "imagen", file, previewUrl: sourceUrl, width: w, height: h }, error: null, notice: null };
+  }
+
+  const scale = Math.min(tooSmall ? MIN_SHORT_SIDE_PX / shortSide : 1, MAX_CROP_SIDE / longSide);
+  const width = Math.round(w * scale);
+  const height = Math.round(h * scale);
+  const transparent = !jpeg && hasTransparency(img);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    URL.revokeObjectURL(sourceUrl);
+    return fail("Tu navegador no pudo preparar la imagen. Guárdala como JPG y vuelve a subirla.");
+  }
+  // El JPG no guarda transparencia: lo transparente queda blanco.
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, width, height);
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(img, 0, 0, width, height);
+  URL.revokeObjectURL(sourceUrl);
+
+  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+  if (!blob) return fail("Tu navegador no pudo preparar la imagen. Guárdala como JPG y vuelve a subirla.");
+
+  const base = file.name.replace(/\.[^.]+$/, "") || "diseno";
+  const ready = new File([blob], `${base}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+
+  const changes: string[] = [];
+  if (!jpeg) {
+    const format = (file.type.split("/")[1] || file.name.split(".").pop() || "").toUpperCase();
+    changes.push(`La pasamos de ${format || "su formato"} a JPG para imprimirla.`);
+    if (transparent) changes.push("Lo que era transparente ahora es blanco; si la quieres sin fondo, escríbenos por WhatsApp.");
+  }
+  if (tooSmall) {
+    changes.push(
+      shortSide < BLURRY_SHORT_SIDE_PX
+        ? `Era muy pequeña (${w}×${h} px) y la agrandamos a ${width}×${height} px, pero en la prenda se va a ver borrosa. Si tienes una versión más grande, súbela.`
+        : `Era pequeña (${w}×${h} px) y la agrandamos a ${width}×${height} px. Puede verse un poco menos nítida; si tienes una versión más grande, súbela.`
+    );
+  } else if (tooBig) {
+    changes.push(`Era muy grande y la ajustamos a ${width}×${height} px, que alcanza de sobra para imprimirla.`);
   }
 
   return {
-    content: { kind: "imagen", file, previewUrl, width: dimensions.width, height: dimensions.height },
+    content: { kind: "imagen", file: ready, previewUrl: URL.createObjectURL(ready), width, height },
     error: null,
+    notice: changes.join(" "),
   };
-}
-
-function getImageDimensions(url: string): Promise<{ width: number; height: number }> {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
-    img.onerror = () => resolve({ width: 0, height: 0 });
-    img.src = url;
-  });
 }

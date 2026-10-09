@@ -62,7 +62,7 @@ const PROMISES = [
 ];
 
 const STEPS = [
-  ["01", "Crea tu diseño", "Sube una imagen JPG o escribe tu texto, y acomódalo a escala real."],
+  ["01", "Crea tu diseño", "Sube tu imagen o escribe tu texto, y acomódalo a escala real."],
   ["02", "Elige producto", "Talla, color, cantidad y técnica. El precio se calcula al instante."],
   ["03", "Paga por transferencia", "Revisa tu factura, transfiere y adjunta el comprobante. Así queda confirmado."],
   ["04", "Recíbelo en tu puerta", `En ${PRODUCTION_BUSINESS_DAYS} días hábiles desde que verificamos tu pago: te lo llevamos a domicilio o lo recoges en el taller.`],
