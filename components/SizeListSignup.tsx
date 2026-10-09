@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ProductCategory } from "@/lib/types";
 import { SizeChartButton } from "./SizeChartButton";
+import { useHoneypot } from "./Honeypot";
 import { GroupShirtPreview } from "./GroupShirtPreview";
 import {
   GroupPersonal,
@@ -74,6 +75,7 @@ export function SizeListSignup({
 }) {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
+  const { hp, honeypot } = useHoneypot();
   const [talla, setTalla] = useState(sizes.length === 1 ? sizes[0] : "");
   const [cantidad, setCantidad] = useState(1);
   // Lo que escribe en cada texto de la camisa (cada uno es una casilla aparte).
@@ -103,6 +105,7 @@ export function SizeListSignup({
         nombre,
         talla,
         cantidad,
+        impreza_hp: hp,
         valores,
         estilo: { ...(eligen.fuente ? { fuente: miFuente } : {}), ...(eligen.color ? { color: miColor } : {}) },
       }),
@@ -189,6 +192,7 @@ export function SizeListSignup({
         </div>
       )}
 
+      {honeypot}
       <label className="mt-4 block">
         <span className="text-xs font-semibold text-ink-soft">{forOthers ? "Nombre" : "Tu nombre"}</span>
         <input

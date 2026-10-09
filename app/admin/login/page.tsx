@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
 export default function AdminLoginPage() {
@@ -17,14 +16,15 @@ export default function AdminLoginPage() {
     setLoading(true);
     setError(null);
 
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
-      setError("Correo o contraseña incorrectos.");
+    // Se entra en el servidor: la sesión queda en cookies que el navegador no puede leer.
+    const res = await fetch("/api/admin/entrar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const body = await res?.json().catch(() => null);
+      setError(body?.error ?? "No hay conexión. Intenta de nuevo.");
       setLoading(false);
       return;
     }

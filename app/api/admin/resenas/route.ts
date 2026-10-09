@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/admin-auth";
+import { serverError } from "@/lib/bot";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "@/lib/review-rules";
 
 // El admin agrega una reseña que le dio un cliente (por WhatsApp, en persona...).
 // Si trae el código de un pedido, queda como "Compra verificada".
 export async function POST(req: NextRequest) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  const { data: admin } = await supabase.from("admins").select("id").eq("id", user.id).single();
-  if (!admin) return NextResponse.json({ error: "Sin acceso." }, { status: 403 });
+  const auth = await requireAdmin();
+  if (auth.denied) return auth.denied;
 
   const body = await req.json().catch(() => null);
   const nombre = typeof body?.nombre === "string" ? body.nombre.replace(/\s+/g, " ").trim() : "";
@@ -55,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (error?.code === "23505") {
     return NextResponse.json({ error: "Ese pedido ya tiene una reseña. Edita la que existe." }, { status: 409 });
   }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, "No se pudo guardar la reseña. Intenta de nuevo.");
 
   revalidatePath("/");
   revalidatePath("/resenas");

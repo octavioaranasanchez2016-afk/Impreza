@@ -3,12 +3,14 @@ import { createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
 import { cleanName, isMissingSchema, newSecret } from "@/lib/size-lists";
 import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
+import { botResponse, looksLikeBot } from "@/lib/bot";
 
 const MISSING = "Las listas de tallas todavía no están activadas: falta correr supabase/listas.sql en Supabase.";
 
 // Crea una lista de tallas. Devuelve su id (para compartir) y la clave del organizador.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
+  if (looksLikeBot(body)) return botResponse();
   const nombre = cleanName(body?.nombre);
   const organizador = cleanName(body?.organizador) || null;
   const productId = typeof body?.productId === "string" ? body.productId : "";

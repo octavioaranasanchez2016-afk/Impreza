@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { EMAIL_RE, createLoginCode, normalizeEmail } from "@/lib/accounts";
 import { HOUR, clientIp, takeLimit } from "@/lib/rate-limit";
 import { sendLoginCodeEmail } from "@/lib/email";
+import { botResponse, looksLikeBot } from "@/lib/bot";
 
 // Manda al correo un código para entrar a "Mi cuenta" (la crea si es la primera vez).
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
+  if (looksLikeBot(body)) return botResponse();
   const email = normalizeEmail(typeof body?.email === "string" ? body.email : "");
   if (!EMAIL_RE.test(email) || email.length > 200) {
     return NextResponse.json({ error: "Revisa tu correo: parece incompleto." }, { status: 400 });

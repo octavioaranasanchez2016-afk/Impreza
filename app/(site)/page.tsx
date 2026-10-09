@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { jsonLdHtml } from "@/lib/json-ld";
 import { PRODUCTS, imageAt } from "@/lib/catalog";
 import { ProductCard } from "@/components/ProductCard";
 import { Marquee } from "@/components/Marquee";
@@ -73,7 +74,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(businessJsonLd()) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(businessJsonLd())} />
       <section className="mx-auto max-w-6xl px-4 pb-16 pt-12 md:px-6 md:pb-24 md:pt-16">
         <div className="grid items-center gap-12 md:grid-cols-[1.1fr_1fr]">
           <div>

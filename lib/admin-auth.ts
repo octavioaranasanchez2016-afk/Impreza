@@ -1,3 +1,4 @@
+import "server-only";
 import { NextResponse } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
@@ -20,11 +21,12 @@ async function checkAdmin() {
 }
 
 // Para las rutas /api/admin: devuelve la sesión del admin, o la respuesta de error.
-export async function requireAdmin() {
+// withoutCode: para las rutas que ponen el código del celular (todavía no lo tienen).
+export async function requireAdmin({ withoutCode = false } = {}) {
   const check = await checkAdmin();
   if (check.problem === "sin-sesion") return { denied: NextResponse.json({ error: "No autenticado." }, { status: 401 }) };
   if (check.problem === "sin-acceso") return { denied: NextResponse.json({ error: "Sin acceso." }, { status: 403 }) };
-  if (check.problem === "sin-codigo") {
+  if (check.problem === "sin-codigo" && !withoutCode) {
     return { denied: NextResponse.json({ error: "Falta el código del celular: vuelve a entrar al panel." }, { status: 403 }) };
   }
   return { supabase: check.supabase, user: check.user };

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "@/lib/review-rules";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
+import { botResponse, looksLikeBot } from "@/lib/bot";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -8,6 +10,10 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // Queda sin publicar hasta que el admin la aprueba en el panel.
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
+  if (looksLikeBot(body)) return botResponse();
+  if (!(await withinLimit({ clave: `resena-ip:${clientIp(req.headers)}`, max: 10, windowMs: HOUR }))) {
+    return NextResponse.json({ error: "Demasiadas reseñas seguidas. Intenta más tarde." }, { status: 429 });
+  }
   const orderId = typeof body?.orderId === "string" ? body.orderId : "";
   const nombre = typeof body?.nombre === "string" ? body.nombre.replace(/\s+/g, " ").trim() : "";
   const comentario = typeof body?.comentario === "string" ? body.comentario.trim() : "";

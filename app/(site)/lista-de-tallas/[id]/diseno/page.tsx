@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
-import { exampleEntryId, loadGroupDesign, loadSizeList } from "@/lib/size-lists";
+import { exampleEntryId, loadGroupDesign, loadSizeList, sameSecret } from "@/lib/size-lists";
 import { OrderForm } from "@/components/OrderForm";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export default async function DisenoListaPage({
   if (!product) notFound();
 
   const listUrl = `/lista-de-tallas/${id}${clave ? `?clave=${encodeURIComponent(clave)}` : ""}`;
-  if (!clave || clave !== result.clave || list.order_id) {
+  if (!sameSecret(clave, result.clave) || list.order_id) {
     return (
       <section className="mx-auto max-w-xl px-4 py-24 text-center md:px-6">
         <h1 className="font-display text-5xl uppercase leading-none tracking-wide text-ink">Diseño de la lista</h1>

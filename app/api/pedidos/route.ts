@@ -11,6 +11,7 @@ import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 import { sessionEmail } from "@/lib/accounts";
 import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 import { normalizeStoredPhone } from "@/lib/phone";
+import { botResponse, looksLikeBot, serverError } from "@/lib/bot";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "Cuerpo de la solicitud inválido." }, { status: 400 });
   }
+  if (looksLikeBot(body)) return botResponse();
 
   const validationError = validate(body);
   if (validationError) {
@@ -209,10 +211,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (orderError || !order) {
-    return NextResponse.json(
-      { error: `No se pudo crear el pedido: ${orderError?.message}` },
-      { status: 500 }
-    );
+    return serverError(orderError, "No se pudo crear el pedido. Intenta de nuevo o escríbenos por WhatsApp.");
   }
 
   // Pedido armado desde una lista de tallas: la lista queda unida al pedido (y cerrada),

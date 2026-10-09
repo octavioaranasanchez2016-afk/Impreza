@@ -2,7 +2,6 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
 import { Logo } from "@/components/Logo";
 
 // Verificación en dos pasos del panel: además de la contraseña, un código de 6 números
@@ -20,25 +19,13 @@ export function AdminTwoFactor({ mode, nombre }: { mode: "configurar" | "entrar"
     if (mode !== "configurar" || started.current) return;
     started.current = true;
     (async () => {
-      const supabase = createClient();
-      // Si quedó una configuración a medias (se cerró la página), se borra para empezar limpia.
-      const { data: list } = await supabase.auth.mfa.listFactors();
-      for (const factor of list?.all ?? []) {
-        if (factor.status !== "verified") await supabase.auth.mfa.unenroll({ factorId: factor.id });
-      }
-      const { data, error: enrollError } = await supabase.auth.mfa.enroll({
-        factorType: "totp",
-        friendlyName: `Impreza ${new Date().toISOString().slice(0, 10)}`,
-      });
-      if (enrollError || !data) {
-        setError(
-          enrollError?.code === "mfa_totp_enroll_not_enabled"
-            ? "En Supabase falta activar la app de autenticación: Authentication → Multi-Factor → TOTP (App Authenticator) → Enabled."
-            : "No se pudo preparar el código. Recarga la página."
-        );
+      const res = await fetch("/api/admin/codigo/configurar", { method: "POST" }).catch(() => null);
+      const body = await res?.json().catch(() => null);
+      if (!res?.ok || !body?.qr) {
+        setError(body?.error ?? "No se pudo preparar el código. Recarga la página.");
         return;
       }
-      setSetup({ factorId: data.id, qr: data.totp.qr_code, secret: data.totp.secret });
+      setSetup({ factorId: body.factorId, qr: body.qr, secret: body.secret });
     })();
   }, [mode]);
 
@@ -46,22 +33,16 @@ export function AdminTwoFactor({ mode, nombre }: { mode: "configurar" | "entrar"
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const supabase = createClient();
-    let factorId = setup?.factorId;
-    if (!factorId) {
-      const { data } = await supabase.auth.mfa.listFactors();
-      factorId = data?.totp[0]?.id;
-    }
-    if (!factorId) {
-      setBusy(false);
-      setError("No encontramos tu app configurada. Recarga la página.");
-      return;
-    }
-    const { error: verifyError } = await supabase.auth.mfa.challengeAndVerify({ factorId, code });
-    if (verifyError) {
+    const res = await fetch("/api/admin/codigo/verificar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code, factorId: setup?.factorId }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      const body = await res?.json().catch(() => null);
       setBusy(false);
       setCode("");
-      setError("Ese código no es correcto o ya cambió. Escribe el que aparece ahora en la app.");
+      setError(body?.error ?? "No hay conexión. Intenta de nuevo.");
       return;
     }
     router.replace("/admin/pedidos");
@@ -69,7 +50,7 @@ export function AdminTwoFactor({ mode, nombre }: { mode: "configurar" | "entrar"
   }
 
   async function signOut() {
-    await createClient().auth.signOut();
+    await fetch("/api/admin/salir", { method: "POST" }).catch(() => null);
     router.replace("/admin/login");
     router.refresh();
   }

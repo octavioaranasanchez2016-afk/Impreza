@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { serverError } from "@/lib/bot";
 import { OrderStatus, PaymentStatus } from "@/lib/types";
 import { sendStatusUpdateEmail, StatusEmailKind } from "@/lib/email";
 
@@ -54,7 +55,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const { error } = await supabase.from("orders").update(update).eq("id", id);
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return serverError(error, "No se pudo cambiar el estado. Intenta de nuevo.");
   }
 
   // Correo al cliente solo cuando el pedido avanza (no al corregir hacia atrás

@@ -7,6 +7,7 @@ import { AccountData, fetchAccount, safeReturnPath } from "@/lib/account-client"
 import { formatCordobas } from "@/lib/currency";
 import { PaymentStatus } from "@/lib/types";
 import { StatusBadge } from "./StatusBadge";
+import { useHoneypot } from "./Honeypot";
 
 const PAYMENT_LABEL: Record<PaymentStatus, string> = {
   pendiente: "Pago pendiente",
@@ -25,6 +26,7 @@ export function AccountPanel() {
   const [account, setAccount] = useState<AccountData | null | undefined>(undefined); // undefined: cargando
   const [step, setStep] = useState<"correo" | "codigo">("correo");
   const [email, setEmail] = useState("");
+  const { hp, honeypot } = useHoneypot();
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +55,7 @@ export function AccountPanel() {
     e?.preventDefault();
     setBusy(true);
     setError(null);
-    const err = await post("/api/cuenta/codigo", { email });
+    const err = await post("/api/cuenta/codigo", { email, impreza_hp: hp });
     setBusy(false);
     if (err) return setError(err);
     setResent(step === "codigo");
@@ -108,6 +110,7 @@ export function AccountPanel() {
         <div className="mt-8 rounded-brand border border-black/10 bg-white p-5">
           {step === "correo" ? (
             <form onSubmit={sendCode}>
+              {honeypot}
               <label htmlFor="cuenta-correo" className="text-sm font-medium text-ink">
                 Tu correo
               </label>

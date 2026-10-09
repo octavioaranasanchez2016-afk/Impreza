@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "@/lib/review-rules";
+import { useHoneypot } from "./Honeypot";
 
 // Formulario para que el cliente califique su pedido ya listo o entregado.
 export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultName: string }) {
@@ -9,6 +10,7 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
   const [hover, setHover] = useState(0);
   const [nombre, setNombre] = useState(defaultName);
   const [comentario, setComentario] = useState("");
+  const { hp, honeypot } = useHoneypot();
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
@@ -27,7 +29,7 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
     const res = await fetch("/api/resenas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ orderId, nombre, calificacion: rating, comentario }),
+      body: JSON.stringify({ orderId, nombre, calificacion: rating, comentario, impreza_hp: hp }),
     });
     setSending(false);
     if (!res.ok) {
@@ -70,6 +72,7 @@ export function ReviewForm({ orderId, defaultName }: { orderId: string; defaultN
         ))}
       </div>
 
+      {honeypot}
       <div className="mt-4 space-y-3">
         <label className="block text-sm">
           <span className="mb-1 block font-medium text-ink-soft">Tu nombre</span>

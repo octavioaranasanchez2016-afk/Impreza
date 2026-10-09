@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/server";
+import { requireAdmin as requireAdminSession } from "@/lib/admin-auth";
+import { serverError } from "@/lib/bot";
 import { MAX_TITULO, TRABAJOS_BUCKET, isTrabajoPath, trabajoPath } from "@/lib/trabajos";
 
 const TYPES = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" } as const;
 const MAX_BYTES = 8 * 1024 * 1024;
 
+// La misma revisión que el resto del panel (admin y código del celular).
 async function requireAdmin(): Promise<NextResponse | null> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
-  const { data: admin } = await supabase.from("admins").select("id").eq("id", user.id).single();
-  if (!admin) return NextResponse.json({ error: "Sin acceso." }, { status: 403 });
-  return null;
+  const auth = await requireAdminSession();
+  return auth.denied ?? null;
 }
 
 // Sube una foto de un trabajo terminado a la galería del inicio.
@@ -59,7 +56,7 @@ export async function DELETE(req: NextRequest) {
   if (!isTrabajoPath(path)) return NextResponse.json({ error: "Foto no válida." }, { status: 400 });
 
   const { error } = await createServiceClient().storage.from(TRABAJOS_BUCKET).remove([path]);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, "No se pudo guardar. Intenta de nuevo.");
 
   revalidatePath("/");
   return NextResponse.json({ ok: true });

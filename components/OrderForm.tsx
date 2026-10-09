@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AccountData, fetchAccount } from "@/lib/account-client";
+import { useHoneypot } from "./Honeypot";
 import {
   DEFAULT_PHONE_COUNTRY,
   OTHER_COUNTRY,
@@ -337,6 +338,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // "+505 8888 8888", o null mientras no sea un número válido de ese país.
   const telefonoFinal = formatPhone(telefonoPais, clienteTelefono);
   const [clienteEmail, setClienteEmail] = useState("");
+  const { hp, honeypot } = useHoneypot();
   // La cuenta abierta (opcional): el pedido va con su correo y aparece en "Mi cuenta".
   const [account, setAccount] = useState<AccountData | null>(null);
   const [notas, setNotas] = useState(urlNota);
@@ -1330,6 +1332,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
           paymentMethod: "transferencia",
           comprobantePath,
           orderId: pendingOrderId,
+          impreza_hp: hp,
           listaId: urlListaId,
         }),
       });
@@ -2148,6 +2151,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                 </p>
               )}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                {honeypot}
                 <Field label="Nombre completo *">
                   <input value={clienteNombre} onChange={(e) => setClienteNombre(e.target.value)} className="input" placeholder="Ej. María Gómez" />
                 </Field>

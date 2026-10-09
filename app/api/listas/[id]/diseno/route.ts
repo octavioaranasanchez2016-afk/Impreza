@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
-import { SizeList, cleanName, exampleEntryId, listPersonal, listSizes, loadGroupDesign, newSecret } from "@/lib/size-lists";
+import { SizeList, cleanName, exampleEntryId, listPersonal, listSizes, loadGroupDesign, newSecret, sameSecret } from "@/lib/size-lists";
 import { parseGroupDesign } from "@/lib/group-design";
 import { cleanValores, parsePersonExtra, parsePersonal, personalizadoDe, valoresDePersona } from "@/lib/group-names";
 
@@ -53,7 +53,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
 
   const service = createServiceClient();
   const { data: list } = await service.from("listas_tallas").select("*").eq("id", id).maybeSingle();
-  if (!list || !clave || list.clave !== clave) {
+  if (!list || !sameSecret(clave, list.clave)) {
     return NextResponse.json({ error: "Solo el organizador puede cambiar el diseño." }, { status: 403 });
   }
   if (list.order_id) return NextResponse.json({ error: "Esta lista ya se convirtió en pedido." }, { status: 409 });

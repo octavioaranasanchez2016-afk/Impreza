@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { EMAIL_RE, normalizeEmail } from "@/lib/accounts";
 import { HOUR, clientIp, takeLimit } from "@/lib/rate-limit";
+import { ACCOUNT_FLAG_COOKIE } from "@/lib/supabase/cookie-options";
 
 // Revisa el código del correo y abre la sesión (queda en las cookies). Los intentos se
 // limitan aquí: Supabase ve todas las verificaciones como si vinieran del servidor.
@@ -36,5 +37,12 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
-  return NextResponse.json({ ok: true });
+  const res = NextResponse.json({ ok: true });
+  res.cookies.set(ACCOUNT_FLAG_COOKIE, "1", {
+    path: "/",
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 400,
+  });
+  return res;
 }

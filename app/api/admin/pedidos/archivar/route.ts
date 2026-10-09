@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
+import { serverError } from "@/lib/bot";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -53,7 +54,7 @@ export async function POST(req: NextRequest) {
     );
   }
   if (result.error) {
-    return NextResponse.json({ error: result.error.message }, { status: 500 });
+    return serverError(result.error, "No se pudo guardar. Intenta de nuevo.");
   }
   return NextResponse.json({ ok: true, count: result.data?.length ?? 0 });
 }

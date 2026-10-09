@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProductById } from "@/lib/catalog";
-import { exampleEntryId, listPersonal, listSizes, loadGroupDesign, loadSizeList, sizesParam } from "@/lib/size-lists";
+import { exampleEntryId, listPersonal, listSizes, loadGroupDesign, loadSizeList, sameSecret, sizesParam } from "@/lib/size-lists";
 import { groupDesignPreview } from "@/lib/group-design";
 import { GroupDesignCard } from "@/components/GroupDesignCard";
 import { siteUrl } from "@/lib/site";
@@ -45,7 +45,7 @@ export default async function ListaPage({
   const product = getProductById(list.product_id);
   if (!product) notFound();
   const sizes = listSizes(list.product_id, list.color);
-  const isOrganizer = Boolean(clave) && clave === result.clave;
+  const isOrganizer = sameSecret(clave, result.clave);
   const total = entries.reduce((sum, e) => sum + e.cantidad, 0);
   // La camisa de ejemplo: el diseño de todos y lo que pone cada quien (si el
   // organizador ya la hizo). Todos la ven antes de anotarse.

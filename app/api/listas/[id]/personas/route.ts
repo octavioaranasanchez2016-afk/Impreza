@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
-import { MAX_PERSONAS, SizeList, cleanName, listPersonal, listSizes, newSecret } from "@/lib/size-lists";
+import { MAX_PERSONAS, SizeList, cleanName, listPersonal, listSizes, newSecret, sameSecret } from "@/lib/size-lists";
 import { cleanValores, fieldHint, parsePersonExtra, zoneTitle } from "@/lib/group-names";
 import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
+import { botResponse, looksLikeBot } from "@/lib/bot";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -12,6 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   if (!UUID.test(id)) return NextResponse.json({ error: "Lista no válida." }, { status: 400 });
   const body = await req.json().catch(() => null);
+  if (looksLikeBot(body)) return botResponse();
   const nombre = cleanName(body?.nombre);
   const talla = typeof body?.talla === "string" ? body.talla : "";
   const cantidad = Number(body?.cantidad ?? 1);
@@ -90,7 +92,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
     service.from("listas_tallas_personas").select("token").eq("id", personaId).eq("lista_id", id).maybeSingle(),
   ]);
   if (!list || !persona) return NextResponse.json({ error: "No encontramos ese registro." }, { status: 404 });
-  const allowed = (clave && clave === list.clave) || (token && token === persona.token);
+  const allowed = sameSecret(clave, list.clave) || sameSecret(token, persona.token);
   if (!allowed) return NextResponse.json({ error: "No puedes quitar este registro." }, { status: 403 });
 
   const { error } = await service.from("listas_tallas_personas").delete().eq("id", personaId);

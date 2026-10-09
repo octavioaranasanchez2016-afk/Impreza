@@ -1,0 +1,10 @@
+# GitHub revisa cada semana si alguna librería del sitio tiene una falla de seguridad
+# conocida y, si la hay, propone la actualización. No propone cambios que no sean de
+# seguridad (open-pull-requests-limit: 0 solo apaga las actualizaciones normales).
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 0

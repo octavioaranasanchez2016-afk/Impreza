@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { jsonLdHtml } from "@/lib/json-ld";
 import { QuickQuote, OccasionLabel } from "./QuickQuote";
 import { WhatsAppLinkButton } from "./WhatsAppButton";
 import { calculateOrderTotal } from "@/lib/pricing";
@@ -50,7 +51,7 @@ export function OccasionLanding(props: OccasionLandingProps) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(faqJsonLd)} />
 
       <section className="mx-auto grid max-w-6xl gap-10 px-4 pb-14 pt-14 md:px-6 lg:grid-cols-[1fr_1.05fr] lg:items-start">
         <div className="lg:pt-6">

@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { createServiceClient } from "./supabase/server";
 import { getProductById } from "./catalog";
 import { GroupPersonal, PersonExtra, Personalizado, parsePersonExtra, personalDeLista } from "./group-names";
@@ -36,6 +36,15 @@ export interface SizeListEntry {
 
 export function newSecret(): string {
   return randomBytes(18).toString("base64url");
+}
+
+// Compara una clave en tiempo constante: el tiempo de respuesta no da pistas de cuántas
+// letras acertó quien está adivinando.
+export function sameSecret(given: unknown, stored: unknown): given is string {
+  if (typeof given !== "string" || typeof stored !== "string" || !given || !stored) return false;
+  const a = createHash("sha256").update(given).digest();
+  const b = createHash("sha256").update(stored).digest();
+  return timingSafeEqual(a, b);
 }
 
 export function cleanName(value: unknown): string {

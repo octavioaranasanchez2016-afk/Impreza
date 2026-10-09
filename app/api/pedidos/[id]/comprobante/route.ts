@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { sendReceiptResubmittedEmail } from "@/lib/email";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -12,6 +13,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { id } = await params;
   if (!UUID_RE.test(id)) return NextResponse.json({ error: "Pedido no válido." }, { status: 400 });
 
+  if (!(await withinLimit({ clave: `comprobante-ip:${clientIp(req.headers)}`, max: 10, windowMs: HOUR }))) {
+    return NextResponse.json({ error: "Demasiados intentos. Espera un rato o escríbenos por WhatsApp." }, { status: 429 });
+  }
   const body = await req.json().catch(() => null);
   const path = typeof body?.comprobantePath === "string" ? body.comprobantePath : "";
   if (!/^comprobantes\/[0-9a-f-]{36}\.(jpg|png)$/.test(path)) {

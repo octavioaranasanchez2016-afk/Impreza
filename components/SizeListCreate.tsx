@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { PRODUCTS, getProductById } from "@/lib/catalog";
+import { useHoneypot } from "./Honeypot";
 
 // Las listas que este teléfono creó, para volver a ellas sin buscar el enlace.
 export const MY_LISTS_KEY = "impreza-mis-listas";
@@ -25,6 +26,7 @@ export function readMyLists(): MyList[] {
 export function SizeListCreate() {
   const router = useRouter();
   const [nombre, setNombre] = useState("");
+  const { hp, honeypot } = useHoneypot();
   const [organizador, setOrganizador] = useState("");
   const [productId, setProductId] = useState(PRODUCTS[0].id);
   const [color, setColor] = useState("");
@@ -41,7 +43,7 @@ export function SizeListCreate() {
     const res = await fetch("/api/listas", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre, organizador, productId, color: color || null }),
+      body: JSON.stringify({ nombre, organizador, productId, color: color || null, impreza_hp: hp }),
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -63,6 +65,7 @@ export function SizeListCreate() {
     <div className="rounded-brand border border-black/10 bg-white p-5 shadow-sm md:p-6">
       <p className="font-display text-3xl uppercase leading-none tracking-wide text-ink">Crea tu lista</p>
 
+      {honeypot}
       <label className="mt-5 block">
         <span className="text-xs font-semibold text-ink-soft">Nombre del grupo</span>
         <input

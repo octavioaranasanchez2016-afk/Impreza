@@ -1,4 +1,5 @@
 import { VolumeDiscountBar } from "@/components/VolumeDiscountBar";
+import { jsonLdHtml } from "@/lib/json-ld";
 import { FaqList } from "@/components/FaqList";
 import { TechniqueGuide } from "@/components/TechniqueGuide";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
@@ -165,7 +166,7 @@ const FAQ_JSON_LD = {
 export default function PreguntasFrecuentesPage() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 md:px-6">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(FAQ_JSON_LD)} />
       <h1 className="font-display text-5xl uppercase leading-none tracking-wide text-ink md:text-7xl">Preguntas frecuentes</h1>
       <p className="mt-2 text-ink-soft">Todo lo que necesitas saber antes de pedir.</p>
 

@@ -26,3 +26,12 @@ update storage.buckets
   set file_size_limit = 10485760,                 -- 10 MB
       allowed_mime_types = array['image/jpeg', 'image/png']
   where id = 'comprobantes';
+
+-- 3. A dónde se puede subir sin sesión: los diseños solo en disenos/ y listas/, los
+--    comprobantes solo en comprobantes/ (lo mismo que hace la página). Nadie puede
+--    poner archivos en otras carpetas, ni cambiar o borrar los que ya están.
+alter policy "cualquiera puede subir su diseno" on storage.objects
+  with check (bucket_id = 'disenos' and (storage.foldername(name))[1] in ('disenos', 'listas'));
+
+alter policy "cualquiera puede subir su comprobante" on storage.objects
+  with check (bucket_id = 'comprobantes' and (storage.foldername(name))[1] = 'comprobantes');

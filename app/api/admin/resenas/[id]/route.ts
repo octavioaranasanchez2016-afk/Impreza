@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-auth";
+import { serverError } from "@/lib/bot";
 import { MAX_COMMENT_LENGTH, MIN_COMMENT_LENGTH } from "@/lib/review-rules";
 
 // Moderación y edición de reseñas desde el panel: pasa por RLS con la sesión del admin.
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   }
 
   const { error } = await supabase.from("resenas").update(update).eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, "No se pudo guardar el cambio. Intenta de nuevo.");
   refreshPublicPages();
   return NextResponse.json({ ok: true });
 }
@@ -64,7 +65,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
   if (!supabase) return NextResponse.json({ error: "No autenticado." }, { status: 401 });
 
   const { error } = await supabase.from("resenas").delete().eq("id", id);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return serverError(error, "No se pudo guardar el cambio. Intenta de nuevo.");
   refreshPublicPages();
   return NextResponse.json({ ok: true });
 }

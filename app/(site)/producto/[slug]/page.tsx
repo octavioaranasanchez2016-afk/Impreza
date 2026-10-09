@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { jsonLdHtml } from "@/lib/json-ld";
 import { notFound } from "next/navigation";
 import { TECHNIQUE_HINT, TECHNIQUE_LABEL, getProductBySlug, imageAt, PRODUCTS } from "@/lib/catalog";
 import { formatCordobas, formatInDollars } from "@/lib/currency";
@@ -104,7 +105,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-8 md:px-6 md:py-12">
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={jsonLdHtml(jsonLd)} />
       <nav className="text-xs text-ink-muted">
         <Link href="/catalogo" className="hover:text-ink">
           Catálogo

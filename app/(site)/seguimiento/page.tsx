@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 import { createServiceClient } from "@/lib/supabase/server";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
 
@@ -31,7 +33,10 @@ export default async function SeguimientoPage({ searchParams }: { searchParams: 
   let error: string | null = null;
 
   if (raw) {
-    if (!/^[0-9a-f]{8}$/.test(code)) {
+    // Contra quien prueba códigos al azar para ver pedidos de otros: 30 búsquedas por hora.
+    if (!(await withinLimit({ clave: `rastreo-ip:${clientIp(await headers())}`, max: 30, windowMs: HOUR }))) {
+      error = "Hiciste muchas búsquedas seguidas. Espera un rato o escríbenos por WhatsApp.";
+    } else if (!/^[0-9a-f]{8}$/.test(code)) {
       error = "El código tiene 8 caracteres, letras de la A a la F y números (por ejemplo CB07F9DB).";
     } else {
       const id = await findOrderId(code);
