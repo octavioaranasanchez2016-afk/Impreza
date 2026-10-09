@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { MAX_PERSONAS, SizeList, cleanName, listPersonal, listSizes, newSecret } from "@/lib/size-lists";
 import { cleanValores, fieldHint, parsePersonExtra, zoneTitle } from "@/lib/group-names";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -33,6 +34,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const { valores, texto, numero, falta } = cleanValores(personal, body?.valores);
   if (falta) {
     return NextResponse.json({ error: `Escribe lo de ${zoneTitle(falta.zona).toLowerCase()} (${fieldHint(falta)}).` }, { status: 400 });
+  }
+
+  // Un salón entero puede anotarse desde el mismo wifi: el límite es alto, solo frena robots.
+  if (!(await withinLimit({ clave: `anotarse-ip:${clientIp(req.headers)}`, max: 80, windowMs: HOUR }))) {
+    return NextResponse.json({ error: "Demasiadas personas anotadas desde esta conexión. Espera un rato." }, { status: 429 });
   }
 
   const { count } = await service.from("listas_tallas_personas").select("id", { count: "exact", head: true }).eq("lista_id", id);

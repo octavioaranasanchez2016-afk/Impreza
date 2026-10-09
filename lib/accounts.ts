@@ -25,41 +25,6 @@ export async function sessionEmail(): Promise<string | null> {
 // Para buscar el correo tal cual con ilike (sin que _ o % hagan de comodín).
 const exactLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
-interface Limit {
-  clave: string;
-  max: number; // cuántos por ventana
-  windowMs: number;
-  gapMs?: number; // tiempo mínimo entre uno y otro
-}
-
-export type LimitResult = "ok" | "espera" | "muchos";
-
-// Cuenta un envío si cabe en los límites. Lanza si la tabla no existe todavía.
-export async function takeLimit({ clave, max, windowMs, gapMs = 0 }: Limit): Promise<LimitResult> {
-  const supabase = createServiceClient();
-  const { data, error } = await supabase.from("cuenta_limites").select("*").eq("clave", clave).maybeSingle();
-  if (error) throw new Error(`cuenta_limites: ${error.code} ${error.message}`);
-  const now = Date.now();
-  let enviados = 0;
-  let ventana = now;
-  if (data) {
-    if (now - Date.parse(data.ultimo_at) < gapMs) return "espera";
-    if (now - Date.parse(data.ventana_at) < windowMs) {
-      enviados = data.enviados;
-      ventana = Date.parse(data.ventana_at);
-    }
-  }
-  if (enviados >= max) return "muchos";
-  const { error: saveError } = await supabase.from("cuenta_limites").upsert({
-    clave,
-    enviados: enviados + 1,
-    ventana_at: new Date(ventana).toISOString(),
-    ultimo_at: new Date(now).toISOString(),
-  });
-  if (saveError) throw new Error(`cuenta_limites: ${saveError.code} ${saveError.message}`);
-  return "ok";
-}
-
 // Crea la cuenta si no existe y genera un código nuevo para entrar.
 export async function createLoginCode(email: string): Promise<string> {
   const admin = createServiceClient().auth.admin;

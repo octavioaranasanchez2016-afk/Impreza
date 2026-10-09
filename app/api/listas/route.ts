@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceClient } from "@/lib/supabase/server";
 import { getProductById } from "@/lib/catalog";
 import { cleanName, isMissingSchema, newSecret } from "@/lib/size-lists";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 
 const MISSING = "Las listas de tallas todavía no están activadas: falta correr supabase/listas.sql en Supabase.";
 
@@ -16,6 +17,11 @@ export async function POST(req: NextRequest) {
 
   if (nombre.length < 3) return NextResponse.json({ error: "Escribe el nombre del grupo (por ejemplo, Promoción 2026)." }, { status: 400 });
   if (!product) return NextResponse.json({ error: "Elige la prenda." }, { status: 400 });
+
+  // Contra listas creadas de a montón por un robot.
+  if (!(await withinLimit({ clave: `lista-ip:${clientIp(req.headers)}`, max: 10, windowMs: HOUR }))) {
+    return NextResponse.json({ error: "Creaste muchas listas seguidas. Espera un rato e intenta de nuevo." }, { status: 429 });
+  }
 
   // Lo que pone cada quien (nombre, número…) se decide después, en el diseño de la lista.
   const clave = newSecret();

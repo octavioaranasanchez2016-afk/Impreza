@@ -9,6 +9,7 @@ import { SizeList, listPersonal } from "@/lib/size-lists";
 import { addressText, deliveryQuote, missingAddressField, parseShipping } from "@/lib/shipping";
 import { billingText, missingBillingField, parseBilling } from "@/lib/billing";
 import { sessionEmail } from "@/lib/accounts";
+import { HOUR, clientIp, withinLimit } from "@/lib/rate-limit";
 
 interface DisenoInput {
   zona: DesignZone;
@@ -51,6 +52,11 @@ const VALID_ZONES: DesignZone[] = ["frente", "espalda", "manga", "manga-izq", "m
 const MAX_DESIGN_GROUPS = 50;
 const isGroup = (n: unknown): n is number => Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_DESIGN_GROUPS;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// Los archivos que sube el navegador, con el nombre que les pone el formulario.
+const RECEIPT_PATH = /^comprobantes\/[0-9a-f-]{36}\.(jpg|png)$/;
+const DESIGN_PATH = /^disenos\/[0-9a-f-]{36}-[a-z-]{4,12}\.jpg$/;
+const HEX = /^#[0-9a-f]{6}$/i;
+const isText = (value: unknown, max: number): value is string => typeof value === "string" && value.length <= max;
 
 export async function POST(req: NextRequest) {
   let body: CreateOrderBody;
@@ -59,10 +65,28 @@ export async function POST(req: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Cuerpo de la solicitud inválido." }, { status: 400 });
   }
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Cuerpo de la solicitud inválido." }, { status: 400 });
+  }
 
   const validationError = validate(body);
   if (validationError) {
     return NextResponse.json({ error: validationError }, { status: 400 });
+  }
+
+  // Contra pedidos falsos en masa: hasta 20 por hora desde una misma conexión (varias
+  // personas pueden compartir la del celular). Si la tabla falta, no traba nada.
+  if (!(await withinLimit({ clave: `pedido-ip:${clientIp(req.headers)}`, max: 20, windowMs: HOUR }))) {
+    return NextResponse.json(
+      { error: "Recibimos muchos pedidos desde tu conexión. Espera un rato o escríbenos por WhatsApp." },
+      { status: 429 }
+    );
+  }
+
+  // El comprobante tiene que existir de verdad (lo sube el navegador antes de enviar).
+  const { error: receiptMissing } = await createServiceClient().storage.from("comprobantes").createSignedUrl(body.comprobantePath, 60);
+  if (receiptMissing) {
+    return NextResponse.json({ error: "No encontramos tu comprobante. Vuelve a adjuntarlo e intenta de nuevo." }, { status: 400 });
   }
 
   const parsedEntrega = parseShipping(body.entrega);
@@ -299,11 +323,18 @@ export async function POST(req: NextRequest) {
 }
 
 function validate(body: CreateOrderBody): string | null {
-  if (!body.clienteNombre?.trim() || body.clienteNombre.trim().length < 2) {
+  // Tipos y largos máximos: lo que llega del navegador puede venir de cualquier lado.
+  if (!isText(body.clienteNombre, 120) || body.clienteNombre.trim().length < 2) {
     return "El nombre del cliente es requerido.";
   }
-  if (!body.clienteTelefono?.trim() || body.clienteTelefono.trim().length < 6) {
+  if (!isText(body.clienteTelefono, 40) || body.clienteTelefono.trim().length < 6) {
     return "El teléfono del cliente es requerido.";
+  }
+  if (body.clienteEmail != null && !isText(body.clienteEmail, 200)) {
+    return "El correo no es válido.";
+  }
+  if (body.notas != null && !isText(body.notas, 1000)) {
+    return "Las notas son muy largas (máximo 1000 letras).";
   }
   if (body.clienteEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.clienteEmail.trim())) {
     return "El correo no es válido.";
@@ -321,18 +352,24 @@ function validate(body: CreateOrderBody): string | null {
   }
   const groups = new Set<number>();
   for (const d of body.disenos ?? []) {
+    if (!d || typeof d !== "object" || (d.tipo !== "imagen" && d.tipo !== "texto")) {
+      return "Diseños inválidos.";
+    }
     if (!VALID_ZONES.includes(d.zona)) {
-      return `Zona de diseño inválida: ${d.zona}`;
+      return "Zona de diseño inválida.";
     }
     if (d.grupo != null) {
       if (!isGroup(d.grupo)) return "Número de diseño inválido.";
       groups.add(d.grupo);
     }
-    if (d.tipo === "imagen" && !d.path) {
+    if (d.tipo === "imagen" && !(typeof d.path === "string" && DESIGN_PATH.test(d.path))) {
       return `Falta el archivo de diseño para la zona ${d.zona}.`;
     }
-    if (d.tipo === "texto" && !d.texto?.trim()) {
+    if (d.tipo === "texto" && !(isText(d.texto, 200) && d.texto.trim())) {
       return `Falta el texto para la zona ${d.zona}.`;
+    }
+    if (d.tipo === "texto" && !(typeof d.color === "string" && HEX.test(d.color))) {
+      return "Color de texto inválido.";
     }
   }
   if (!Array.isArray(body.items) || body.items.length === 0) {
@@ -370,8 +407,7 @@ function validate(body: CreateOrderBody): string | null {
   }
   if (
     typeof body.comprobantePath !== "string" ||
-    !body.comprobantePath.startsWith("comprobantes/") ||
-    body.comprobantePath.includes("..")
+    !RECEIPT_PATH.test(body.comprobantePath)
   ) {
     return "Adjunta el comprobante de transferencia para confirmar el pedido.";
   }

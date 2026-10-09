@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { EMAIL_RE, createLoginCode, normalizeEmail, takeLimit } from "@/lib/accounts";
+import { EMAIL_RE, createLoginCode, normalizeEmail } from "@/lib/accounts";
+import { HOUR, clientIp, takeLimit } from "@/lib/rate-limit";
 import { sendLoginCodeEmail } from "@/lib/email";
-
-const HOUR = 60 * 60 * 1000;
 
 // Manda al correo un código para entrar a "Mi cuenta" (la crea si es la primera vez).
 export async function POST(req: NextRequest) {
@@ -13,7 +12,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Límites para que nadie llene el correo de otra persona ni gaste los envíos.
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || req.headers.get("x-real-ip") || "sin-ip";
+  const ip = clientIp(req.headers);
   try {
     const porConexion = await takeLimit({ clave: `ip:${ip}`, max: 15, windowMs: HOUR });
     const porCorreo =
@@ -28,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Pediste muchos códigos. Intenta de nuevo en una hora." }, { status: 429 });
     }
   } catch (err) {
-    console.error("Cuentas sin activar (falta supabase/cuentas.sql):", err);
+    console.error("Cuentas sin activar (falta supabase/seguridad.sql):", err);
     return NextResponse.json(
       { error: "Las cuentas todavía no están activadas. Puedes hacer tu pedido sin cuenta." },
       { status: 503 }
