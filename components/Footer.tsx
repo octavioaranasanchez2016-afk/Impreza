@@ -3,8 +3,12 @@ import { WhatsAppLinkButton } from "./WhatsAppButton";
 import { SocialLinks } from "./SocialLinks";
 import { WORKSHOP } from "@/lib/shipping";
 import { Logo } from "./Logo";
+import { normalizeStoredPhone } from "@/lib/phone";
 
-export function Footer() {
+// El teléfono del taller (el mismo de WhatsApp), como se lee y para llamar.
+const PHONE = normalizeStoredPhone(`+${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ?? ""}`);
+
+export function Footer({ showReviews = false }: { showReviews?: boolean }) {
   return (
     <footer className="border-t border-paper/10 bg-ink text-paper">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-16 md:px-6">
@@ -48,9 +52,11 @@ export function Footer() {
             <Link href="/seguimiento" className="block hover:text-paper">
               Rastrear pedido
             </Link>
-            <Link href="/resenas" className="block hover:text-paper">
-              Reseñas
-            </Link>
+            {showReviews && (
+              <Link href="/resenas" className="block hover:text-paper">
+                Reseñas
+              </Link>
+            )}
             <Link href="/nosotros" className="block hover:text-paper">
               Quiénes somos
             </Link>
@@ -60,6 +66,11 @@ export function Footer() {
           </FooterColumn>
 
           <FooterColumn title="Visítanos">
+            {PHONE && (
+              <a href={`tel:${PHONE.replace(/\s/g, "")}`} className="block font-semibold text-paper hover:underline">
+                {PHONE}
+              </a>
+            )}
             <a
               href="https://www.google.com/maps/search/?api=1&query=4PCW%2BPM5+Managua"
               target="_blank"
@@ -93,6 +104,10 @@ export function Footer() {
         <div className="mt-12 flex flex-col gap-2 border-t border-paper/15 pt-6 text-xs text-paper/50 sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} Impreza. Hecho en Managua, Nicaragua.</p>
           <p>
+            <Link href="/terminos" className="hover:text-paper">
+              Términos
+            </Link>
+            {" · "}
             <Link href="/privacidad" className="hover:text-paper">
               Privacidad
             </Link>

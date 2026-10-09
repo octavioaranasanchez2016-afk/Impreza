@@ -1248,12 +1248,17 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   ].filter((m): m is { label: string; section: string } => Boolean(m));
   const missing = missingSteps.map((m) => m.label);
   const showMobileBar = items.length > 0;
+  // Celular, antes de agregar piezas: barra con el paso 1 y un botón para agregarlas.
+  const showStepBar = !designMode && !listOrder && items.length === 0;
+  const STEP_NAME: Record<string, string> = { diseno: "Agregar piezas", datos: "Tus datos", entrega: "Entrega", pago: "Pago" };
+  const nextStep = missingSteps[0];
 
   // Deja espacio al final de la página para la barra fija del celular.
   useEffect(() => {
     document.body.classList.toggle("has-order-bar", showMobileBar);
-    return () => document.body.classList.remove("has-order-bar");
-  }, [showMobileBar]);
+    document.body.classList.toggle("has-step-bar", showStepBar);
+    return () => document.body.classList.remove("has-order-bar", "has-step-bar");
+  }, [showMobileBar, showStepBar]);
   const canSubmit = missing.length === 0 && !submitting;
 
   async function handleSubmit() {
@@ -1699,10 +1704,11 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   )}
 
                   <button
+                    id="agregar"
                     type="button"
                     onClick={addItem}
                     disabled={pendingTotal === 0}
-                    className="w-full rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                    className="w-full scroll-mt-64 rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     + {addLabel(pendingTotal)}
                   </button>
@@ -2353,6 +2359,13 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
               >
                 {submitting ? "Enviando pedido..." : `Confirmar pedido${items.length ? ` · ${formatBoth(pricing.total)}` : ""}`}
               </button>
+              <p className="text-center text-[11px] text-ink-muted">
+                Al confirmar aceptas los{" "}
+                <Link href="/terminos" target="_blank" className="font-semibold text-ink underline">
+                  términos y condiciones
+                </Link>
+                .
+              </p>
               {/* Piezas escritas en las tallas pero sin agregar: no entran al pedido si confirma así. */}
               {items.length > 0 && pendingTotal > 0 && !submitting && (
                 <div className="flex flex-wrap items-center justify-center gap-2 rounded-brand border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs text-ink">
@@ -2442,11 +2455,37 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
               </p>
             </div>
             <a
-              href={`#${missingSteps[0]?.section ?? "confirmar"}`}
-              className="shrink-0 rounded-brand bg-ink px-5 py-2.5 text-sm font-semibold text-paper"
+              href={`#${nextStep?.section ?? "confirmar"}`}
+              className="shrink-0 rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper"
             >
-              {missingSteps.length ? "Continuar →" : "Confirmar →"}
+              {nextStep ? `Siguiente: ${STEP_NAME[nextStep.section] ?? "continuar"} →` : "Confirmar pedido →"}
             </a>
+          </div>
+        </div>
+      )}
+
+      {showStepBar && (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-black/10 bg-paper/95 px-4 py-3 shadow-[0_-6px_20px_rgba(0,0,0,0.06)] backdrop-blur md:hidden">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <p className="min-w-0 text-xs text-ink-soft">
+              <span className="block font-semibold text-ink">Paso 1 de 5 · Tu diseño</span>
+              {pendingTotal > 0
+                ? `${pendingTotal} pieza${pendingTotal === 1 ? "" : "s"} lista${pendingTotal === 1 ? "" : "s"} para agregar`
+                : "Diseña y elige tus tallas"}
+            </p>
+            {pendingTotal > 0 ? (
+              <button
+                type="button"
+                onClick={addItem}
+                className="shrink-0 rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper"
+              >
+                + Agregar al pedido
+              </button>
+            ) : (
+              <a href="#agregar" className="shrink-0 rounded-brand bg-ink px-4 py-2.5 text-sm font-semibold text-paper">
+                Elegir tallas ↓
+              </a>
+            )}
           </div>
         </div>
       )}

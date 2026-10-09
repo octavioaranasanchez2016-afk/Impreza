@@ -10,7 +10,6 @@ export function useHoneypot() {
   const honeypot = (
     <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", top: "auto", width: 1, height: 1, overflow: "hidden" }}>
       <label>
-        No escribas aquí
         <input
           type="text"
           name="impreza_hp"

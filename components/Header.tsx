@@ -18,7 +18,8 @@ const NAV_LINKS: { href: string; label: string; wideOnly?: boolean; mobileOnly?:
   { href: "/resenas", label: "Reseñas", mobileOnly: true },
 ];
 
-export function Header() {
+// showReviews: el enlace de Reseñas, solo cuando ya hay alguna publicada.
+export function Header({ showReviews = false }: { showReviews?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
 
@@ -74,7 +75,7 @@ export function Header() {
 
       {open && (
         <nav className="border-t border-black/5 bg-paper px-4 py-3 md:hidden">
-          {NAV_LINKS.map((link) => (
+          {NAV_LINKS.filter((link) => showReviews || link.href !== "/resenas").map((link) => (
             <Link
               key={link.href}
               href={link.href}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 const WHATSAPP_NUMBER = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "50588888888";
@@ -10,8 +11,18 @@ function buildWhatsAppUrl(message: string) {
 }
 
 export function WhatsAppFloatingButton() {
-  // En /pedido sube en el celular para no tapar la barra del total.
-  const raised = usePathname() === "/pedido";
+  // En /pedido: en el celular no se muestra (abajo va la barra del siguiente paso y
+  // WhatsApp está en el menú); en tablet sube para no tapar la barra del total.
+  const onOrder = usePathname() === "/pedido";
+  // En el celular aparece después de bajar un poco, para no tapar lo primero que se ve
+  // (como el 40% de descuento del inicio).
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 480);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
   const url = buildWhatsAppUrl(
     "Hola, quiero hacer una consulta sobre un pedido en Impreza."
   );
@@ -22,9 +33,9 @@ export function WhatsAppFloatingButton() {
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Escribir por WhatsApp"
-      className={`fixed right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-transform hover:scale-105 md:right-8 lg:bottom-8 ${
-        raised ? "bottom-32" : "bottom-5 md:bottom-8"
-      }`}
+      className={`fixed right-5 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all duration-300 hover:scale-105 md:right-8 lg:bottom-8 ${
+        onOrder ? "max-md:hidden md:bottom-32" : "bottom-5 md:bottom-8"
+      } ${scrolled ? "" : "max-md:pointer-events-none max-md:translate-y-24 max-md:opacity-0"}`}
     >
       <WhatsAppIcon />
     </a>

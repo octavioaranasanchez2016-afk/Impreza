@@ -3,8 +3,15 @@ import { Footer } from "@/components/Footer";
 import { WhatsAppFloatingButton } from "@/components/WhatsAppButton";
 import { PRODUCTION_BUSINESS_DAYS } from "@/lib/delivery";
 import { SiteAnalytics } from "@/components/SiteAnalytics";
+import { getApprovedReviews } from "@/lib/reviews";
 
-export default function SiteLayout({ children }: { children: React.ReactNode }) {
+// Las páginas se rehacen cada 5 minutos: así el enlace de Reseñas aparece solo con la
+// primera reseña aprobada, sin publicar de nuevo.
+export const revalidate = 300;
+
+export default async function SiteLayout({ children }: { children: React.ReactNode }) {
+  const { stats } = await getApprovedReviews(1).catch(() => ({ stats: { count: 0 } }));
+  const showReviews = stats.count > 0;
   return (
     <>
       {/* Para quien navega con el teclado: salta el menú y va directo al contenido. */}
@@ -18,9 +25,9 @@ export default function SiteLayout({ children }: { children: React.ReactNode }) 
         Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza
         <span className="hidden sm:inline"> · Paga por transferencia BAC en C$ o US$</span>
       </div>
-      <Header />
+      <Header showReviews={showReviews} />
       <main id="contenido">{children}</main>
-      <Footer />
+      <Footer showReviews={showReviews} />
       <WhatsAppFloatingButton />
       <SiteAnalytics />
     </>
