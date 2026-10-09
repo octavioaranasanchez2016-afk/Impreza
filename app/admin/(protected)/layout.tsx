@@ -1,23 +1,10 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { SignOutButton } from "@/components/admin/SignOutButton";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect("/admin/login");
-  }
-
-  const { data: admin } = await supabase.from("admins").select("nombre").eq("id", user!.id).single();
-
-  if (!admin) {
-    redirect("/admin/login?error=sin_acceso");
-  }
+  // Sesión, lista de admins y código del celular.
+  const { supabase, admin } = await requireAdminPage();
 
   // Reseñas nuevas esperando aprobación (0 si la tabla todavía no existe).
   const { count } = await supabase.from("resenas").select("id", { count: "exact", head: true }).eq("aprobada", false);

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { ReviewActions } from "@/components/admin/ReviewActions";
 import { AddReviewForm } from "@/components/admin/AddReviewForm";
 import { Stars } from "@/components/ReviewCards";
@@ -18,6 +19,7 @@ interface ReviewRow {
 }
 
 export default async function AdminResenasPage() {
+  await requireAdminPage();
   const supabase = await createClient();
   const { data, error } = await supabase.from("resenas").select("*").order("created_at", { ascending: false });
   const reviews = (data ?? []) as ReviewRow[];

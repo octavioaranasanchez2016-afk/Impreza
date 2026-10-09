@@ -29,7 +29,8 @@ export default function AdminLoginPage() {
       return;
     }
 
-    router.push("/admin/pedidos");
+    // Después de la contraseña, el código del celular.
+    router.push("/admin/verificacion");
     router.refresh();
   }
 

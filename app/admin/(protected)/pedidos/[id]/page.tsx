@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import Link from "next/link";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { TECHNIQUE_LABEL, getFabric, getProductById } from "@/lib/catalog";
 import { StatusChanger } from "@/components/admin/StatusChanger";
 import { PaymentStatusChanger } from "@/components/admin/PaymentStatusChanger";
@@ -31,6 +32,7 @@ export const dynamic = "force-dynamic";
 const SIZE_ORDER = ["S", "M", "L", "XL", "XXL", "Único"];
 
 export default async function AdminPedidoDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await requireAdminPage();
   const { id } = await params;
   const supabase = await createClient();
 

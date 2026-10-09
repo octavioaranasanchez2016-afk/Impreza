@@ -11,6 +11,7 @@ import { parseShipping, shippingSummary } from "@/lib/shipping";
 import { parseBilling } from "@/lib/billing";
 import { ArchiveButton } from "@/components/admin/ArchiveButton";
 import { TestEmailButton } from "@/components/admin/TestEmailButton";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,7 @@ export default async function AdminPedidosPage({
 }: {
   searchParams: Promise<{ f?: string; q?: string }>;
 }) {
+  await requireAdminPage();
   const { f, q } = await searchParams;
   const filter = FILTERS.find((x) => x.key === f) ?? FILTERS[0];
   const query = (q ?? "").trim();

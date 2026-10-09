@@ -1,9 +1,11 @@
 import { listTrabajos } from "@/lib/trabajos";
+import { requireAdminPage } from "@/lib/admin-auth";
 import { TrabajosManager } from "@/components/admin/TrabajosManager";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminTrabajosPage() {
+  await requireAdminPage();
   const { trabajos, missing } = await listTrabajos(100);
 
   return (
