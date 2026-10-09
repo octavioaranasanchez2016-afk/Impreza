@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { LOGO_MARK_DATA_URL } from "@/lib/og-logo";
+import { LOGO_DOT, LOGO_LETTERS, LOGO_MAGENTA, LOGO_RATIO, LOGO_VIEWBOX, MARK_DOT, MARK_STEM, MARK_VIEWBOX } from "@/components/Logo";
 import { loadGoogleFont } from "@/lib/google-font";
 
 // Imagen que aparece al compartir el enlace del sitio en WhatsApp, Facebook, etc.
@@ -33,11 +33,19 @@ export default async function OpengraphImage() {
           <div style={{ display: "flex", fontSize: 22, letterSpacing: 6, color: "#8A8A8D" }}>
             SERIGRAFÍA · DTF · SUBLIMADO · BORDADO · MANAGUA
           </div>
-          <img src={LOGO_MARK_DATA_URL} width={90} height={84} alt="" />
+          <svg viewBox={MARK_VIEWBOX} width={32} height={Math.round(32 * (76.7 / 23.6))}>
+            <path d={MARK_STEM} fill="#FFFFFF" />
+            <circle cx={MARK_DOT.cx} cy={MARK_DOT.cy} r={MARK_DOT.r} fill={LOGO_MAGENTA} />
+          </svg>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {/* La palabra del logo: "impreza" en letra gruesa, apretada. */}
-          <div style={{ fontSize: 200, fontWeight: 900, letterSpacing: -10, lineHeight: 0.9 }}>impreza</div>
+          {/* El logo: la palabra "impreza" en letra gruesa, con el punto magenta. */}
+          <svg viewBox={LOGO_VIEWBOX} width={700} height={Math.round(700 / LOGO_RATIO)}>
+            {LOGO_LETTERS.map((d) => (
+              <path key={d} d={d} fill="#FFFFFF" />
+            ))}
+            <circle cx={LOGO_DOT.cx} cy={LOGO_DOT.cy} r={LOGO_DOT.r} fill={LOGO_MAGENTA} />
+          </svg>
           <div style={{ fontSize: 44, marginTop: 20, color: "#F4F4F4" }}>Tu diseño. Impreso como debe ser.</div>
         </div>
         <div style={{ display: "flex", gap: 24, fontSize: 28 }}>
