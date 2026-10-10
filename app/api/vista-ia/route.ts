@@ -53,7 +53,8 @@ function googleMessage(json: unknown): string {
 }
 
 export async function POST(req: NextRequest) {
-  const key = process.env.GEMINI_API_KEY;
+  // Sin espacios, saltos de línea ni comillas que se cuelan al copiar y pegar la clave.
+  const key = process.env.GEMINI_API_KEY?.trim().replace(/^["']+|["']+$/g, "").trim();
   if (!key && !TEST_MODE) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
 
   const body = await req.json().catch(() => null);
