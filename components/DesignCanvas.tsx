@@ -42,6 +42,7 @@ import {
   hasEffects,
 } from "@/lib/image-effects";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
+import { AiPreview } from "./AiPreview";
 import { ImageCropper } from "./ImageCropper";
 
 // Posiciones rápidas, como las del taller. Sin ancho ni "max" es la posición estándar.
@@ -173,6 +174,7 @@ export function DesignCanvas({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const textRef = useRef<HTMLInputElement>(null);
+  const mockupRef = useRef<HTMLDivElement>(null);
   const focusText = useRef(false);
   // La imagen que se elija: cambia la que se edita, o se agrega como otra cosa en la parte.
   const fileAdds = useRef(false);
@@ -345,19 +347,29 @@ export function DesignCanvas({
 
   return (
     <div>
-      <DesignMockup
-        key={`${zone}:${pieceKey ?? ""}`}
-        category={category}
-        zone={zone}
-        color={color}
-        size={size}
-        content={content}
-        transform={transform}
-        onTransformChange={onTransformChange}
-        onSizeCm={setSizeCm}
-        extras={others}
-        {...layers?.(zone, true)}
-      />
+      <div ref={mockupRef}>
+        <DesignMockup
+          key={`${zone}:${pieceKey ?? ""}`}
+          category={category}
+          zone={zone}
+          color={color}
+          size={size}
+          content={content}
+          transform={transform}
+          onTransformChange={onTransformChange}
+          onSizeCm={setSizeCm}
+          extras={others}
+          {...layers?.(zone, true)}
+        />
+      </div>
+
+      {(content || (others?.length ?? 0) > 0) && (
+        <AiPreview
+          category={category}
+          zone={zone}
+          getMockup={() => mockupRef.current?.querySelector<HTMLElement>(".aspect-square") ?? null}
+        />
+      )}
 
       {zones.length > 1 && (
         <div className="mt-3 flex flex-wrap justify-center gap-2" role="tablist" aria-label="Vistas del producto">
