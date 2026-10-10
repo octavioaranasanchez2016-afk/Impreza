@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DesignZone, ProductCategory } from "@/lib/types";
-import { AI_SCENES, AiScene } from "@/lib/vista-ia";
+import { AI_PHOTOS_PER_PERSON, AI_SCENES, AiScene } from "@/lib/vista-ia";
 import { snapshotMockup } from "@/lib/mockup-snapshot";
 
 // "Verla puesta": una foto de ejemplo, hecha con IA, de alguien usando la prenda con el
@@ -35,6 +35,8 @@ export function AiPreview({
   // El motivo técnico que dio la IA, en letra chica, para poder ayudar si falla.
   const [detail, setDetail] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
+  // Cuántas fotos le quedan hoy (null mientras no se sabe).
+  const [left, setLeft] = useState<number | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -68,6 +70,7 @@ export function AiPreview({
         body: JSON.stringify({ imagen, prenda: category, zona: zone, escena: scene }),
       });
       const data = await res.json().catch(() => ({}));
+      if (typeof data.restantes === "number") setLeft(data.restantes);
       if (!res.ok || typeof data.imagen !== "string") {
         setDetail(typeof data.detalle === "string" ? data.detalle : null);
         throw new Error(data.error || "No pudimos crear la foto ahora.");
@@ -79,11 +82,22 @@ export function AiPreview({
     setLoading(false);
   }
 
+  // Al abrir la ventana se pregunta cuántas le quedan (pudo crear otras en otra pestaña).
+  function openWindow() {
+    setOpen(true);
+    fetch("/api/vista-ia")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => typeof d?.restantes === "number" && setLeft(d.restantes))
+      .catch(() => {});
+  }
+
+  const noneLeft = left === 0;
+
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={openWindow}
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-brand border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-ink"
       >
         <SparkIcon /> Verla puesta (foto con IA)
@@ -147,11 +161,19 @@ export function AiPreview({
             {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
             {detail && <p className="mt-1 break-words text-[11px] text-ink-muted">Detalle: {detail}</p>}
 
+            {left !== null && (
+              <p className={`mt-3 text-center text-xs font-semibold ${noneLeft ? "text-red-600" : "text-ink-soft"}`}>
+                {noneLeft
+                  ? `Ya usaste tus ${AI_PHOTOS_PER_PERSON} fotos de hoy. Vuelve mañana para crear más.`
+                  : `Te quedan ${left} de ${AI_PHOTOS_PER_PERSON} fotos hoy.`}
+              </p>
+            )}
+
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
                 onClick={create}
-                disabled={loading}
+                disabled={loading || noneLeft}
                 className="flex-1 rounded-brand bg-ink px-4 py-3 text-sm font-semibold text-paper transition-opacity hover:opacity-80 disabled:opacity-50"
               >
                 {loading ? "Creando…" : photo ? "Crear otra" : "Crear foto"}
@@ -169,7 +191,7 @@ export function AiPreview({
 
             <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
               Es una imagen de ejemplo: la IA puede cambiar detalles del diseño, de la tela o del color. Lo que se imprime es
-              exactamente lo que armaste en el diseñador. Puedes crear hasta 3 fotos al día.
+              exactamente lo que armaste en el diseñador.
             </p>
           </div>
         </div>

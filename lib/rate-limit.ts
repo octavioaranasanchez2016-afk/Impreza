@@ -55,6 +55,17 @@ export async function withinLimit(limit: Limit): Promise<boolean> {
   }
 }
 
+// Cuántos le quedan sin contar uno más (para mostrarlo). Si no se puede leer, max.
+export async function remainingLimit({ clave, max, windowMs }: Limit): Promise<number> {
+  try {
+    const { data } = await createServiceClient().from("cuenta_limites").select("*").eq("clave", clave).maybeSingle();
+    if (!data || Date.now() - Date.parse(data.ventana_at) >= windowMs) return max;
+    return Math.max(0, max - data.enviados);
+  } catch {
+    return max;
+  }
+}
+
 // Devuelve uno que se contó pero no se usó (por ejemplo, la IA no respondió). Si falla,
 // no pasa nada: a lo sumo esa persona tiene uno menos hoy.
 export async function giveBack(clave: string): Promise<void> {

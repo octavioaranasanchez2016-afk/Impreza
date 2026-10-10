@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HOUR, clientIp, giveBack, takeLimit } from "@/lib/rate-limit";
+import { HOUR, clientIp, giveBack, remainingLimit, takeLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/bot";
-import { AI_SCENES, AiScene, aiPrompt } from "@/lib/vista-ia";
+import {
+  AI_DAY_PREFIX,
+  AI_PERSON_PREFIX,
+  AI_PHOTOS_PER_DAY,
+  AI_PHOTOS_PER_PERSON,
+  AI_SCENES,
+  AiScene,
+  aiPrompt,
+} from "@/lib/vista-ia";
 import { DesignZone, ProductCategory } from "@/lib/types";
 
 // "Verla puesta": la IA convierte la foto plana del diseñador en una foto de alguien
-// usando la prenda. Cada foto cuesta (unos US$0.04), así que hay tope por persona y
-// por día. Necesita GEMINI_API_KEY en Vercel; sin ella, el botón no aparece.
+// usando la prenda. Cada foto cuesta (unos US$0.04 a 0.07), así que hay tope por persona
+// y por día (lib/vista-ia.ts). Lo que se crea se ve en el panel, en Fotos IA. Necesita GEMINI_API_KEY en Vercel; sin ella, el botón no aparece.
 
 export const maxDuration = 60;
 
-const PER_PERSON_PER_DAY = 3;
-const PER_DAY = 80; // para todo el sitio
 const DAY = 24 * HOUR;
 // Modelos de imagen, en orden: el que se elija en Vercel y, si no responde, los de Google
 // que funcionan con las claves nuevas ("AQ."). Se usa el primero que devuelva la foto.
@@ -27,8 +33,16 @@ const MAX_IMAGE_CHARS = 3_000_000; // ≈ 2.2 MB
 // tocar la base, devuelve la misma foto plana que llegó (para probar el botón y la ventana).
 const TEST_MODE = process.env.NODE_ENV === "development" && process.env.VISTA_IA_PRUEBA === "1";
 
-export function GET() {
-  return NextResponse.json({ disponible: TEST_MODE || Boolean(process.env.GEMINI_API_KEY) });
+// La persona se cuenta por su conexión; el día, en hora de Managua.
+const personKeyOf = (req: NextRequest) => AI_PERSON_PREFIX + clientIp(req.headers);
+const dayKeyNow = () => AI_DAY_PREFIX + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Managua" }).format(new Date());
+const personLimit = (req: NextRequest) => ({ clave: personKeyOf(req), max: AI_PHOTOS_PER_PERSON, windowMs: DAY });
+
+// Si está activada y cuántas fotos le quedan hoy a quien pregunta (para el contador).
+export async function GET(req: NextRequest) {
+  const disponible = TEST_MODE || Boolean(process.env.GEMINI_API_KEY);
+  const restantes = disponible && !TEST_MODE ? await remainingLimit(personLimit(req)) : AI_PHOTOS_PER_PERSON;
+  return NextResponse.json({ disponible, restantes, total: AI_PHOTOS_PER_PERSON });
 }
 
 // La IA puede devolver la imagen con distintas formas de JSON: se busca la última parte
@@ -77,19 +91,20 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
 
   // Topes: por persona al día y para todo el sitio al día, para que el gasto no se dispare.
-  const personKey = `vista-ia-ip:${clientIp(req.headers)}`;
-  const dayKey = `vista-ia-dia:${new Date().toISOString().slice(0, 10)}`;
+  const personKey = personKeyOf(req);
+  const dayKey = dayKeyNow();
   try {
-    const mine = await takeLimit({ clave: personKey, max: PER_PERSON_PER_DAY, windowMs: DAY, gapMs: 10 * 1000 });
+    const mine = await takeLimit({ ...personLimit(req), gapMs: 10 * 1000 });
     if (mine === "espera") return NextResponse.json({ error: "Espera unos segundos antes de pedir otra foto." }, { status: 429 });
     if (mine === "muchos") {
       return NextResponse.json(
-        { error: `Ya pediste ${PER_PERSON_PER_DAY} fotos hoy. Vuelve mañana para ver más.` },
+        { error: `Ya creaste tus ${AI_PHOTOS_PER_PERSON} fotos de hoy. Vuelve mañana para ver más.`, restantes: 0 },
         { status: 429 }
       );
     }
-    const today = await takeLimit({ clave: dayKey, max: PER_DAY, windowMs: DAY });
+    const today = await takeLimit({ clave: dayKey, max: AI_PHOTOS_PER_DAY, windowMs: DAY });
     if (today !== "ok") {
+      await giveBack(personKey);
       return NextResponse.json({ error: "Hoy ya se crearon muchas fotos. Intenta de nuevo mañana." }, { status: 429 });
     }
   } catch (err) {
@@ -138,7 +153,10 @@ export async function POST(req: NextRequest) {
       });
       const json = await res.json().catch(() => null);
       const result = res.ok ? findImage(json) : null;
-      if (result) return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}` });
+      if (result) {
+        const restantes = await remainingLimit(personLimit(req));
+        return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}`, restantes });
+      }
       lastStatus = res.status;
       details.push(`${res.status} ${googleMessage(json)}`);
       console.error(`Vista con IA sin imagen (${attempt.name}):`, res.status, JSON.stringify(json).slice(0, 600));
@@ -155,6 +173,7 @@ export async function POST(req: NextRequest) {
     {
       error: `No pudimos crear la foto ahora. Intenta de nuevo en un momento. (código ${lastStatus})`,
       detalle: details.join(" · ").slice(0, 500),
+      restantes: await remainingLimit(personLimit(req)),
     },
     { status: 502 }
   );
