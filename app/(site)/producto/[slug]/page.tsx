@@ -15,6 +15,7 @@ import {
   ProductOrderLink,
 } from "@/components/ProductShowcase";
 import { WhatsAppLinkButton } from "@/components/WhatsAppButton";
+import { GuaranteeBadge } from "@/components/GuaranteeBadge";
 import { Product } from "@/lib/types";
 
 export function generateStaticParams() {
@@ -258,6 +259,7 @@ export default async function ProductoPage({ params }: { params: Promise<{ slug:
             >
               Contactar con diseñador
             </WhatsAppLinkButton>
+            <GuaranteeBadge className="mt-4" />
             <p className="mt-3 text-center text-xs text-ink-soft">
               Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Pago en C$ o US$
             </p>

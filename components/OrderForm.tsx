@@ -93,6 +93,7 @@ import {
   zoneTitle,
 } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
+import { GuaranteeBadge } from "./GuaranteeBadge";
 import { ZONE_NAME, getPrintArea, getZonesForCategory, isDarkColor } from "./GarmentShape";
 
 interface CartLine extends OrderItemInput {
@@ -2363,6 +2364,7 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
             </section>
 
             <div id="confirmar" className="scroll-mt-28 space-y-3">
+              <GuaranteeBadge />
               {error && <p className="rounded-brand bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{error}</p>}
               <button
                 type="button"

@@ -70,7 +70,11 @@ export default function TerminosPage() {
       </p>
       <div className="mt-10 space-y-6">
         {SECTIONS.map((s) => (
-          <div key={s.title} className="rounded-brand border border-black/10 bg-white p-6">
+          <div
+            key={s.title}
+            id={s.title.startsWith("Garantía") ? "garantia" : undefined}
+            className="scroll-mt-28 rounded-brand border border-black/10 bg-white p-6"
+          >
             <h2 className="font-display text-3xl uppercase tracking-wide text-ink">{s.title}</h2>
             <ul className="mt-3 space-y-2 text-sm text-ink-soft">
               {s.items.map((item) => (

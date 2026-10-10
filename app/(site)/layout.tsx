@@ -22,8 +22,8 @@ export default async function SiteLayout({ children }: { children: React.ReactNo
         Saltar al contenido
       </a>
       <div className="bg-ink px-4 py-2 text-center text-xs font-medium text-paper/90">
-        Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza
-        <span className="hidden sm:inline"> · Paga por transferencia BAC en C$ o US$</span>
+        Listo en {PRODUCTION_BUSINESS_DAYS} días hábiles · Desde 1 pieza · Garantía de reposición
+        <span className="hidden md:inline"> · Paga por transferencia BAC en C$ o US$</span>
       </div>
       <Header showReviews={showReviews} />
       <main id="contenido">{children}</main>

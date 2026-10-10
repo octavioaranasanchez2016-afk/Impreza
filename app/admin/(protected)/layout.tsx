@@ -22,6 +22,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin/pedidos" className="text-paper/80 hover:text-paper">
                 Pedidos
               </Link>
+              <Link href="/admin/calendario" className="text-paper/80 hover:text-paper">
+                Calendario
+              </Link>
               <Link href="/admin/resenas" className="text-paper/80 hover:text-paper">
                 Reseñas
                 {pendingReviews > 0 && (
