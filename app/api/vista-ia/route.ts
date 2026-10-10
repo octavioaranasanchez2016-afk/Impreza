@@ -23,9 +23,10 @@ export const maxDuration = 60;
 
 const DAY = 24 * HOUR;
 // Modelos de imagen, en orden: el que se elija en Vercel y, si no responde, los de Google
-// que funcionan con las claves nuevas ("AQ."). Se usa el primero que devuelva la foto.
+// que funcionan con las claves nuevas ("AQ."). Primero el de buena calidad; el "lite" es
+// más barato pero las fotos salen más pobres. Se usa el primero que devuelva la foto.
 const MODELS = [
-  ...new Set([process.env.GEMINI_IMAGE_MODEL, "gemini-3.1-flash-lite-image", "gemini-3.1-flash-image", "gemini-2.5-flash-image"]),
+  ...new Set([process.env.GEMINI_IMAGE_MODEL, "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-2.5-flash-image"]),
 ].filter((m): m is string => Boolean(m));
 const CATEGORIES: ProductCategory[] = ["camisa", "hoodie", "tote", "polo", "gorra"];
 const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der"];
@@ -167,17 +168,20 @@ async function createPhoto(req: NextRequest, device: Device): Promise<NextRespon
   // Google tiene dos formas de pedir imágenes. Las claves nuevas ("AQ.") solo sirven con
   // la nueva (interactions); las viejas ("AIza") también con la clásica (generateContent).
   // Se prueba en orden y se usa la primera respuesta con foto. Lo que falla no se cobra.
-  const interactions = MODELS.map((model) => ({
-    name: `interactions ${model}`,
-    url: `${base}/interactions`,
-    body: {
-      model,
-      input: [
-        { type: "text", text: prompt },
-        { type: "image", mime_type: mime, data: image[2] },
-      ],
+  // Cada modelo se pide primero en vertical (4:5, como foto de catálogo) y, si no acepta
+  // ese ajuste, sin él.
+  const input = [
+    { type: "text", text: prompt },
+    { type: "image", mime_type: mime, data: image[2] },
+  ];
+  const interactions = MODELS.flatMap((model) => [
+    {
+      name: `interactions ${model} 4:5`,
+      url: `${base}/interactions`,
+      body: { model, input, response_format: { type: "image", aspect_ratio: "4:5" } },
     },
-  }));
+    { name: `interactions ${model}`, url: `${base}/interactions`, body: { model, input } },
+  ]);
   const classic = MODELS.map((model) => ({
     name: `generateContent ${model}`,
     url: `${base}/models/${model}:generateContent`,

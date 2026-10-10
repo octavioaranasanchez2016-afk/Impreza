@@ -8,13 +8,17 @@ import { snapshotMockup } from "@/lib/mockup-snapshot";
 // "Verla puesta": una foto de ejemplo, hecha con IA, de alguien usando la prenda con el
 // diseño. Solo aparece si el sitio tiene la clave de la IA (GET /api/vista-ia).
 
-let availability: Promise<boolean> | null = null;
-function checkAvailable(): Promise<boolean> {
-  availability ??= fetch("/api/vista-ia")
-    .then((r) => (r.ok ? r.json() : { disponible: false }))
-    .then((d: { disponible?: boolean }) => Boolean(d.disponible))
-    .catch(() => false);
-  return availability;
+type Status = { disponible: boolean; restantes: number | null };
+
+// Si está activada y cuántas fotos le quedan hoy a este dispositivo.
+function fetchStatus(): Promise<Status> {
+  return fetch("/api/vista-ia")
+    .then((r) => (r.ok ? r.json() : {}))
+    .then((d: { disponible?: boolean; restantes?: number }) => ({
+      disponible: Boolean(d.disponible),
+      restantes: typeof d.restantes === "number" ? d.restantes : null,
+    }))
+    .catch(() => ({ disponible: false, restantes: null }));
 }
 
 export function AiPreview({
@@ -29,7 +33,7 @@ export function AiPreview({
 }) {
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
-  const [scene, setScene] = useState<AiScene>("calle");
+  const [scene, setScene] = useState<AiScene>("deportiva");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // El motivo técnico que dio la IA, en letra chica, para poder ayudar si falla.
@@ -40,7 +44,11 @@ export function AiPreview({
 
   useEffect(() => {
     let alive = true;
-    checkAvailable().then((ok) => alive && setAvailable(ok));
+    fetchStatus().then((status) => {
+      if (!alive) return;
+      setAvailable(status.disponible);
+      setLeft(status.restantes);
+    });
     return () => {
       alive = false;
     };
@@ -85,13 +93,11 @@ export function AiPreview({
   // Al abrir la ventana se pregunta cuántas le quedan (pudo crear otras en otra pestaña).
   function openWindow() {
     setOpen(true);
-    fetch("/api/vista-ia")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => typeof d?.restantes === "number" && setLeft(d.restantes))
-      .catch(() => {});
+    fetchStatus().then((status) => status.restantes !== null && setLeft(status.restantes));
   }
 
   const noneLeft = left === 0;
+  const used = left === null ? null : AI_PHOTOS_PER_DEVICE - left;
 
   return (
     <>
@@ -101,6 +107,11 @@ export function AiPreview({
         className="mt-3 flex w-full items-center justify-center gap-2 rounded-brand border border-black/15 bg-white px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-ink"
       >
         <SparkIcon /> Verla puesta (foto con IA)
+        {used !== null && (
+          <span className="text-xs font-medium text-ink-muted">
+            · {used}/{AI_PHOTOS_PER_DEVICE} hoy
+          </span>
+        )}
       </button>
 
       {open && (
@@ -131,7 +142,7 @@ export function AiPreview({
             </div>
 
             <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Escena</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 grid grid-cols-3 gap-1.5">
               {AI_SCENES.map((s) => (
                 <button
                   key={s.value}
@@ -139,18 +150,37 @@ export function AiPreview({
                   disabled={loading}
                   onClick={() => setScene(s.value)}
                   aria-pressed={scene === s.value}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold disabled:opacity-50 ${
-                    scene === s.value ? "border-ink bg-ink text-paper" : "border-black/15 text-ink-soft hover:border-ink"
+                  className={`rounded-brand border px-2 py-2 text-left disabled:opacity-50 ${
+                    scene === s.value ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
                   }`}
                 >
-                  {s.label}
+                  <span className="block text-sm font-semibold">{s.label}</span>
+                  <span className={`block text-[11px] ${scene === s.value ? "text-paper/70" : "text-ink-muted"}`}>{s.hint}</span>
                 </button>
               ))}
             </div>
 
+            {used !== null && (
+              <div className="mt-4">
+                <div className="flex items-baseline justify-between text-xs">
+                  <span className="font-semibold text-ink">
+                    Llevas {used} de {AI_PHOTOS_PER_DEVICE} fotos hoy
+                  </span>
+                  <span className={noneLeft ? "font-semibold text-red-600" : "text-ink-muted"}>
+                    {noneLeft ? "Vuelve mañana" : `te quedan ${left}`}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex gap-1" aria-hidden>
+                  {Array.from({ length: AI_PHOTOS_PER_DEVICE }, (_, i) => (
+                    <span key={i} className={`h-1.5 flex-1 rounded-full ${i < used ? "bg-ink" : "bg-black/10"}`} />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 flex aspect-[4/5] w-full items-center justify-center overflow-hidden rounded-brand bg-paper-soft">
               {photo ? (
-                <img src={photo} alt="Foto de ejemplo de la prenda puesta, hecha con IA" className="h-full w-full object-cover" />
+                <img src={photo} alt="Foto de ejemplo de la prenda puesta, hecha con IA" className="h-full w-full object-contain" />
               ) : (
                 <p className="px-6 text-center text-sm text-ink-muted">
                   {loading ? "Creando tu foto… puede tardar unos 20 segundos." : "Elige una escena y toca «Crear foto»."}
@@ -161,11 +191,9 @@ export function AiPreview({
             {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
             {detail && <p className="mt-1 break-words text-[11px] text-ink-muted">Detalle: {detail}</p>}
 
-            {left !== null && (
-              <p className={`mt-3 text-center text-xs font-semibold ${noneLeft ? "text-red-600" : "text-ink-soft"}`}>
-                {noneLeft
-                  ? `Ya usaste tus ${AI_PHOTOS_PER_DEVICE} fotos de hoy. Vuelve mañana para crear más.`
-                  : `Te quedan ${left} de ${AI_PHOTOS_PER_DEVICE} fotos hoy.`}
+            {noneLeft && (
+              <p className="mt-3 text-center text-xs font-semibold text-red-600">
+                Ya usaste tus {AI_PHOTOS_PER_DEVICE} fotos de hoy. Vuelve mañana para crear más.
               </p>
             )}
 
