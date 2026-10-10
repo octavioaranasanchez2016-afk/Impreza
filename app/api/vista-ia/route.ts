@@ -45,6 +45,13 @@ function findImage(value: unknown): { mime: string; data: string } | null {
   return found;
 }
 
+// El motivo que da Google, corto y sin nada que parezca una clave, para saber qué pasó.
+function googleMessage(json: unknown): string {
+  const error = (json as { error?: { message?: unknown; status?: unknown } } | null)?.error;
+  const text = [error?.status, error?.message].filter((v) => typeof v === "string").join(": ");
+  return text.replace(/AIza[0-9A-Za-z_-]+/g, "[clave]").slice(0, 160) || "sin detalle";
+}
+
 export async function POST(req: NextRequest) {
   const key = process.env.GEMINI_API_KEY;
   if (!key && !TEST_MODE) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
@@ -112,6 +119,7 @@ export async function POST(req: NextRequest) {
 
   const started = Date.now();
   let lastStatus = 0;
+  const details: string[] = [];
   for (const attempt of attempts) {
     // Si ya pasó mucho rato, no se alcanza otro intento antes del límite de la función.
     if (Date.now() - started > 25 * 1000) break;
@@ -126,9 +134,11 @@ export async function POST(req: NextRequest) {
       const result = res.ok ? findImage(json) : null;
       if (result) return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}` });
       lastStatus = res.status;
+      details.push(`${res.status} ${googleMessage(json)}`);
       console.error(`Vista con IA sin imagen (${attempt.name}):`, res.status, JSON.stringify(json).slice(0, 600));
     } catch (err) {
       lastStatus = -1;
+      details.push(err instanceof Error ? err.name : "sin respuesta");
       console.error(`Vista con IA falló (${attempt.name}):`, err);
     }
   }
@@ -136,7 +146,10 @@ export async function POST(req: NextRequest) {
   await Promise.all([giveBack(personKey), giveBack(dayKey)]);
   // El código entre paréntesis no dice nada privado y ayuda a saber qué pasó.
   return NextResponse.json(
-    { error: `No pudimos crear la foto ahora. Intenta de nuevo en un momento. (código ${lastStatus})` },
+    {
+      error: `No pudimos crear la foto ahora. Intenta de nuevo en un momento. (código ${lastStatus})`,
+      detalle: details.join(" · ").slice(0, 500),
+    },
     { status: 502 }
   );
 }

@@ -32,6 +32,8 @@ export function AiPreview({
   const [scene, setScene] = useState<AiScene>("calle");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // El motivo técnico que dio la IA, en letra chica, para poder ayudar si falla.
+  const [detail, setDetail] = useState<string | null>(null);
   const [photo, setPhoto] = useState<string | null>(null);
 
   useEffect(() => {
@@ -56,6 +58,7 @@ export function AiPreview({
     if (!mockup) return;
     setLoading(true);
     setError(null);
+    setDetail(null);
     setPhoto(null);
     try {
       const imagen = await snapshotMockup(mockup);
@@ -65,7 +68,10 @@ export function AiPreview({
         body: JSON.stringify({ imagen, prenda: category, zona: zone, escena: scene }),
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || typeof data.imagen !== "string") throw new Error(data.error || "No pudimos crear la foto ahora.");
+      if (!res.ok || typeof data.imagen !== "string") {
+        setDetail(typeof data.detalle === "string" ? data.detalle : null);
+        throw new Error(data.error || "No pudimos crear la foto ahora.");
+      }
       setPhoto(data.imagen);
     } catch (err) {
       setError(err instanceof Error ? err.message : "No pudimos crear la foto ahora.");
@@ -139,6 +145,7 @@ export function AiPreview({
             </div>
 
             {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+            {detail && <p className="mt-1 break-words text-[11px] text-ink-muted">Detalle: {detail}</p>}
 
             <div className="mt-4 flex gap-2">
               <button
