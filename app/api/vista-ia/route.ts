@@ -23,10 +23,17 @@ export const maxDuration = 60;
 
 const DAY = 24 * HOUR;
 // Modelos de imagen, en orden: el que se elija en Vercel y, si no responde, los de Google
-// que funcionan con las claves nuevas ("AQ."). Primero el de buena calidad; el "lite" es
-// más barato pero las fotos salen más pobres. Se usa el primero que devuelva la foto.
+// que funcionan con las claves nuevas ("AQ."). Primero el Pro (la mejor calidad, el costo
+// no importa), luego el de buena calidad y al final el "lite", más barato pero con fotos
+// más pobres. Se usa el primero que devuelva la foto.
 const MODELS = [
-  ...new Set([process.env.GEMINI_IMAGE_MODEL, "gemini-3.1-flash-image", "gemini-3.1-flash-lite-image", "gemini-2.5-flash-image"]),
+  ...new Set([
+    process.env.GEMINI_IMAGE_MODEL,
+    "gemini-3-pro-image",
+    "gemini-3.1-flash-image",
+    "gemini-3.1-flash-lite-image",
+    "gemini-2.5-flash-image",
+  ]),
 ].filter((m): m is string => Boolean(m));
 const CATEGORIES: ProductCategory[] = ["camisa", "hoodie", "tote", "polo", "gorra"];
 const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der"];

@@ -8,7 +8,7 @@ export type AiScene = "deportiva" | "empresarial" | "casual";
 // todo el sitio en un día.
 export const AI_PHOTOS_PER_DEVICE = 10;
 export const AI_PHOTOS_PER_CONNECTION = 30;
-export const AI_PHOTOS_PER_DAY = 80;
+export const AI_PHOTOS_PER_DAY = 300;
 
 // Claves en la tabla cuenta_limites (también las lee el panel, en Fotos IA).
 export const AI_DEVICE_PREFIX = "vista-ia-disp:";
