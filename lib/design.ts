@@ -190,6 +190,8 @@ export interface ImageDesignContent extends MockupImageContent {
   // Si se le dio forma o se le quitó el fondo: la imagen de antes (ya recortada) y lo
   // que se aplicó. Lo que se sube e imprime es file (el PNG con transparencia).
   effects?: ImageEffects;
+  // Si es uno de los dibujos de Impreza: cuál y en qué color, para poder cambiarle el color.
+  clipart?: { id: string; color: string };
 }
 
 // El recorte más grande con esa proporción (ancho/alto en píxeles), centrado.

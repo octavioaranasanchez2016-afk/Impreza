@@ -43,6 +43,8 @@ import {
 } from "@/lib/image-effects";
 import { DesignMockup, MAX_SCALE, MIN_SCALE, defaultTransform } from "./DesignMockup";
 import { AiPreview } from "./AiPreview";
+import { ClipartPicker } from "./ClipartPicker";
+import { CLIPART, Clipart, renderClipart } from "@/lib/clipart";
 import { ImageCropper } from "./ImageCropper";
 
 // Posiciones rápidas, como las del taller. Sin ancho ni "max" es la posición estándar.
@@ -186,6 +188,9 @@ export function DesignCanvas({
   const [cropError, setCropError] = useState<string | null>(null);
   const [effectsBusy, setEffectsBusy] = useState(false);
   const [effectsNote, setEffectsNote] = useState<string | null>(null);
+  // La ventana de dibujos: abierta, y si el dibujo se agrega como otra cosa en la parte.
+  const [clipartOpen, setClipartOpen] = useState(false);
+  const clipartAdds = useRef(false);
   const [allFonts, setAllFonts] = useState(false);
 
   const zones = getZonesForCategory(category);
@@ -212,6 +217,35 @@ export function DesignCanvas({
     setNotice(changes);
     if (fileAdds.current && onAddImage) onAddImage(validated);
     else onContentChange(validated, true);
+  }
+
+  function openClipart(add: boolean) {
+    setError(null);
+    clipartAdds.current = add;
+    setClipartOpen(true);
+  }
+
+  // Agrega el dibujo elegido (o cambia el que se edita), ya convertido en imagen.
+  async function pickClipart(item: Clipart, clipColor: string) {
+    setClipartOpen(false);
+    try {
+      const image = await renderClipart(item, clipColor);
+      const drawing: ImageDesignContent = { kind: "imagen", ...image, clipart: { id: item.id, color: clipColor } };
+      setNotice(null);
+      if (clipartAdds.current && onAddImage) onAddImage(drawing);
+      else onContentChange(drawing, true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo agregar el dibujo.");
+    }
+  }
+
+  // Le cambia el color al dibujo que se edita, sin moverlo.
+  async function recolorClipart(clipColor: string) {
+    if (content?.kind !== "imagen" || !content.clipart) return;
+    const item = CLIPART.find((c) => c.id === content.clipart?.id);
+    if (!item) return;
+    const image = await renderClipart(item, clipColor);
+    onContentChange({ ...content, ...image, clipart: { id: item.id, color: clipColor } }, false);
   }
 
   function pickFile(add: boolean) {
@@ -480,6 +514,15 @@ export function DesignCanvas({
                   + Agregar imagen
                 </button>
               )}
+              {pieces.length < MAX_PIECES_PER_ZONE && onAddImage && (
+                <button
+                  type="button"
+                  onClick={() => openClipart(true)}
+                  className="flex items-center gap-1 rounded-full border border-dashed border-ink/40 px-3 py-1.5 text-xs font-semibold text-ink transition-colors hover:border-ink hover:bg-paper-soft"
+                >
+                  + Agregar dibujo
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -493,7 +536,7 @@ export function DesignCanvas({
                 Tu propia etiqueta: el logo de tu marca, la talla o las instrucciones de lavado.
               </p>
             )}
-            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
               <button
                 type="button"
                 onClick={() => pickFile(false)}
@@ -508,6 +551,13 @@ export function DesignCanvas({
               >
                 <TextIcon /> Agregar texto
               </button>
+              <button
+                type="button"
+                onClick={() => openClipart(false)}
+                className="flex items-center justify-center gap-2 rounded-brand border border-ink/20 px-4 py-3 text-sm font-semibold text-ink transition-colors hover:border-ink hover:bg-ink hover:text-paper"
+              >
+                <StarIcon /> Agregar dibujo
+              </button>
             </div>
             <p className="mt-2 text-xs text-ink-muted">
               JPG, PNG o WEBP · si hace falta, la ajustamos para imprimir y te avisamos
@@ -517,12 +567,20 @@ export function DesignCanvas({
           <div className="space-y-4">
             <div className="flex items-center justify-between gap-3">
               <p className="truncate text-sm font-semibold text-ink">
-                {content.kind === "imagen" ? `Imagen: ${content.file.name}` : contentTitle ?? "Texto"}
+                {content.kind === "imagen"
+                  ? content.clipart
+                    ? `Dibujo: ${CLIPART.find((c) => c.id === content.clipart?.id)?.label ?? ""}`
+                    : `Imagen: ${content.file.name}`
+                  : contentTitle ?? "Texto"}
               </p>
               <div className="flex shrink-0 gap-3 text-xs">
                 {content.kind === "imagen" && (
-                  <button type="button" onClick={() => pickFile(false)} className="font-semibold text-ink hover:underline">
-                    Cambiar imagen
+                  <button
+                    type="button"
+                    onClick={() => (content.clipart ? openClipart(false) : pickFile(false))}
+                    className="font-semibold text-ink hover:underline"
+                  >
+                    {content.clipart ? "Cambiar dibujo" : "Cambiar imagen"}
                   </button>
                 )}
                 <button
@@ -653,7 +711,27 @@ export function DesignCanvas({
               </div>
             )}
 
-            {content.kind === "imagen" && (
+            {content.kind === "imagen" && content.clipart && (
+              <Section title="Color del dibujo">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {TEXT_COLOR_OPTIONS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => recolorClipart(c.value)}
+                      title={c.label}
+                      aria-label={c.label}
+                      className={`h-7 w-7 rounded-full border ${
+                        content.clipart?.color.toLowerCase() === c.value.toLowerCase() ? "ring-2 ring-ink ring-offset-2" : "border-black/15"
+                      }`}
+                      style={{ backgroundColor: c.value }}
+                    />
+                  ))}
+                </div>
+              </Section>
+            )}
+
+            {content.kind === "imagen" && !content.clipart && (
               <Section title="Encuadre">
                 <div className="grid grid-cols-3 gap-1.5">
                   <FitOption active={framing === "completa"} onClick={showWholeImage} title="Completa" hint="La imagen entera" />
@@ -684,7 +762,7 @@ export function DesignCanvas({
               </Section>
             )}
 
-            {content.kind === "imagen" && (
+            {content.kind === "imagen" && !content.clipart && (
               <Section title="Forma">
                 <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
                   {IMAGE_SHAPES.map((s) => (
@@ -706,7 +784,7 @@ export function DesignCanvas({
               </Section>
             )}
 
-            {content.kind === "imagen" && (
+            {content.kind === "imagen" && !content.clipart && (
               <Section title="Fondo">
                 <div className="flex flex-wrap gap-1.5">
                   <Chip active={!removeBg} onClick={() => !effectsBusy && changeEffects(shape, null)}>
@@ -857,6 +935,16 @@ export function DesignCanvas({
         </div>
       )}
       {error && <p className="mt-2 text-sm font-medium text-red-600">{error}</p>}
+
+      {clipartOpen && (
+        <ClipartPicker
+          initialColor={
+            content?.kind === "imagen" && content.clipart ? content.clipart.color : isDarkColor(color) ? "#FFFFFF" : "#111111"
+          }
+          onPick={pickClipart}
+          onClose={() => setClipartOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -998,6 +1086,14 @@ function UploadIcon() {
     <svg viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8}>
       <path d="M10 13V3M10 3 6 7M10 3l4 4" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M4 13v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden>
+      <path d="M12 3l2.6 5.6 6 .7-4.5 4.1 1.2 6L12 16.4 6.7 19.4l1.2-6L3.4 9.3l6-.7z" />
     </svg>
   );
 }
