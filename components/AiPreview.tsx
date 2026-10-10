@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DesignZone, ProductCategory } from "@/lib/types";
-import { AI_PHOTOS_PER_DEVICE, AI_SCENES, AiScene } from "@/lib/vista-ia";
+import { AI_CONTEXT_MAX, AI_PEOPLE, AI_PHOTOS_PER_DEVICE, AI_SCENES, AiPerson, AiScene } from "@/lib/vista-ia";
 import { snapshotMockup } from "@/lib/mockup-snapshot";
 
 // "Verla puesta": una foto de ejemplo, hecha con IA, de alguien usando la prenda con el
@@ -34,6 +34,9 @@ export function AiPreview({
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [scene, setScene] = useState<AiScene>("deportiva");
+  const [person, setPerson] = useState<AiPerson>("mujer");
+  // Lo que el cliente quiera contar de la escena (opcional).
+  const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // El motivo técnico que dio la IA, en letra chica, para poder ayudar si falla.
@@ -75,7 +78,7 @@ export function AiPreview({
       const res = await fetch("/api/vista-ia", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ imagen, prenda: category, zona: zone, escena: scene }),
+        body: JSON.stringify({ imagen, prenda: category, zona: zone, escena: scene, persona: person, contexto: context }),
       });
       const data = await res.json().catch(() => ({}));
       if (typeof data.restantes === "number") setLeft(data.restantes);
@@ -159,6 +162,40 @@ export function AiPreview({
                 </button>
               ))}
             </div>
+
+            <p className="mt-4 text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Quién la usa</p>
+            <div className="mt-2 grid grid-cols-2 gap-1.5">
+              {AI_PEOPLE.map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  disabled={loading}
+                  onClick={() => setPerson(p.value)}
+                  aria-pressed={person === p.value}
+                  className={`rounded-brand border px-3 py-2 text-sm font-semibold disabled:opacity-50 ${
+                    person === p.value ? "border-ink bg-ink text-paper" : "border-black/15 text-ink hover:border-ink"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
+            <label className="mt-4 block">
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink-soft">Detalles (opcional)</span>
+              <textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value.slice(0, AI_CONTEXT_MAX))}
+                disabled={loading}
+                rows={2}
+                maxLength={AI_CONTEXT_MAX}
+                placeholder="Ej.: en la graduación de mi colegio, con amigos; o jugando fútbol con mi equipo"
+                className="input mt-2 resize-none text-sm"
+              />
+              <span className="mt-1 block text-right text-[11px] text-ink-muted">
+                {context.length}/{AI_CONTEXT_MAX}
+              </span>
+            </label>
 
             {used !== null && (
               <div className="mt-4">

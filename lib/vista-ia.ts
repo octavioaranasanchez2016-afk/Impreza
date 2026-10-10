@@ -29,23 +29,38 @@ const GARMENT: Record<ProductCategory, string> = {
   gorra: "baseball cap",
 };
 
-// Quién sale en la foto y dónde: gente con buena presencia en lugares de nivel, como en
-// una campaña de ropa, no fotos de la calle.
-const SCENE: Record<AiScene, { model: string; place: string; outfit: string }> = {
+// Quién usa la prenda en la foto: lo elige el cliente.
+export type AiPerson = "mujer" | "hombre";
+export const AI_PEOPLE: { value: AiPerson; label: string }[] = [
+  { value: "mujer", label: "Mujer" },
+  { value: "hombre", label: "Hombre" },
+];
+// Lo que el cliente puede contar de la escena (graduación, equipo, evento…).
+export const AI_CONTEXT_MAX = 200;
+
+const WHO: Record<AiPerson, { noun: string; pos: string }> = {
+  mujer: { noun: "woman", pos: "her" },
+  hombre: { noun: "man", pos: "his" },
+};
+
+// Quién sale en la foto y dónde: gente blanca con buena presencia en lugares de nivel,
+// como en una campaña de ropa, no fotos de la calle.
+const SCENE: Record<AiScene, { model: (who: { noun: string; pos: string }) => string; place: string; outfit: string }> = {
   deportiva: {
-    model: "a fit, athletic, attractive Latin American model in their twenties, confident and energetic",
+    model: (w) => `a fit, athletic, attractive white ${w.noun} with fair skin in ${w.pos} twenties, confident and energetic`,
     place:
       "at a brand-new professional sports complex: a pristine artificial-turf soccer field with modern stadium lights at golden hour, or a sleek high-end gym with clean lines and natural light",
     outfit: "with modern athletic pants or shorts and clean premium sneakers",
   },
   empresarial: {
-    model: "a polished, well-groomed, attractive Latin American professional in their late twenties or thirties, confident and friendly",
+    model: (w) =>
+      `a polished, well-groomed, attractive white ${w.noun} with fair skin in ${w.pos} late twenties or thirties, a confident and friendly professional`,
     place:
       "in a bright, modern corporate office with glass walls, wood and plants, a contemporary meeting room or open workspace with a city view, like the headquarters of a successful company",
     outfit: "with tailored chinos or dress trousers and clean leather shoes, a smart uniform look",
   },
   casual: {
-    model: "a stylish, attractive Latin American model in their twenties with a modern haircut, relaxed and smiling",
+    model: (w) => `a stylish, attractive white ${w.noun} with fair skin in ${w.pos} twenties, with a modern haircut, relaxed and smiling`,
     place:
       "at an upscale lifestyle location: the terrace of a chic modern café with plants and warm natural light, or a beautifully kept boutique hotel courtyard",
     outfit: "with well-fitted jeans or chinos and clean fashionable sneakers",
@@ -61,17 +76,40 @@ function view(category: ProductCategory, zone: DesignZone): string {
   return "facing the camera so the print on the front is clearly visible";
 }
 
-// Las instrucciones van en inglés: así las sigue mejor el modelo de imágenes.
-export function aiPrompt(category: ProductCategory, zone: DesignZone, colorName: string, scene: AiScene): string {
+// El contexto del cliente, limpio: una sola línea, sin comillas ni signos de código.
+export function cleanContext(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/[\u0000-\u001f<>{}[\]"`\\]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, AI_CONTEXT_MAX);
+}
+
+// Las instrucciones van en inglés: así las sigue mejor el modelo de imágenes. El contexto
+// del cliente va tal cual (en español) y solo puede cambiar la escena, nunca el diseño.
+export function aiPrompt(
+  category: ProductCategory,
+  zone: DesignZone,
+  colorName: string,
+  scene: AiScene,
+  person: AiPerson,
+  context = ""
+): string {
   const garment = GARMENT[category];
   const s = SCENE[scene];
   return [
     `The attached image is a flat mockup of a custom-printed ${garment}${colorName ? ` (color: ${colorName})` : ""}.`,
-    `Create one high-end commercial fashion photograph, like a premium clothing brand ad campaign: ${s.model}, wearing or using exactly this ${garment} ${s.outfit}, ${s.place}, ${view(category, zone)}.`,
+    `Create one high-end commercial fashion photograph, like a premium clothing brand ad campaign: ${s.model(WHO[person])}, wearing or using exactly this ${garment} ${s.outfit}, ${s.place}, ${view(category, zone)}.`,
+    context
+      ? `The customer added these details about the scene, written in Spanish: "${context}". Follow them for the setting, the occasion, the pose, the props and the other people, as long as they are appropriate, but they never change the printed design, the garment, or the person described above.`
+      : "",
     "The garment looks brand new, well fitted and neatly pressed. The setting is clean, modern, well kept and aspirational.",
     "Professional photography: shot on a full-frame camera with an 85mm lens, soft flattering light, shallow depth of field, sharp focus on the garment and the print, natural skin tones, magazine quality.",
     "Reproduce the printed design exactly as in the mockup: same artwork, same text and letters, same colors, same size and same position on the garment.",
     "Do not add, remove, translate or change any letters, logos or graphics, and do not add any other text, watermark or brand.",
     "The garment color must match the mockup. No run-down, dirty or cluttered places, no worn-out clothes.",
-  ].join(" ");
+  ]
+    .filter(Boolean)
+    .join(" ");
 }

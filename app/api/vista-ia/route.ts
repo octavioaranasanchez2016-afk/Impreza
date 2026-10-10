@@ -8,9 +8,12 @@ import {
   AI_PHOTOS_PER_CONNECTION,
   AI_PHOTOS_PER_DAY,
   AI_PHOTOS_PER_DEVICE,
+  AI_PEOPLE,
   AI_SCENES,
+  AiPerson,
   AiScene,
   aiPrompt,
+  cleanContext,
 } from "@/lib/vista-ia";
 import { DesignZone, ProductCategory } from "@/lib/types";
 
@@ -126,6 +129,8 @@ async function createPhoto(req: NextRequest, device: Device): Promise<NextRespon
   const category = CATEGORIES.find((c) => c === body?.prenda);
   const zone = ZONES.find((z) => z === body?.zona);
   const scene = AI_SCENES.find((s) => s.value === body?.escena)?.value as AiScene | undefined;
+  const person = (AI_PEOPLE.find((p) => p.value === body?.persona)?.value ?? "mujer") as AiPerson;
+  const context = cleanContext(body?.contexto);
   const colorName = typeof body?.color === "string" ? body.color.slice(0, 40).replace(/[^\p{L}\p{N} ]/gu, "") : "";
   const image = typeof body?.imagen === "string" && body.imagen.length <= MAX_IMAGE_CHARS ? IMAGE_DATA.exec(body.imagen) : null;
   if (!category || !zone || !scene || !image) {
@@ -133,7 +138,7 @@ async function createPhoto(req: NextRequest, device: Device): Promise<NextRespon
   }
   if (TEST_MODE && !key) {
     await new Promise((r) => setTimeout(r, 1500));
-    return NextResponse.json({ imagen: body.imagen, prompt: aiPrompt(category, zone, colorName, scene) });
+    return NextResponse.json({ imagen: body.imagen, prompt: aiPrompt(category, zone, colorName, scene, person, context) });
   }
   if (!key) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
 
@@ -168,7 +173,7 @@ async function createPhoto(req: NextRequest, device: Device): Promise<NextRespon
     return serverError(err, "La vista con IA no está disponible ahora mismo.");
   }
 
-  const prompt = aiPrompt(category, zone, colorName, scene);
+  const prompt = aiPrompt(category, zone, colorName, scene, person, context);
   const mime = `image/${image[1]}`;
   const base = "https://generativelanguage.googleapis.com/v1beta";
   const contents = [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: image[2] } }] }];
