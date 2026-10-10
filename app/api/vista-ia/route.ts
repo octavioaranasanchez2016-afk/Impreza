@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { HOUR, clientIp, giveBack, remainingLimit, takeLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/bot";
 import {
+  AI_CONNECTION_PREFIX,
   AI_DAY_PREFIX,
-  AI_PERSON_PREFIX,
+  AI_DEVICE_PREFIX,
+  AI_PHOTOS_PER_CONNECTION,
   AI_PHOTOS_PER_DAY,
-  AI_PHOTOS_PER_PERSON,
+  AI_PHOTOS_PER_DEVICE,
   AI_SCENES,
   AiScene,
   aiPrompt,
@@ -13,8 +15,9 @@ import {
 import { DesignZone, ProductCategory } from "@/lib/types";
 
 // "Verla puesta": la IA convierte la foto plana del diseñador en una foto de alguien
-// usando la prenda. Cada foto cuesta (unos US$0.04 a 0.07), así que hay tope por persona
-// y por día (lib/vista-ia.ts). Lo que se crea se ve en el panel, en Fotos IA. Necesita GEMINI_API_KEY en Vercel; sin ella, el botón no aparece.
+// usando la prenda. Cada foto cuesta (unos US$0.04 a 0.07), así que hay topes por
+// dispositivo, por conexión y por día (lib/vista-ia.ts). Lo que se crea se ve en el panel,
+// en Fotos IA. Necesita GEMINI_API_KEY en Vercel; sin ella, el botón no aparece.
 
 export const maxDuration = 60;
 
@@ -33,16 +36,47 @@ const MAX_IMAGE_CHARS = 3_000_000; // ≈ 2.2 MB
 // tocar la base, devuelve la misma foto plana que llegó (para probar el botón y la ventana).
 const TEST_MODE = process.env.NODE_ENV === "development" && process.env.VISTA_IA_PRUEBA === "1";
 
-// La persona se cuenta por su conexión; el día, en hora de Managua.
-const personKeyOf = (req: NextRequest) => AI_PERSON_PREFIX + clientIp(req.headers);
-const dayKeyNow = () => AI_DAY_PREFIX + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Managua" }).format(new Date());
-const personLimit = (req: NextRequest) => ({ clave: personKeyOf(req), max: AI_PHOTOS_PER_PERSON, windowMs: DAY });
+// Cada celular o computadora lleva su propio contador, con un número al azar guardado en
+// una cookie. Así dos personas de la misma casa (o de la misma compañía de celular, que
+// comparte conexión entre muchos) no se gastan las fotos entre ellas.
+const DEVICE_COOKIE = "impreza-vista";
+const DEVICE_ID = /^[0-9a-f-]{36}$/;
+type Device = { id: string; isNew: boolean };
 
-// Si está activada y cuántas fotos le quedan hoy a quien pregunta (para el contador).
+function deviceOf(req: NextRequest): Device {
+  const saved = req.cookies.get(DEVICE_COOKIE)?.value;
+  return saved && DEVICE_ID.test(saved) ? { id: saved, isNew: false } : { id: crypto.randomUUID(), isNew: true };
+}
+
+function withDevice(res: NextResponse, device: Device): NextResponse {
+  if (device.isNew) {
+    res.cookies.set(DEVICE_COOKIE, device.id, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 365 * 24 * 60 * 60,
+      path: "/",
+    });
+  }
+  return res;
+}
+
+const deviceLimit = (device: Device) => ({ clave: AI_DEVICE_PREFIX + device.id, max: AI_PHOTOS_PER_DEVICE, windowMs: DAY });
+const connectionLimit = (req: NextRequest) => ({
+  clave: AI_CONNECTION_PREFIX + clientIp(req.headers),
+  max: AI_PHOTOS_PER_CONNECTION,
+  windowMs: DAY,
+});
+// El día, en hora de Managua.
+const dayKeyNow = () => AI_DAY_PREFIX + new Intl.DateTimeFormat("en-CA", { timeZone: "America/Managua" }).format(new Date());
+
+// Si está activada y cuántas fotos le quedan hoy a este dispositivo (para el contador).
 export async function GET(req: NextRequest) {
+  const device = deviceOf(req);
   const disponible = TEST_MODE || Boolean(process.env.GEMINI_API_KEY);
-  const restantes = disponible && !TEST_MODE ? await remainingLimit(personLimit(req)) : AI_PHOTOS_PER_PERSON;
-  return NextResponse.json({ disponible, restantes, total: AI_PHOTOS_PER_PERSON });
+  const restantes =
+    disponible && !TEST_MODE && !device.isNew ? await remainingLimit(deviceLimit(device)) : AI_PHOTOS_PER_DEVICE;
+  return withDevice(NextResponse.json({ disponible, restantes, total: AI_PHOTOS_PER_DEVICE }), device);
 }
 
 // La IA puede devolver la imagen con distintas formas de JSON: se busca la última parte
@@ -67,10 +101,15 @@ function findImage(value: unknown): { mime: string; data: string } | null {
 function googleMessage(json: unknown): string {
   const error = (json as { error?: { message?: unknown; status?: unknown } } | null)?.error;
   const text = [error?.status, error?.message].filter((v) => typeof v === "string").join(": ") || JSON.stringify(json ?? "");
-  return text.replace(/(AIza|AQ.)[0-9A-Za-z_.-]+/g, "[clave]").slice(0, 200) || "sin detalle";
+  return text.replace(/(AIza|AQ\.)[0-9A-Za-z_.-]+/g, "[clave]").slice(0, 200) || "sin detalle";
 }
 
 export async function POST(req: NextRequest) {
+  const device = deviceOf(req);
+  return withDevice(await createPhoto(req, device), device);
+}
+
+async function createPhoto(req: NextRequest, device: Device): Promise<NextResponse> {
   // Sin espacios, saltos de línea ni comillas que se cuelan al copiar y pegar la clave.
   const key = process.env.GEMINI_API_KEY?.trim().replace(/^["']+|["']+$/g, "").trim();
   if (!key && !TEST_MODE) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
@@ -90,21 +129,31 @@ export async function POST(req: NextRequest) {
   }
   if (!key) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
 
-  // Topes: por persona al día y para todo el sitio al día, para que el gasto no se dispare.
-  const personKey = personKeyOf(req);
+  // Topes: por dispositivo, por conexión (para quien borra la cookie y vuelve a empezar)
+  // y para todo el sitio en el día, para que el gasto no se dispare.
+  const deviceKey = deviceLimit(device).clave;
+  const connectionKey = connectionLimit(req).clave;
   const dayKey = dayKeyNow();
   try {
-    const mine = await takeLimit({ ...personLimit(req), gapMs: 10 * 1000 });
+    const mine = await takeLimit({ ...deviceLimit(device), gapMs: 10 * 1000 });
     if (mine === "espera") return NextResponse.json({ error: "Espera unos segundos antes de pedir otra foto." }, { status: 429 });
     if (mine === "muchos") {
       return NextResponse.json(
-        { error: `Ya creaste tus ${AI_PHOTOS_PER_PERSON} fotos de hoy. Vuelve mañana para ver más.`, restantes: 0 },
+        { error: `Ya creaste tus ${AI_PHOTOS_PER_DEVICE} fotos de hoy. Vuelve mañana para ver más.`, restantes: 0 },
+        { status: 429 }
+      );
+    }
+    const connection = await takeLimit(connectionLimit(req));
+    if (connection !== "ok") {
+      await giveBack(deviceKey);
+      return NextResponse.json(
+        { error: "Desde esta conexión a internet ya se crearon muchas fotos hoy. Intenta de nuevo mañana." },
         { status: 429 }
       );
     }
     const today = await takeLimit({ clave: dayKey, max: AI_PHOTOS_PER_DAY, windowMs: DAY });
     if (today !== "ok") {
-      await giveBack(personKey);
+      await Promise.all([giveBack(deviceKey), giveBack(connectionKey)]);
       return NextResponse.json({ error: "Hoy ya se crearon muchas fotos. Intenta de nuevo mañana." }, { status: 429 });
     }
   } catch (err) {
@@ -154,7 +203,7 @@ export async function POST(req: NextRequest) {
       const json = await res.json().catch(() => null);
       const result = res.ok ? findImage(json) : null;
       if (result) {
-        const restantes = await remainingLimit(personLimit(req));
+        const restantes = await remainingLimit(deviceLimit(device));
         return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}`, restantes });
       }
       lastStatus = res.status;
@@ -166,14 +215,14 @@ export async function POST(req: NextRequest) {
       console.error(`Vista con IA falló (${attempt.name}):`, err);
     }
   }
-  // Sin foto no hubo gasto: se le devuelve el intento a la persona y al día.
-  await Promise.all([giveBack(personKey), giveBack(dayKey)]);
+  // Sin foto no hubo gasto: se le devuelve el intento al dispositivo, a la conexión y al día.
+  await Promise.all([giveBack(deviceKey), giveBack(connectionKey), giveBack(dayKey)]);
   // El código entre paréntesis no dice nada privado y ayuda a saber qué pasó.
   return NextResponse.json(
     {
       error: `No pudimos crear la foto ahora. Intenta de nuevo en un momento. (código ${lastStatus})`,
       detalle: details.join(" · ").slice(0, 500),
-      restantes: await remainingLimit(personLimit(req)),
+      restantes: await remainingLimit(deviceLimit(device)),
     },
     { status: 502 }
   );

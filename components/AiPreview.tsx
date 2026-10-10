@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DesignZone, ProductCategory } from "@/lib/types";
-import { AI_PHOTOS_PER_PERSON, AI_SCENES, AiScene } from "@/lib/vista-ia";
+import { AI_PHOTOS_PER_DEVICE, AI_SCENES, AiScene } from "@/lib/vista-ia";
 import { snapshotMockup } from "@/lib/mockup-snapshot";
 
 // "Verla puesta": una foto de ejemplo, hecha con IA, de alguien usando la prenda con el
@@ -164,8 +164,8 @@ export function AiPreview({
             {left !== null && (
               <p className={`mt-3 text-center text-xs font-semibold ${noneLeft ? "text-red-600" : "text-ink-soft"}`}>
                 {noneLeft
-                  ? `Ya usaste tus ${AI_PHOTOS_PER_PERSON} fotos de hoy. Vuelve mañana para crear más.`
-                  : `Te quedan ${left} de ${AI_PHOTOS_PER_PERSON} fotos hoy.`}
+                  ? `Ya usaste tus ${AI_PHOTOS_PER_DEVICE} fotos de hoy. Vuelve mañana para crear más.`
+                  : `Te quedan ${left} de ${AI_PHOTOS_PER_DEVICE} fotos hoy.`}
               </p>
             )}
 

@@ -1,6 +1,13 @@
 import { requireAdminPage } from "@/lib/admin-auth";
 import { createServiceClient } from "@/lib/supabase/server";
-import { AI_DAY_PREFIX, AI_PERSON_PREFIX, AI_PHOTOS_PER_DAY, AI_PHOTOS_PER_PERSON } from "@/lib/vista-ia";
+import {
+  AI_CONNECTION_PREFIX,
+  AI_DAY_PREFIX,
+  AI_DEVICE_PREFIX,
+  AI_PHOTOS_PER_CONNECTION,
+  AI_PHOTOS_PER_DAY,
+  AI_PHOTOS_PER_DEVICE,
+} from "@/lib/vista-ia";
 
 export const dynamic = "force-dynamic";
 
@@ -25,12 +32,6 @@ const dayLabel = (iso: string) =>
 const timeLabel = (iso: string) =>
   new Date(iso).toLocaleString("es-NI", { timeZone: "America/Managua", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 
-// La conexión a medias: suficiente para distinguir personas sin guardar la dirección completa a la vista.
-function maskIp(ip: string): string {
-  if (ip.includes(".")) return ip.split(".").slice(0, 2).join(".") + ".x.x";
-  if (ip.includes(":")) return ip.split(":").slice(0, 2).join(":") + ":…";
-  return ip;
-}
 
 const usd = (n: number) => `US$${n.toFixed(2)}`;
 
@@ -38,23 +39,26 @@ export default async function AdminFotosIaPage() {
   await requireAdminPage();
   const service = createServiceClient();
   const since = new Date(Date.now() - DAY_MS).toISOString();
-  const [daysRes, peopleRes] = await Promise.all([
+  const [daysRes, devicesRes, connectionsRes] = await Promise.all([
     service.from("cuenta_limites").select("*").like("clave", `${AI_DAY_PREFIX}%`).order("clave", { ascending: false }).limit(90),
     service
       .from("cuenta_limites")
       .select("*")
-      .like("clave", `${AI_PERSON_PREFIX}%`)
+      .like("clave", `${AI_DEVICE_PREFIX}%`)
       .gte("ultimo_at", since)
       .order("ultimo_at", { ascending: false })
       .limit(100),
+    service.from("cuenta_limites").select("clave, enviados").like("clave", `${AI_CONNECTION_PREFIX}%`).gte("ultimo_at", since),
   ]);
 
   const days = ((daysRes.data ?? []) as LimitRow[])
     .map((r) => ({ day: r.clave.slice(AI_DAY_PREFIX.length), count: r.enviados }))
     .filter((d) => d.count > 0);
-  const people = ((peopleRes.data ?? []) as LimitRow[])
-    .map((r) => ({ ip: maskIp(r.clave.slice(AI_PERSON_PREFIX.length)), count: r.enviados, last: r.ultimo_at }))
+  // Cada celular o computadora, con un nombre corto sacado de su número al azar.
+  const people = ((devicesRes.data ?? []) as LimitRow[])
+    .map((r) => ({ id: r.clave.slice(AI_DEVICE_PREFIX.length, AI_DEVICE_PREFIX.length + 6), count: r.enviados, last: r.ultimo_at }))
     .filter((p) => p.count > 0);
+  const connections = ((connectionsRes.data ?? []) as Pick<LimitRow, "enviados">[]).filter((r) => r.enviados > 0).length;
 
   const today = managuaDay(new Date());
   const weekAgo = managuaDay(new Date(Date.now() - 6 * DAY_MS));
@@ -69,19 +73,21 @@ export default async function AdminFotosIaPage() {
     <div>
       <h1 className="text-2xl font-bold text-ink">Fotos con IA</h1>
       <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-        Cuántas fotos «Verla puesta» crean tus clientes. Solo cuentan las que sí salieron. Cada persona puede crear{" "}
-        {AI_PHOTOS_PER_PERSON} al día y todo el sitio {AI_PHOTOS_PER_DAY} al día.
+        Cuántas fotos «Verla puesta» crean tus clientes. Solo cuentan las que sí salieron. Cada celular o computadora
+        puede crear {AI_PHOTOS_PER_DEVICE} al día, cada conexión a internet {AI_PHOTOS_PER_CONNECTION} (una casa con
+        varias personas) y todo el sitio {AI_PHOTOS_PER_DAY}.
       </p>
 
       {daysRes.error && (
         <p className="mt-6 rounded-brand bg-red-50 p-4 text-sm text-red-700">No se pudieron leer los conteos. Intenta de nuevo.</p>
       )}
 
-      <div className="mt-6 grid gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid gap-3 sm:grid-cols-5">
         <Stat label="Hoy" value={countToday} hint={`de ${AI_PHOTOS_PER_DAY} posibles`} />
         <Stat label="Últimos 7 días" value={countWeek} />
         <Stat label="Este mes" value={countMonth} hint={`≈ ${usd(countMonth * COST_LOW)} a ${usd(countMonth * COST_HIGH)}`} />
-        <Stat label="Personas (24 h)" value={people.length} />
+        <Stat label="Dispositivos (24 h)" value={people.length} />
+        <Stat label="Conexiones (24 h)" value={connections} />
       </div>
       <p className="mt-2 text-xs text-ink-muted">
         El costo es aproximado. El monto exacto lo ves en{" "}
@@ -111,8 +117,8 @@ export default async function AdminFotosIaPage() {
       <section className="mt-6 rounded-brand border border-black/10 bg-white p-5">
         <h2 className="text-sm font-bold text-ink">Quién las creó (últimas 24 horas)</h2>
         <p className="mt-1 text-xs text-ink-muted">
-          Cada fila es una conexión distinta (la dirección va a medias). Si alguien llega a {AI_PHOTOS_PER_PERSON}, ya no puede
-          crear más hasta el día siguiente.
+          Cada fila es un celular o computadora distinto (el nombre es al azar, no dice quién es). Si llega a{" "}
+          {AI_PHOTOS_PER_DEVICE}, ya no puede crear más hasta el día siguiente.
         </p>
         {people.length === 0 ? (
           <p className="mt-3 text-sm text-ink-muted">Nadie en las últimas 24 horas.</p>
@@ -120,7 +126,7 @@ export default async function AdminFotosIaPage() {
           <table className="mt-3 w-full text-left text-sm">
             <thead>
               <tr className="text-xs text-ink-muted">
-                <th className="py-1 font-semibold">Conexión</th>
+                <th className="py-1 font-semibold">Dispositivo</th>
                 <th className="py-1 font-semibold">Fotos</th>
                 <th className="py-1 font-semibold">Última</th>
               </tr>
@@ -128,9 +134,9 @@ export default async function AdminFotosIaPage() {
             <tbody>
               {people.map((p, i) => (
                 <tr key={i} className="border-t border-black/5">
-                  <td className="py-1.5 font-mono text-xs text-ink-soft">{p.ip}</td>
-                  <td className={`py-1.5 font-semibold ${p.count >= AI_PHOTOS_PER_PERSON ? "text-red-600" : "text-ink"}`}>
-                    {p.count} / {AI_PHOTOS_PER_PERSON}
+                  <td className="py-1.5 font-mono text-xs text-ink-soft">{p.id}</td>
+                  <td className={`py-1.5 font-semibold ${p.count >= AI_PHOTOS_PER_DEVICE ? "text-red-600" : "text-ink"}`}>
+                    {p.count} / {AI_PHOTOS_PER_DEVICE}
                   </td>
                   <td className="py-1.5 text-ink-soft">{timeLabel(p.last)}</td>
                 </tr>

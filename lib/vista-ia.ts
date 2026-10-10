@@ -3,12 +3,16 @@ import { DesignZone, ProductCategory } from "./types";
 // Las escenas que puede elegir el cliente para "Verla puesta" y lo que se le pide a la IA.
 export type AiScene = "calle" | "estudio" | "grupo";
 
-// Cuántas fotos puede crear cada persona en 24 horas, y todo el sitio en un día.
-export const AI_PHOTOS_PER_PERSON = 10;
+// Cuántas fotos se pueden crear en 24 horas: cada celular o computadora, cada conexión a
+// internet (una casa con varias personas, o muchos celulares de la misma compañía) y
+// todo el sitio en un día.
+export const AI_PHOTOS_PER_DEVICE = 10;
+export const AI_PHOTOS_PER_CONNECTION = 30;
 export const AI_PHOTOS_PER_DAY = 80;
 
 // Claves en la tabla cuenta_limites (también las lee el panel, en Fotos IA).
-export const AI_PERSON_PREFIX = "vista-ia-ip:";
+export const AI_DEVICE_PREFIX = "vista-ia-disp:";
+export const AI_CONNECTION_PREFIX = "vista-ia-ip:";
 export const AI_DAY_PREFIX = "vista-ia-dia:";
 
 export const AI_SCENES: { value: AiScene; label: string }[] = [
