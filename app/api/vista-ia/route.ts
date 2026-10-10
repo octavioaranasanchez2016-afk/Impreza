@@ -13,7 +13,11 @@ export const maxDuration = 60;
 const PER_PERSON_PER_DAY = 3;
 const PER_DAY = 80; // para todo el sitio
 const DAY = 24 * HOUR;
-const MODEL = process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+// Modelos de imagen, en orden: el que se elija en Vercel y, si no responde, los de Google
+// que funcionan con las claves nuevas ("AQ."). Se usa el primero que devuelva la foto.
+const MODELS = [
+  ...new Set([process.env.GEMINI_IMAGE_MODEL, "gemini-3.1-flash-lite-image", "gemini-3.1-flash-image", "gemini-2.5-flash-image"]),
+].filter((m): m is string => Boolean(m));
 const CATEGORIES: ProductCategory[] = ["camisa", "hoodie", "tote", "polo", "gorra"];
 const ZONES: DesignZone[] = ["frente", "espalda", "manga-izq", "manga-der"];
 const IMAGE_DATA = /^data:image\/(jpeg|png);base64,([A-Za-z0-9+/=]+)$/;
@@ -48,8 +52,8 @@ function findImage(value: unknown): { mime: string; data: string } | null {
 // El motivo que da Google, corto y sin nada que parezca una clave, para saber qué pasó.
 function googleMessage(json: unknown): string {
   const error = (json as { error?: { message?: unknown; status?: unknown } } | null)?.error;
-  const text = [error?.status, error?.message].filter((v) => typeof v === "string").join(": ");
-  return text.replace(/AIza[0-9A-Za-z_-]+/g, "[clave]").slice(0, 160) || "sin detalle";
+  const text = [error?.status, error?.message].filter((v) => typeof v === "string").join(": ") || JSON.stringify(json ?? "");
+  return text.replace(/(AIza|AQ.)[0-9A-Za-z_.-]+/g, "[clave]").slice(0, 200) || "sin detalle";
 }
 
 export async function POST(req: NextRequest) {
@@ -96,27 +100,28 @@ export async function POST(req: NextRequest) {
   const mime = `image/${image[1]}`;
   const base = "https://generativelanguage.googleapis.com/v1beta";
   const contents = [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: image[2] } }] }];
-  // Google tiene dos formas de pedir imágenes; se prueba primero la más usada y, si no
-  // devuelve imagen, las otras. Lo que falla no se cobra.
-  const attempts: { name: string; url: string; body: unknown }[] = [
-    {
-      name: "generateContent",
-      url: `${base}/models/${MODEL}:generateContent`,
-      body: { contents, generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "4:5" } } },
+  // Google tiene dos formas de pedir imágenes. Las claves nuevas ("AQ.") solo sirven con
+  // la nueva (interactions); las viejas ("AIza") también con la clásica (generateContent).
+  // Se prueba en orden y se usa la primera respuesta con foto. Lo que falla no se cobra.
+  const interactions = MODELS.map((model) => ({
+    name: `interactions ${model}`,
+    url: `${base}/interactions`,
+    body: {
+      model,
+      input: [
+        { type: "text", text: prompt },
+        { type: "image", mime_type: mime, data: image[2] },
+      ],
     },
-    { name: "generateContent simple", url: `${base}/models/${MODEL}:generateContent`, body: { contents } },
-    {
-      name: "interactions",
-      url: `${base}/interactions`,
-      body: {
-        model: MODEL,
-        input: [
-          { type: "text", text: prompt },
-          { type: "image", mime_type: mime, data: image[2] },
-        ],
-      },
-    },
-  ];
+  }));
+  const classic = MODELS.map((model) => ({
+    name: `generateContent ${model}`,
+    url: `${base}/models/${model}:generateContent`,
+    body: { contents, generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "4:5" } } },
+  }));
+  const attempts: { name: string; url: string; body: unknown }[] = key.startsWith("AQ.")
+    ? interactions
+    : [...classic, ...interactions];
 
   const started = Date.now();
   let lastStatus = 0;
