@@ -55,4 +55,18 @@ export async function withinLimit(limit: Limit): Promise<boolean> {
   }
 }
 
+// Devuelve uno que se contó pero no se usó (por ejemplo, la IA no respondió). Si falla,
+// no pasa nada: a lo sumo esa persona tiene uno menos hoy.
+export async function giveBack(clave: string): Promise<void> {
+  try {
+    const supabase = createServiceClient();
+    const { data } = await supabase.from("cuenta_limites").select("enviados").eq("clave", clave).maybeSingle();
+    if (data && data.enviados > 0) {
+      await supabase.from("cuenta_limites").update({ enviados: data.enviados - 1 }).eq("clave", clave);
+    }
+  } catch (err) {
+    console.error("No se pudo devolver el límite:", err);
+  }
+}
+
 export const HOUR = 60 * 60 * 1000;

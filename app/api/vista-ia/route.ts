@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { HOUR, clientIp, takeLimit } from "@/lib/rate-limit";
+import { HOUR, clientIp, giveBack, takeLimit } from "@/lib/rate-limit";
 import { serverError } from "@/lib/bot";
 import { AI_SCENES, AiScene, aiPrompt } from "@/lib/vista-ia";
 import { DesignZone, ProductCategory } from "@/lib/types";
@@ -65,8 +65,10 @@ export async function POST(req: NextRequest) {
   if (!key) return NextResponse.json({ error: "La vista con IA todavía no está activada." }, { status: 503 });
 
   // Topes: por persona al día y para todo el sitio al día, para que el gasto no se dispare.
+  const personKey = `vista-ia-ip:${clientIp(req.headers)}`;
+  const dayKey = `vista-ia-dia:${new Date().toISOString().slice(0, 10)}`;
   try {
-    const mine = await takeLimit({ clave: `vista-ia-ip:${clientIp(req.headers)}`, max: PER_PERSON_PER_DAY, windowMs: DAY, gapMs: 10 * 1000 });
+    const mine = await takeLimit({ clave: personKey, max: PER_PERSON_PER_DAY, windowMs: DAY, gapMs: 10 * 1000 });
     if (mine === "espera") return NextResponse.json({ error: "Espera unos segundos antes de pedir otra foto." }, { status: 429 });
     if (mine === "muchos") {
       return NextResponse.json(
@@ -74,7 +76,7 @@ export async function POST(req: NextRequest) {
         { status: 429 }
       );
     }
-    const today = await takeLimit({ clave: `vista-ia-dia:${new Date().toISOString().slice(0, 10)}`, max: PER_DAY, windowMs: DAY });
+    const today = await takeLimit({ clave: dayKey, max: PER_DAY, windowMs: DAY });
     if (today !== "ok") {
       return NextResponse.json({ error: "Hoy ya se crearon muchas fotos. Intenta de nuevo mañana." }, { status: 429 });
     }
@@ -82,31 +84,59 @@ export async function POST(req: NextRequest) {
     return serverError(err, "La vista con IA no está disponible ahora mismo.");
   }
 
-  try {
-    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
+  const prompt = aiPrompt(category, zone, colorName, scene);
+  const mime = `image/${image[1]}`;
+  const base = "https://generativelanguage.googleapis.com/v1beta";
+  const contents = [{ parts: [{ text: prompt }, { inline_data: { mime_type: mime, data: image[2] } }] }];
+  // Google tiene dos formas de pedir imágenes; se prueba primero la más usada y, si no
+  // devuelve imagen, las otras. Lo que falla no se cobra.
+  const attempts: { name: string; url: string; body: unknown }[] = [
+    {
+      name: "generateContent",
+      url: `${base}/models/${MODEL}:generateContent`,
+      body: { contents, generationConfig: { responseModalities: ["IMAGE"], imageConfig: { aspectRatio: "4:5" } } },
+    },
+    { name: "generateContent simple", url: `${base}/models/${MODEL}:generateContent`, body: { contents } },
+    {
+      name: "interactions",
+      url: `${base}/interactions`,
+      body: {
         model: MODEL,
         input: [
-          { type: "text", text: aiPrompt(category, zone, colorName, scene) },
-          { type: "image", mime_type: `image/${image[1]}`, data: image[2] },
+          { type: "text", text: prompt },
+          { type: "image", mime_type: mime, data: image[2] },
         ],
-        response_format: { type: "image", aspect_ratio: "4:5" },
-      }),
-      signal: AbortSignal.timeout(55 * 1000),
-    });
-    const json = await res.json().catch(() => null);
-    const result = res.ok ? findImage(json) : null;
-    if (!result) {
-      console.error("Vista con IA sin imagen:", res.status, JSON.stringify(json).slice(0, 800));
-      return NextResponse.json(
-        { error: "No pudimos crear la foto ahora. Intenta de nuevo en un momento." },
-        { status: 502 }
-      );
+      },
+    },
+  ];
+
+  const started = Date.now();
+  let lastStatus = 0;
+  for (const attempt of attempts) {
+    // Si ya pasó mucho rato, no se alcanza otro intento antes del límite de la función.
+    if (Date.now() - started > 25 * 1000) break;
+    try {
+      const res = await fetch(attempt.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+        body: JSON.stringify(attempt.body),
+        signal: AbortSignal.timeout(50 * 1000 - (Date.now() - started)),
+      });
+      const json = await res.json().catch(() => null);
+      const result = res.ok ? findImage(json) : null;
+      if (result) return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}` });
+      lastStatus = res.status;
+      console.error(`Vista con IA sin imagen (${attempt.name}):`, res.status, JSON.stringify(json).slice(0, 600));
+    } catch (err) {
+      lastStatus = -1;
+      console.error(`Vista con IA falló (${attempt.name}):`, err);
     }
-    return NextResponse.json({ imagen: `data:${result.mime};base64,${result.data}` });
-  } catch (err) {
-    return serverError(err, "No pudimos crear la foto ahora. Intenta de nuevo en un momento.");
   }
+  // Sin foto no hubo gasto: se le devuelve el intento a la persona y al día.
+  await Promise.all([giveBack(personKey), giveBack(dayKey)]);
+  // El código entre paréntesis no dice nada privado y ayuda a saber qué pasó.
+  return NextResponse.json(
+    { error: `No pudimos crear la foto ahora. Intenta de nuevo en un momento. (código ${lastStatus})` },
+    { status: 502 }
+  );
 }
