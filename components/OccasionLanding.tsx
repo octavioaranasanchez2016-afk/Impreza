@@ -20,7 +20,8 @@ export interface OccasionLandingProps {
   example: { label: string; productId: string; technique: Technique; fabric?: string; quantity: number };
   steps: [string, string][];
   faqs: { q: string; a: string }[];
-  cta: { title: string; message: string; orderHref: string };
+  // templateHref: el diseñador con una plantilla ya puesta (lib/plantillas.ts).
+  cta: { title: string; message: string; orderHref: string; templateHref?: string };
 }
 
 export function exampleTotal(example: OccasionLandingProps["example"]) {
@@ -157,6 +158,14 @@ export function OccasionLanding(props: OccasionLandingProps) {
             >
               Armarlo yo mismo →
             </Link>
+            {props.cta.templateHref && (
+              <Link
+                href={props.cta.templateHref}
+                className="rounded-brand border border-paper/40 px-7 py-3.5 text-sm font-semibold text-paper transition-colors hover:border-paper"
+              >
+                Empezar con una plantilla
+              </Link>
+            )}
             <WhatsAppLinkButton
               message={props.cta.message}
               className="rounded-brand bg-[#25D366] px-7 py-3.5 text-sm font-semibold text-white hover:opacity-90"

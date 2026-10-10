@@ -69,6 +69,7 @@ const PAGE: OccasionLandingProps = {
     title: "¿Lista tu promoción?",
     message: "Hola, quiero hablar con un diseñador para las camisas de graduación de mi promoción.",
     orderHref: "/pedido?producto=camisa-basica&tecnica=serigrafia&tela=algodon&cantidad=30&nota=Graduaci%C3%B3n",
+    templateHref: "/pedido?producto=camisa-basica&tecnica=serigrafia&tela=algodon&cantidad=30&nota=Graduaci%C3%B3n&plantilla=promo-clasica",
   },
 };
 

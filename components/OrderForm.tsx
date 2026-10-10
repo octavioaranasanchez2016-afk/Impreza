@@ -94,7 +94,13 @@ import {
 } from "@/lib/group-names";
 import { DesignMockup, defaultTransform } from "./DesignMockup";
 import { GuaranteeBadge } from "./GuaranteeBadge";
+import { TemplatePicker } from "./TemplatePicker";
+import { BuiltTemplate, buildTemplate, templatesFor } from "@/lib/plantillas";
+import { CLIPART } from "@/lib/clipart";
 import { ZONE_NAME, getPrintArea, getZonesForCategory, isDarkColor } from "./GarmentShape";
+
+// Nombre del dibujo para el botón de la pieza ("Birrete", "Corona"…).
+const clipartLabel = (id: string) => CLIPART.find((c) => c.id === id)?.label ?? "Dibujo";
 
 interface CartLine extends OrderItemInput {
   key: string;
@@ -590,6 +596,10 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
   // Recupera el pedido en curso si la página se recargó (p. ej. al volver de la app del banco).
   // Hasta que termine no se guarda nada, para no pisar el borrador con el formulario vacío.
   const [draftReady, setDraftReady] = useState(false);
+  // Plantillas: la ventana, y la que llega en el enlace (?plantilla=...) se pone una sola vez.
+  const [templateOpen, setTemplateOpen] = useState(false);
+  const urlTemplate = searchParams.get("plantilla");
+  const urlTemplateDone = useRef(false);
   const [restored, setRestored] = useState<{ imagesLost: boolean } | null>(null);
   // Remonta las partes con estado propio (dirección escrita) al empezar de nuevo.
   const [formKey, setFormKey] = useState(0);
@@ -1191,6 +1201,32 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
       })
     );
   }
+
+  // Pone una plantilla en el diseñador: cambia lo que había en todas las partes.
+  function applyTemplate(built: BuiltTemplate) {
+    setZoneContent(built.content);
+    setZoneTransform(built.transforms);
+    setZoneExtras(built.extras);
+    setActiveZone("frente");
+    setActivePiece({ zone: "frente", index: 0 });
+    setTemplateOpen(false);
+    document.getElementById("diseno")?.scrollIntoView({ behavior: "smooth" });
+  }
+
+  // La plantilla del enlace se pone cuando ya se recuperó el borrador, para que no la pise.
+  useEffect(() => {
+    if (!draftReady || !urlTemplate || urlTemplateDone.current || !selectedProduct) return;
+    urlTemplateDone.current = true;
+    const template = templatesFor(selectedProduct.category).find((t) => t.id === urlTemplate);
+    if (!template) return;
+    buildTemplate(template, selectedProduct.category, selectedVariant?.colorHex ?? "#FFFFFF")
+      .then((built) => {
+        applyTemplate(built);
+        setRestored(null);
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftReady, urlTemplate, selectedProduct]);
 
   // Abre el diseño de esta línea en el diseñador (con su prenda y color) para verlo,
   // cambiarlo o pedir más tallas con el mismo diseño.
@@ -1840,6 +1876,30 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                   </div>
                 </div>
               )}
+              {selectedProduct && !personalStep && templatesFor(selectedProduct.category).length > 0 && (
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-brand border border-dashed border-ink/30 bg-white px-3 py-2.5">
+                  <p className="text-xs text-ink-soft">
+                    <span className="font-semibold text-ink">¿Sin diseño?</span> Empieza con una plantilla y cambia los textos.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setTemplateOpen(true)}
+                    className="rounded-full bg-ink px-3 py-1.5 text-xs font-semibold text-paper hover:opacity-80"
+                  >
+                    Ver plantillas
+                  </button>
+                </div>
+              )}
+              {templateOpen && selectedProduct && (
+                <TemplatePicker
+                  category={selectedProduct.category}
+                  garmentHex={selectedVariant?.colorHex ?? "#FFFFFF"}
+                  size={size}
+                  onApply={applyTemplate}
+                  replacesDesign={Object.keys(zoneContent).length > 0}
+                  onClose={() => setTemplateOpen(false)}
+                />
+              )}
               {selectedProduct && (
                 <DesignCanvas
                   category={selectedProduct.category}
@@ -1875,7 +1935,9 @@ export function OrderForm({ listDesign, query }: { listDesign?: ListDesignMode; 
                       : currentPieces.map((piece, i) => ({
                           label:
                             piece.content.kind === "imagen"
-                              ? imageCount > 1
+                              ? piece.content.clipart
+                                ? clipartLabel(piece.content.clipart.id)
+                                : imageCount > 1
                                 ? `Imagen ${currentPieces.slice(0, i + 1).filter((other) => other.content.kind === "imagen").length}`
                                 : "Imagen"
                               : piece.content.texto.trim() || "Texto nuevo",

@@ -64,6 +64,7 @@ const PAGE: OccasionLandingProps = {
     title: "¿Listos para jugar?",
     message: "Hola, quiero hablar con un diseñador sobre camisas para mi equipo.",
     orderHref: "/pedido?producto=camisa-basica&tecnica=sublimado&tela=poliester&cantidad=20&nota=Equipo",
+    templateHref: "/pedido?producto=camisa-basica&tecnica=sublimado&tela=poliester&cantidad=20&nota=Equipo&plantilla=equipo-escudo",
   },
 };
 

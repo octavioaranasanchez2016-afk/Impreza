@@ -65,6 +65,7 @@ const PAGE: OccasionLandingProps = {
     title: "Uniformes con tu marca",
     message: "Hola, quiero hablar con un diseñador sobre uniformes con el logo de mi empresa.",
     orderHref: "/pedido?producto=polo-bordada&tecnica=bordado&cantidad=24&nota=Empresa",
+    templateHref: "/pedido?producto=polo-bordada&tecnica=bordado&cantidad=24&nota=Empresa&plantilla=empresa",
   },
 };
 
